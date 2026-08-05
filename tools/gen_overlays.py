@@ -35,11 +35,36 @@ A = {
     "wash": 12,
 }
 
+# Main colors come from scripts/state_colors.lua — the single source of
+# truth shared with runtime edge rendering. Dark accents are derived.
+import re
+from pathlib import Path
+
+
+def load_state_colors():
+    text = (Path(__file__).resolve().parent.parent / "scripts/state_colors.lua").read_text()
+    colors = {}
+    for m in re.finditer(r"(\w+)\s*=\s*\{\s*r\s*=\s*(\d+),\s*g\s*=\s*(\d+),\s*b\s*=\s*(\d+)", text):
+        colors[m.group(1)] = tuple(int(m.group(i)) for i in (2, 3, 4))
+    return colors
+
+
+COLORS = load_state_colors()
+
+
+def darken(c, f=0.66):
+    return tuple(round(v * f) for v in c)
+
+
+ALPHA_SCALE = {
+    "wilderness": 1.00,
+    "trail": 0.90,
+    "rampart": 0.80,
+}
+
 STATES = {
-    # name: (main color, dark accent, alpha scale)
-    "wilderness": ((214, 48, 38), (150, 22, 18), 1.00),
-    "trail": ((222, 126, 38), (158, 84, 16), 0.72),
-    "rampart": ((224, 186, 48), (160, 128, 20), 0.52),
+    name: (COLORS[name], darken(COLORS[name]), scale)
+    for name, scale in ALPHA_SCALE.items()
 }
 
 

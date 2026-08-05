@@ -28,16 +28,35 @@
 
 local const = require("scripts.const")
 local registry = require("scripts.registry")
+local state_colors = require("scripts.state_colors")
 
 local render = {}
 
 -- Per-state edge art (Trail dashed, Rampart long-dashed, Deed solid).
 -- Each claimed side of a frontier draws its own art — see INSET below.
 local EDGE_ART = {
-  trail = { width = 2, dash = 0.9, gap = 0.9 },
-  rampart = { width = 3, dash = 2.2, gap = 0.7 },
-  deed = { width = 3, dash = 0, gap = 0 },
+  trail = { width = 1, dash = 0.5, gap = 0.5 },
+  rampart = { width = 1, dash = 2.2, gap = 0.7 },
+  deed = { width = 1, dash = 0, gap = 0 },
 }
+
+-- Edge colors are per STATE (deed green, rampart yellow, trail orange —
+-- the same palette the ground overlays are generated from, via
+-- scripts/state_colors.lua). Ownership identity stays on the survey
+-- stakes, which keep the per-planet / MTS team color.
+--
+-- Alpha as a coarse zoom ramp. ScriptRenderMode is exactly "game"|"chart"
+-- (verified against the 2.0.77 API — the chart_zoomed_in defines value is
+-- the PLAYER's view state, not a draw-call option), so a continuous
+-- zoom-dependent alpha does not exist and neither does a middle step. What
+-- exists is a two-step ramp: subtle lines up close in the world, full
+-- strength on the map.
+local EDGE_ALPHA = { game = 0.55, chart = 1.0 }
+
+local function state_color(state, alpha)
+  local c = state_colors[state]
+  return { r = c.r / 255 * alpha, g = c.g / 255 * alpha, b = c.b / 255 * alpha, a = alpha }
+end
 
 -- Optional provider hook: compat/mts.lua (M4) sets this to return a team
 -- color for a force; nil falls through to the per-planet settings.
@@ -93,14 +112,15 @@ end
 -- separate outlines instead of merging into one shape (survey stakes stay
 -- on the true shared vertices). A wilderness side draws nothing, so outer
 -- frontiers remain single lines.
-local INSET = 0.4
+local INSET = 0.2
 
-local function draw_edge(objects, surface, from, to, art, color, force)
+local function draw_edge(objects, surface, from, to, state, force)
+  local art = EDGE_ART[state]
   objects[#objects + 1] = rendering.draw_line({
     surface = surface,
     from = from,
     to = to,
-    color = color,
+    color = state_color(state, EDGE_ALPHA.game),
     width = art.width,
     dash_length = art.dash,
     gap_length = art.gap,
@@ -112,22 +132,22 @@ local function draw_edge(objects, surface, from, to, art, color, force)
     surface = surface,
     from = from,
     to = to,
-    color = color,
+    color = state_color(state, EDGE_ALPHA.chart),
     width = 2,
     dash_length = art.dash,
     gap_length = art.gap,
-    render_mode = "chart", -- ScriptRenderMode is a string union, not defines
+    render_mode = "chart",
     forces = { force },
   })
 end
 
--- One claimed side of a frontier edge: art and color are the side's own.
+-- One claimed side of a frontier edge: art and color are the side's own
+-- state; visibility is the side owner's force.
 local function draw_edge_side(objects, surface, side_state, side_owner, from, to)
   if side_state == "wilderness" or not side_owner then return end
   local force = game.forces[side_owner]
   if not (force and force.valid) then return end
-  draw_edge(objects, surface, from, to, EDGE_ART[side_state],
-    resolve_color(surface, side_owner), force)
+  draw_edge(objects, surface, from, to, side_state, force)
 end
 
 -- The four edges touching vertex V(cx, cy) — the NW corner of cell (cx, cy):

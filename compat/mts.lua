@@ -19,10 +19,11 @@ if not script.active_mods["multi-team-support"] then
 end
 mts.active = true
 
--- Team colors on borders and stakes: MTS assigns each team force its color,
--- so the force's own color is the team color — no extra mts-v1 surface
--- needed. Without MTS this provider is never installed and the per-planet
--- color settings apply.
+-- Team colors on the survey stakes (edges carry per-STATE colors shared
+-- with the ground overlays; ownership identity lives on the stakes): MTS
+-- assigns each team force its color, so the force's own color is the team
+-- color — no extra mts-v1 surface needed. Without MTS this provider is
+-- never installed and the per-planet color settings apply.
 render.team_color_provider = function(force_index)
   local force = game.forces[force_index]
   if force and force.valid then
