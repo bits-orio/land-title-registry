@@ -4,7 +4,7 @@ Stable from v1: these signatures and payloads are a compatibility contract. Decl
 
 ## Conventions
 
-- `cell_pos` is `{x, y}` in **cell coordinates**: cell `(x, y)` covers tiles `[s·x, s·x+s−1] × [s·y, s·y+s−1]` where `s = get_cell_size()` (startup `fh-cell-size`, 16 or 32). Cell coordinates equal chunk coordinates only at size 32.
+- `cell_pos` is `{x, y}` in **cell coordinates**: cell `(x, y)` covers tiles `[s·x, s·x+s−1] × [s·y, s·y+s−1]` where `s = get_cell_size()` (startup `fh-cell-size`: 16, 24, or 32). Cell coordinates equal chunk coordinates only at size 32.
 - `surface` and `force` take runtime objects (`LuaSurface`, `LuaForce`); the points functions take a plain `force_index`.
 - State strings are exactly `"trail"`, `"rampart"`, `"deed"`. `nil` from `get_cell` means Wilderness.
 - Functions documented as `ok, reason` return `true, nil` on success, or `false` plus a short refusal string: `"surface-disabled"`, `"no-anchor"`, `"insufficient-points"`, `"ineligible"`, `"invalid-surface"`, `"invalid-force"`, `"invalid-cell-pos"`, `"invalid-target-state"`.

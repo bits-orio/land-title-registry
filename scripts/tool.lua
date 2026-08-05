@@ -78,7 +78,17 @@ local function feedback(player, action, result)
     return
   end
 
-  if result.applied == 0 then return end -- ineligible cells are silent no-ops
+  if result.applied == 0 then
+    -- Multi-cell batches no-op silently per spec; a single-cell click gets
+    -- a quiet explanation when claims.lua supplied one.
+    if result.hint then
+      player.create_local_flying_text({
+        text = { "freehold.hint-" .. result.hint },
+        create_at_cursor = true,
+      })
+    end
+    return
+  end
 
   if action == "downgrade" then
     player.play_sound({ path = SOUND_REFUND })

@@ -10,8 +10,9 @@
 -- player builds inside Trail and Rampart cells. Area selection is unaffected
 -- by priority, and the survey-tool handlers read event.area anyway.
 
--- Cell size is a startup setting (ADR-0010): {16, 32} tiles, both divisors
--- of the 32-tile chunk, so every cell sits strictly inside one chunk.
+-- Cell size is a startup setting (ADR-0010): 16, 24, or 32 tiles. 24-tile
+-- cells straddle chunk boundaries; the engine handles entities whose boxes
+-- reach into ungenerated chunks, so the blocker is always full-size.
 local SIZE = tonumber(settings.startup["fh-cell-size"].value)
 local HALF = SIZE / 2
 

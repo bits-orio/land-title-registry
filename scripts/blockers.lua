@@ -12,6 +12,19 @@ local blockers = {}
 local REBUILD_TICK_INTERVAL = 2
 local REBUILD_SLICE = 48
 
+-- Is any chunk touching this cell generated? The gameplay gate for claims
+-- and heals; blocker creation itself works on ungenerated chunks.
+function blockers.cell_touches_generated(surface, cx, cy)
+  local kx0, kx1 = const.chunk_range_of_cell(cx)
+  local ky0, ky1 = const.chunk_range_of_cell(cy)
+  for ky = ky0, ky1 do
+    for kx = kx0, kx1 do
+      if surface.is_chunk_generated({ x = kx, y = ky }) then return true end
+    end
+  end
+  return false
+end
+
 function blockers.cell_center(cx, cy)
   return { x = cx * const.CELL + const.CELL / 2, y = cy * const.CELL + const.CELL / 2 }
 end
@@ -129,7 +142,7 @@ function blockers.reconcile(surface, cx, cy)
 end
 
 -- Every cell of the newly generated chunk gets the blocker matching its
--- REGISTERED state (FACTOR^2 cells per chunk). Never skip registered cells:
+-- REGISTERED state (every cell overlapping the chunk). Never skip registered cells:
 -- the only way a chunk generates for one is a surface regeneration, and
 -- skipping would leave it blockerless — which is how Deed is represented.
 function blockers.on_chunk_generated(event)
@@ -157,8 +170,7 @@ function blockers.on_object_destroyed(event)
   if not (surface and surface.valid) then return end
   if storage.disabled_surfaces[surface.index] then return end
   local pos = registry.cell_key_to_pos(entry.cell_key)
-  local chunk = { x = const.chunk_of_cell(pos.x), y = const.chunk_of_cell(pos.y) }
-  if not surface.is_chunk_generated(chunk) then return end
+  if not blockers.cell_touches_generated(surface, pos.x, pos.y) then return end
   blockers.set(surface, pos.x, pos.y, registry.state_of(surface.index, entry.cell_key))
 end
 

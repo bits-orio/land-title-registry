@@ -7,7 +7,7 @@ Land rights, earned cell by cell. Every 32x32 cell of the map sits on a four-sta
 ## Language
 
 **Cell**:
-The mod's unit of land: a square of `fh-cell-size` tiles (startup setting, 16 or 32, default 16), always strictly inside one native chunk. Cell coordinates equal chunk coordinates only at size 32.
+The mod's unit of land: a square of `fh-cell-size` tiles (startup setting, 16/24/32, default 24). May straddle chunk boundaries (24); never assume cell-chunk alignment.
 _Avoid_: chunk (reserved for the engine concept), tile, plot, parcel, square
 
 **Chunk**:

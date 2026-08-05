@@ -4,20 +4,24 @@
 
 local const = {}
 
--- Cell edge length in tiles, from the startup setting (ADR-0010). Allowed
--- values all divide the 32-tile chunk, so every cell sits strictly inside
--- exactly one chunk and FACTOR cells span a chunk edge.
+-- Cell edge length in tiles, from the startup setting (ADR-0010): 16, 24,
+-- or 32. 24 does not divide the chunk — a 24-tile cell can straddle a chunk
+-- boundary — so the mapping helpers below are general overlap ranges, and a
+-- blocker is created (full-size) the moment the FIRST chunk touching its
+-- cell generates: the engine handles entities on ungenerated chunks (probed
+-- and recorded in ADR-0010).
 const.CELL = tonumber(settings.startup["fh-cell-size"].value)
-const.FACTOR = 32 / const.CELL
 
--- The chunk containing cell (cx, cy) — 1-D helper, apply per axis.
-function const.chunk_of_cell(c)
-  return math.floor(c / const.FACTOR)
+-- Inclusive cell-coordinate range overlapping chunk coordinate k (1-D).
+function const.cell_range_of_chunk(k)
+  return math.floor(k * 32 / const.CELL),
+    math.floor((k * 32 + 31) / const.CELL)
 end
 
--- Inclusive cell-coordinate range covered by chunk coordinate k (1-D).
-function const.cell_range_of_chunk(k)
-  return k * const.FACTOR, (k + 1) * const.FACTOR - 1
+-- Inclusive chunk-coordinate range overlapped by cell coordinate c (1-D).
+function const.chunk_range_of_cell(c)
+  return math.floor(c * const.CELL / 32),
+    math.floor((c * const.CELL + const.CELL - 1) / 32)
 end
 
 -- Cumulative invested points at each state. Wilderness is 0 and is never a

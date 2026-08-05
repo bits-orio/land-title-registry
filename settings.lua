@@ -27,8 +27,8 @@ data:extend({
     type = "string-setting",
     name = "fh-cell-size",
     setting_type = "startup",
-    default_value = "16",
-    allowed_values = { "16", "32" },
+    default_value = "24",
+    allowed_values = { "16", "24", "32" },
     order = "a[core]-a[cell-size]",
   },
 })

@@ -149,12 +149,10 @@ local function evaluate_claim(surface, force, cx, cy, target)
   local rec = registry.get(surface_index, cell_key)
 
   if rec == nil then
-    -- New claim on Wilderness; needs the CONTAINING chunk generated so the
-    -- blocker swap has somewhere to happen (cell coords are not chunk
-    -- coords unless fh-cell-size is 32).
-    if not surface.is_chunk_generated({ x = const.chunk_of_cell(cx), y = const.chunk_of_cell(cy) }) then
-      return nil
-    end
+    -- New claim on Wilderness; gameplay gate — the cell must touch the
+    -- generated world (blocker creation itself works on ungenerated chunks,
+    -- but claiming pure void is not a thing).
+    if not blockers.cell_touches_generated(surface, cx, cy) then return nil end
     return {
       cx = cx, cy = cy, cell_key = cell_key,
       old_state = "wilderness", new_state = target,
@@ -250,6 +248,8 @@ function claims.apply_batch(surface, force, player, rect, action, opts)
   end
   local ignore_adjacency = opts ~= nil and opts.ignore_adjacency or false
 
+  local single = rect.x1 == rect.x2 and rect.y1 == rect.y2
+
   if action == "downgrade" then
     local transitions = {}
     local total_refund = 0
@@ -268,7 +268,15 @@ function claims.apply_batch(surface, force, player, rect, action, opts)
     if total_refund > 0 then
       economy.change(force, total_refund, "refund")
     end
-    return { applied = #transitions, refund = total_refund }
+    local result = { applied = #transitions, refund = total_refund }
+    -- Single-cell no-op hint: a click on an owned cell that failed the
+    -- validity check deserves an explanation, not silence. Multi-cell
+    -- batches keep the spec's silent-no-op semantics.
+    if single and #transitions == 0 then
+      local rec = registry.get(surface.index, registry.cell_key(rect.x1, rect.y1))
+      if rec and rec.force_index == force.index then result.hint = "cell-in-use" end
+    end
+    return result
   end
 
   -- Anchor first, before eligibility, per the design: an unanchored claim
@@ -326,7 +334,15 @@ function claims.apply_batch(surface, force, player, rect, action, opts)
   if total_cost > 0 then
     economy.change(force, -total_cost, "claim")
   end
-  return { applied = #transitions, cost = total_cost }
+  local result = { applied = #transitions, cost = total_cost }
+  -- Single-cell no-op hint (see the downgrade branch): explain why an
+  -- owned cell was not eligible — e.g. Shift+Right-click on a Deed cell,
+  -- which cannot become a Rampart.
+  if single and #transitions == 0 then
+    local rec = registry.get(surface.index, registry.cell_key(rect.x1, rect.y1))
+    if rec and rec.force_index == force.index then result.hint = "already-" .. rec.state end
+  end
+  return result
 end
 
 return claims
