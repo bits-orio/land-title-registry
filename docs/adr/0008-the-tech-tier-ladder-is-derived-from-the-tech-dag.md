@@ -10,7 +10,7 @@ The obvious implementation — writing `automation-science-pack`, `logistic-scie
 
 Since land points are Freehold's only recurring faucet, a dead chain is not a degraded experience; it is an unplayable mod.
 
-The derivation: collect every `tool` prototype used in some technology's `unit.ingredients`; compute each one's availability depth as the minimum prerequisite-depth of a technology unlocking a recipe that produces it (depth 0 for packs craftable at start); sort by depth then by name; slice into cumulative tiers by depth band; give the terminal tier every pack with `max_level = "infinite"` and a linear `count_formula`.
+The derivation (implemented and engine-verified 2026-08-05): collect every `tool` prototype used in some technology's `unit.ingredients`; compute availability depth from producing recipes' unlock techs (excluding recycling-category and self-producing recipes — Space Age's self-recycling would flatten every depth to 0); sort by depth then name; band by **DAG comparability** — a pack joins the current tier iff its unlock tech and every member's are mutually non-ancestral and it sits within a small depth span (`BAND_SPAN = 4`) of the tier start; the terminal band takes every pack with `max_level = "infinite"` and a linear `count_formula`. Comparability is the primary signal because depth gaps alone are contradictory (the same gap of 3 must merge production+utility and split utility|space in 2.0.77). Verified output: 6 tiers under vanilla, 9 under Space Age, preserving every intended grouping; automation and logistic split because base 2.0 genuinely orders them in the DAG.
 
 The name tiebreak in the sort is load-bearing, not cosmetic — it makes the ladder deterministic rather than dependent on `pairs()` iteration order.
 

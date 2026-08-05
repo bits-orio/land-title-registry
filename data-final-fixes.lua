@@ -124,3 +124,7 @@ for _, group in pairs(data.raw) do
     end
   end
 end
+
+-- The fh-land-grants ladder is derived here so every mod's technologies and
+-- recipes exist (ADR-0008).
+require("prototypes.tech")

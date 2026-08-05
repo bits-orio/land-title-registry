@@ -97,6 +97,32 @@ local function feedback(player, action, result)
   update_label(player)
 end
 
+-- Force-chat claim announcements (fh-print-claims, default on): the acting
+-- player, the action, cell count, cost or refund, and a clickable GPS tag at
+-- the batch center. force.print lands in the MTS team channel automatically
+-- when MTS is present, and ODB does not relay it — both by construction.
+local ACTION_LOCALE = {
+  trail = "freehold.announce-trail",
+  rampart = "freehold.announce-rampart",
+  deed = "freehold.announce-deed",
+  downgrade = "freehold.announce-downgrade",
+}
+
+local function colored_name(player)
+  local c = player.chat_color
+  return string.format("[color=%.3f,%.3f,%.3f]%s[/color]", c.r, c.g, c.b, player.name)
+end
+
+local function announce(player, surface, rect, action, result)
+  if not settings.global["fh-print-claims"].value then return end
+  if result.applied == 0 then return end
+  local cx = (rect.x1 + rect.x2 + 1) / 2 * const.CELL
+  local cy = (rect.y1 + rect.y2 + 1) / 2 * const.CELL
+  local gps = string.format("[gps=%d,%d,%s]", cx, cy, surface.name)
+  local amount = economy.format(action == "downgrade" and result.refund or result.cost)
+  player.force.print({ ACTION_LOCALE[action], colored_name(player), result.applied, amount, gps })
+end
+
 local function handle_selection(action, event)
   if event.item ~= TOOL_NAME then return end
   local player = game.get_player(event.player_index)
@@ -104,8 +130,10 @@ local function handle_selection(action, event)
   local surface = event.surface
   if not (surface and surface.valid) then return end
 
-  local result = claims.apply_batch(surface, player.force, player, rect_from_area(event.area), action)
+  local rect = rect_from_area(event.area)
+  local result = claims.apply_batch(surface, player.force, player, rect, action)
   feedback(player, action, result)
+  announce(player, surface, rect, action, result)
 end
 
 function tool.on_selected(event) handle_selection("trail", event) end

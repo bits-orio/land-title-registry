@@ -347,25 +347,28 @@ Refunds are symmetric with the credit principle. Fully unwinding a Deed at 25% r
 
 Research is the recurring faucet. Income comes from a **sequential** chain of leveled technologies; each finished level grants the acting force `fh-points-per-level` points (startup setting, default **5**) via `defines.events.on_research_finished`.
 
-| Prototype | Science packs (cumulative) | Levels | Points per level |
-|---|---|---|---|
-| `fh-land-grants-1` | automation, logistic | 10 | `fh-points-per-level` (default 5) |
-| `fh-land-grants-2` | + military | 10 | " |
-| `fh-land-grants-3` | + chemical | 15 | " |
-| `fh-land-grants-4` | + production, utility | 20 | " |
-| `fh-land-grants-5` | + space | Base game: infinite (terminal). Space Age: finite, about 20 | " |
-
-**That table is the expected output of the mechanism, not the mechanism.** Pack membership is **derived from the actual technology DAG at data stage**, never hardcoded — see *Deriving the tier ladder* below. Under vanilla the derivation should reproduce exactly the tiers above; under Space Age it should extend them with the planet tiers below. Both are testable assertions, not constants in the source.
-
-**Space Age tiers**, as the derivation should produce them:
-
-| Prototype | Science packs (cumulative) | Levels |
+| Prototype (start level) | Science packs (cumulative) | Levels |
 |---|---|---|
-| `fh-land-grants-6` | + metallurgic, agricultural, electromagnetic | ~20 |
-| `fh-land-grants-7` | + cryogenic | ~20 |
-| `fh-land-grants-8` | + promethium | infinite (terminal) |
+| `fh-land-grants-1` | automation | 10 |
+| `fh-land-grants-11` | + logistic | 10 |
+| `fh-land-grants-21` | + military | 10 |
+| `fh-land-grants-31` | + chemical | 10 |
+| `fh-land-grants-41` | + production, utility | 10 |
+| `fh-land-grants-51` | + space | Base game: infinite (terminal). Space Age: 10, then the planet tiers below |
+
+**That table is the expected output of the mechanism, not the mechanism.** Pack membership is **derived from the actual technology DAG at data stage**, never hardcoded — see *Deriving the tier ladder* below. The tables here are asserted against the real derivation by the in-engine test suite (verified 2026-08-05 against Factorio 2.0.77, both mod sets). Prototype names carry the family's *start level* — the engine parses the trailing number as a level, so tiers are `fh-land-grants-1`, `-11`, `-21`, … with `max_level` closing each range; one locale key (`technology-name.fh-land-grants`) covers the family.
+
+**Space Age tiers**, as the derivation produces them:
+
+| Prototype (start level) | Science packs (cumulative) | Levels |
+|---|---|---|
+| `fh-land-grants-61` | + metallurgic, electromagnetic, agricultural | 10 |
+| `fh-land-grants-71` | + cryogenic | 10 |
+| `fh-land-grants-81` | + promethium | infinite (terminal) |
 
 The three inner-planet packs share one tier deliberately. Vulcanus, Fulgora, and Gleba are completed in any order, but a technology's `unit.ingredients` is a conjunction — there is no "any one of these packs". A per-planet chain would therefore pick an arbitrary planet order and stall a force's entire land income if they happened to visit Fulgora first. Grouping the three is symmetric, and it mirrors how Space Age itself gates: three inner planets in any order, then Aquilo, then the Shattered Planet.
+
+An earlier draft of this section merged automation and logistic into one first tier. The derivation splits them, and the split is *correct by the derivation's own rule*: base 2.0 gates the automation pack's recipe behind a starter technology that the logistic pack's tech descends from, so the two are genuinely ordered in the DAG — a real ordering must become a tier boundary. All groupings the design cares about (production+utility; the three inner-planet packs) are preserved. Every tier is 10 levels at launch (`LEVELS_PER_TIER`); per-tier level counts are M5 tuning.
 
 - Each tier's prerequisite is the previous tier; players see a single ladder, not a lattice.
 - Within a tier, science cost ramps **roughly linearly** via `unit.count_formula`; the terminal infinite tier uses the **linear** formula `L*1000*multiplier` with `max_level = "infinite"`. Linear is deliberate: exponential infinite techs effectively shut the faucet off late-game, whereas linear cost keeps land income flowing at a tapering but never-zero rate for megabase-scale play. (This linear-cost terminal-technology idea is deliberately retained from Gridlocked; its parallel per-pack tech structure is not — see below.)
@@ -384,10 +387,10 @@ Freehold must never name a science pack as a constant. Overhaul mods make hardco
 The ladder is therefore computed in `data-final-fixes.lua`:
 
 1. **Candidate packs** — every `tool` prototype that appears in some technology's `unit.ingredients`. This picks up overhaul packs automatically and excludes tools that are not science.
-2. **Availability depth** — for each pack, the minimum prerequisite-depth of a technology that unlocks a recipe producing it. Packs craftable from game start have depth 0. Depth is a BFS over the technology prerequisite graph.
+2. **Availability depth** — for each pack, the minimum over producing recipes of (1 + the unlocking technology's prerequisite depth); recipes enabled at game start give depth 0. **Recycling-category and self-producing recipes are excluded** — Space Age's self-recycling recipes "produce" every pack from itself at 25%, enabled from the start, and would flatten every depth to 0 (found empirically against the 2.0.77 data dump).
 3. **Order** — sort by depth ascending, then by prototype name. The name tiebreak is not cosmetic: it makes the ladder deterministic rather than dependent on `pairs()` iteration order.
-4. **Slice** — group the ordered packs into tiers by depth band. Each tier's `unit.ingredients` is cumulative: every pack up to and including its band.
-5. **Terminal tier** — takes every pack, `max_level = "infinite"`, linear `count_formula`.
+4. **Band** — walk the ordered packs; a pack joins the current tier iff its unlock technology is **DAG-incomparable** with every current member's (neither is a prerequisite ancestor of the other — a real ordering in the tree must become a tier boundary) **and** its depth is within `BAND_SPAN` (4) of the tier's first pack (parallel branches far apart in progression read as separate tiers: military vs chemical). Depth-gap thresholding alone cannot reproduce the intended groupings — the same gap of 3 must merge production+utility and split utility|space — which is why comparability is the primary signal.
+5. **Terminal tier** — the last band; takes every pack, `max_level = "infinite"`, linear `count_formula`.
 
 **Host override channel.** A startup string setting `fh-tech-tiers` pins the ladder explicitly, in the same spirit as the layer-membership override settings (*Interfaces*): semicolon-separated tiers, each a comma-separated cumulative pack list. Empty (the default) means derive. This gives overhaul authors and server hosts the final word when the derivation gets a novel tech tree wrong, without waiting for a Freehold release:
 
@@ -981,8 +984,8 @@ v1 ships the complete land-rights core: the fixed 32x32 cell grid with the Wilde
 - [x] Registry: `storage.cells[surface_index][cell_key]`, `storage.points[force_index]`, blocker registration ids, `storage.disabled_surfaces`, `storage.meta.version`
 - [x] Survey tool `fh-survey-tool` (shortcut + custom-input, only-in-cursor, not-stackable), four selection-mode actions, all-or-nothing batch semantics with shortfall flying text
 - [x] Flat pricing with full credit (Trail 1, Rampart 3, Deed 5), adjacency rule at claim time, downgrade validity via one `find_entities_filtered` query, refunds at `fh-refund-percent` (default 25)
-- [ ] Tech chain `fh-land-grants-1` through `-5` (+ Space Age planet tiers), linear `count_formula` terminal tier, correct `on_research_reversed` decrement including infinite levels
-- [ ] Starting grant `fh-starting-points` (75), settlement charter `fh-settlement-charter` (30, once per force per planet)
+- [x] Tech chain `fh-land-grants-*` derived from the tech DAG (+ Space Age planet tiers), linear `count_formula` terminal tier, correct `on_research_reversed` decrement (finish-then-reverse asserted net zero in-engine)
+- [x] Starting grant `fh-starting-points` (75), settlement charter `fh-settlement-charter` (30, once per force per planet; the force's first — home — planet is recorded silently, its cold start being covered by the starting grant)
 - [ ] HUD via mod-gui, `fh-show-points` per-user setting, refresh on points change / force change (`on_player_changed_force`) / player join and create (`on_player_created`)
 - [ ] Frontier-only border rendering, lazy on chart, per-force `forces` filter, MTS team colors or per-planet colors via `surface.planet.name`, corner survey-stake markers
 - [x] Remote interface `freehold` (all functions in *Interfaces*, including `reset_force`), custom events `on_cell_claimed` / `on_cell_downgraded` / `on_points_changed` resolvable via `get_event_id` *(pulled forward from M4 during M1 — it is also the headless test surface; contract in `docs/API.md`)*

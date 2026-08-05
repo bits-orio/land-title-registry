@@ -1,7 +1,44 @@
--- M1 settings only. M2 adds fh-points-per-level, fh-tech-cost-multiplier,
--- fh-settlement-charter, fh-print-claims; M3 adds fh-show-points; M4 adds the
--- layer-override and fh-tech-tiers startup strings.
+-- M3 adds fh-show-points; M4 adds the layer-override startup strings.
 data:extend({
+  {
+    type = "int-setting",
+    name = "fh-points-per-level",
+    setting_type = "startup",
+    default_value = 5,
+    minimum_value = 0,
+    order = "b[tech]-a[points-per-level]",
+  },
+  {
+    type = "double-setting",
+    name = "fh-tech-cost-multiplier",
+    setting_type = "startup",
+    default_value = 1,
+    minimum_value = 0.1,
+    order = "b[tech]-b[cost-multiplier]",
+  },
+  {
+    type = "string-setting",
+    name = "fh-tech-tiers",
+    setting_type = "startup",
+    default_value = "",
+    allow_blank = true,
+    order = "b[tech]-c[tiers-override]",
+  },
+  {
+    type = "int-setting",
+    name = "fh-settlement-charter",
+    setting_type = "runtime-global",
+    default_value = 30,
+    minimum_value = 0,
+    order = "a[economy]-c[settlement-charter]",
+  },
+  {
+    type = "bool-setting",
+    name = "fh-print-claims",
+    setting_type = "runtime-global",
+    default_value = true,
+    order = "c[ux]-a[print-claims]",
+  },
   {
     type = "int-setting",
     name = "fh-starting-points",

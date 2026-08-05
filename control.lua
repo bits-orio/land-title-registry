@@ -7,6 +7,7 @@ local registry = require("scripts.registry")
 local blockers = require("scripts.blockers")
 local economy = require("scripts.economy")
 local tool = require("scripts.tool")
+local tech = require("scripts.tech")
 local custom_events = require("scripts.custom_events")
 require("scripts.commands")
 require("scripts.remote")
@@ -73,6 +74,10 @@ end)
 
 script.on_event(defines.events.on_forces_merged, economy.on_forces_merged)
 
+-- Research income
+script.on_event(defines.events.on_research_finished, tech.on_research_finished)
+script.on_event(defines.events.on_research_reversed, tech.on_research_reversed)
+
 -- Survey tool
 script.on_event(defines.events.on_player_selected_area, tool.on_selected)
 script.on_event(defines.events.on_player_alt_selected_area, tool.on_alt_selected)
@@ -80,8 +85,14 @@ script.on_event(defines.events.on_player_reverse_selected_area, tool.on_reverse_
 script.on_event(defines.events.on_player_alt_reverse_selected_area, tool.on_alt_reverse_selected)
 script.on_event(defines.events.on_player_cursor_stack_changed, tool.on_cursor_changed)
 
--- Players
-script.on_event(defines.events.on_player_changed_force, tool.on_player_changed_force)
+-- Players (charter presence + label refresh; on_player_changed_force is
+-- non-negotiable — MTS moves players between forces routinely)
+script.on_event(defines.events.on_player_created, tech.on_player_created)
+script.on_event(defines.events.on_player_changed_surface, tech.on_player_changed_surface)
+script.on_event(defines.events.on_player_changed_force, function(event)
+  tool.on_player_changed_force(event)
+  tech.on_player_changed_force(event)
+end)
 script.on_event(defines.events.on_player_left_game, tool.on_player_gone)
 script.on_event(defines.events.on_player_removed, tool.on_player_gone)
 
