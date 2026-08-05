@@ -93,6 +93,7 @@ script.on_configuration_changed(function()
   end
   -- Deeds that predate the chronicle enter it from the registry; a batched
   -- rebuild redraws everything (reconcile draws chronicle text too).
+  storage.chronicle_backfilled = true
   if chronicle.backfill() > 0 then
     blockers.enqueue_full_rebuild()
   end
@@ -160,6 +161,15 @@ script.on_event(defines.events.on_player_joined_game, function(event)
   hud.on_player_joined(event)
   tech.on_player_joined(event)
   welcome.on_player_joined(event)
+  -- One-shot chronicle backfill, anchored to a join rather than only to
+  -- on_configuration_changed: a control-only code update at the same mod
+  -- version never fires config-changed, so dev-loop saves would miss it.
+  if not storage.chronicle_backfilled then
+    storage.chronicle_backfilled = true
+    if chronicle.backfill() > 0 then
+      blockers.enqueue_full_rebuild()
+    end
+  end
 end)
 script.on_event(defines.events.on_player_changed_surface, tech.on_player_changed_surface)
 script.on_event(defines.events.on_player_changed_force, function(event)

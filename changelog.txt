@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.1
+Date: 2026-08-05
+  Features:
+    - Two-gesture interaction: drag raises every covered cell one rung, right-drag lowers one (Shift variants jump, unadvertised).
+    - Cell chronicle: per-cell speedrun leaderboard of fastest Deed times on team clocks, drawn under each cell's top edge; celebrations on contested cells.
+    - Free starter Deed at a force's first presence on each planet, with in-world gesture hints; welcome panel and Tips-and-tricks onboarding; /fh-welcome.
+    - Configurable cell size (16/24/32, default 24); planner-style survey tool icon; per-state ground overlays and border colors from one shared palette; inset per-side borders.
+  Changes:
+    - Claim announcements, per-planet border colors, MTS team colors on survey stakes, ODB milestone events, layer-override channels.
+  Bugfixes:
+    - Crash on denied selection batches; cursor-stack writes no longer cancel in-progress drags; chronicle backfill for pre-existing Deeds.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.0
 Date: 2026-08-04
   Features:
