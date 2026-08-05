@@ -18,10 +18,10 @@ Which rung of the ladder a cell occupies: Wilderness, Trail, Rampart, or Deed. S
 _Avoid_: tier, level, rank (when referring to a cell)
 
 **Wilderness**:
-Unowned land. Nothing layered may be built and no tiles may be placed. Not hostile, not hidden — simply land without building rights. Carries the fully-restrictive blocker and is the only state absent from the registry.
+Unowned land. No land-, transit-, or rampart-layer entity may be built. Tiles are not gated in any state. Not hostile, not hidden — simply land without building rights. Carries the fully-restrictive blocker and is the only state absent from the registry.
 
 **Trail**:
-The transport-corridor right: belts, rails, pipes, and tile placement. How a force reaches outward. Unpowered by design — electric poles are a Rampart right, so a corridor that needs power is priced as a Rampart corridor. 1 point.
+The transport-corridor right: belts, rails, and pipes. How a force reaches outward. Unpowered by design — electric poles are a Rampart right, so a corridor that needs power is priced as a Rampart corridor. 1 point.
 
 **Rampart**:
 Trail's rights plus self-sufficient defense: turrets (never artillery), walls, gates, radar, poles, solar panels, accumulators. Chosen so a rampart can power itself with no Deed nearby. Strictly requires Trail. 3 points total.
@@ -45,7 +45,7 @@ The neutral, indestructible entity centered on a non-Deed cell whose collision m
 _Avoid_: marker, claim entity, tile entity
 
 **Layer**:
-One of the four custom collision-layer prototypes — `fh-land`, `fh-transit`, `fh-rampart` for entities, `fh-cell-tile` for tile placement. Every player-creation prototype belongs to exactly one entity layer, assigned at data stage and unchangeable at runtime.
+One of the three custom collision-layer prototypes — `fh-land`, `fh-transit`, `fh-rampart`. Every player-creation prototype belongs to exactly one, assigned at data stage and unchangeable at runtime. No layer is ever placed on a tile prototype.
 
 **Exempt**:
 A player-creation assigned to no layer, so it can exist in any state including Wilderness — vehicles, space platform hubs, cargo pods, crash-site entities. Identified by capability where possible, never by a hand-maintained name blacklist.

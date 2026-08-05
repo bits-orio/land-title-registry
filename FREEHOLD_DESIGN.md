@@ -28,9 +28,9 @@ The world is divided into cells of 32×32 tiles, exactly aligned to native Facto
 
 | State | Blocker entity | Construction permitted | Cumulative price |
 |---|---|---|---|
-| Wilderness | `fh-cell-wilderness` | Nothing buildable — no layered entities, no tiles (layer-exempt player-creations such as deployed vehicles remain placeable anywhere) | 0 |
-| Trail | `fh-cell-trail` | Transit-layer entities (belts, rails, pipes) plus tile placement (landfill, concrete, foundation) | 1 |
-| Rampart | `fh-cell-rampart` | Everything Trail permits (transit entities, tile placement) plus rampart-layer entities (walls, gates, non-artillery turrets, radar, electric poles, solar panels, accumulators) | 3 |
+| Wilderness | `fh-cell-wilderness` | Nothing buildable — no layered entities (layer-exempt player-creations such as deployed vehicles remain placeable anywhere) | 0 |
+| Trail | `fh-cell-trail` | Transit-layer entities (belts, rails, pipes) | 1 |
+| Rampart | `fh-cell-rampart` | Everything Trail permits (transit entities) plus rampart-layer entities (walls, gates, non-artillery turrets, radar, electric poles, solar panels, accumulators) | 3 |
 | Deed | none | Everything, explicitly including artillery turrets | 5 |
 
 Rights are enforced by the engine, not by scripts. Three custom collision layers (`fh-land`, `fh-transit`, `fh-rampart`) assign every player-buildable prototype to exactly one layer at the data stage — apart from a small exempt class (vehicles and similar non-building player-creations) that carries no layer and can exist anywhere — and one neutral, indestructible blocker entity per non-Deed cell carries the collision mask that denies the not-yet-earned layers. A Deed cell has no blocker at all — absence of a blocker means full rights. The full mechanism is specified in *Core Model*; prices, credits, and refunds in *Economy*.
@@ -42,8 +42,8 @@ Rampart strictly requires Trail; Deed is reachable from either Trail or Rampart;
 ### What Freehold is not
 
 - **Not a fork.** Freehold is a full from-scratch reimplementation of an idea, not a derivative codebase. No code, assets, or prototype/setting names are reused from any other mod.
-- **Not a terrain mod.** Freehold never modifies terrain generation or edits the map's existing tiles; it only gates where players may place tiles (via a collision layer on placeable-tile prototypes). Ownership exists as inert blocker entities plus rendered border overlays; remove the mod and the map itself is untouched.
-- **Not a movement restriction.** Characters and vehicles traverse Wilderness freely; vehicles also remain deployable-as-items anywhere. Only construction is gated. The custom collision layers are added only to stationary buildable prototypes; vehicles and other mobile player-creations are explicitly exempt (assigned to no layer), so nothing that moves ever collides with a blocker.
+- **Not a terrain mod.** Freehold never modifies terrain generation or edits the map's existing tiles; it does not gate tile placement either (see *Core Model*, Tiles Are Not Gated). Ownership exists as inert blocker entities plus rendered border overlays; remove the mod and the map itself is untouched.
+- **Not a movement restriction.** Characters, vehicles, and trains traverse Wilderness freely; vehicles also remain deployable-as-items anywhere. Only construction is gated. The custom collision layers are added only to stationary buildable prototypes; everything descending from `VehiclePrototype` — cars, spidertrons, and all rolling stock — is explicitly exempt (assigned to no layer), so nothing that moves ever collides with a blocker.
 - **Not a script-side build cop.** Enforcement is collision-mask physics. The single deliberate exception is one `find_entities_filtered` area query validating a downgrade (see *Economy*); there is no per-build event policing anywhere in the mod.
 
 ### Relationship to Gridlocked
@@ -139,9 +139,9 @@ Rules:
 
 ### What Each State Means
 
-**Wilderness** is unowned land. No layered construction can be placed — no land-, transit-, or rampart-layer entities and no tiles (no landfill, no concrete). Layer-exempt items — vehicles deployed from inventory, and the other exemptions below — remain placeable. It is not hostile or hidden — it is simply land without building rights. Wilderness cells carry the mod's only fully-restrictive blocker and are the only cells absent from the registry.
+**Wilderness** is unowned land. No layered construction can be placed — no land-, transit-, or rampart-layer entities. Tiles are not gated in any state (see *Tiles Are Not Gated* below). Layer-exempt items — vehicles deployed from inventory, and the other exemptions below — remain placeable. It is not hostile or hidden — it is simply land without building rights. Wilderness cells carry the mod's only fully-restrictive blocker and are the only cells absent from the registry.
 
-**Trail** grants transport-corridor rights: belts, undergrounds, splitters, all rails and rail signals, pipes, and pipe-to-ground. Trails are how a force reaches outward — rail lines, belt buses, and pipelines cross Trail cells at 1 point per cell. Tiles become placeable at Trail (see the tile layer below). Pure Trails are unpowered by design: electric poles are rampart-layer, so a corridor that needs power is priced as a Rampart corridor.
+**Trail** grants transport-corridor rights: belts, undergrounds, splitters, all rails and rail signals, pipes, and pipe-to-ground. Trails are how a force reaches outward — rail lines, belt buses, and pipelines cross Trail cells at 1 point per cell. Pure Trails are unpowered by design: electric poles are rampart-layer, so a corridor that needs power is priced as a Rampart corridor.
 
 **Rampart** adds self-sufficient defense on top of Trail rights: gun/laser/flamethrower turrets (any `ammo-turret`, `electric-turret`, `fluid-turret` — but **not** `artillery-turret`), radar, walls, gates, electric poles, solar panels, and accumulators. The membership is chosen so a Rampart can power itself (solar + accumulator + pole) without a Deed anywhere nearby: fortified, powered frontier at 3 points total.
 
@@ -151,7 +151,7 @@ Rules:
 
 ### Collision Layers and Membership
 
-Data stage defines **four custom collision-layer prototypes** (three entity-facing, one tile-facing):
+Data stage defines **three custom collision-layer prototypes**, all entity-facing:
 
 ```lua
 -- prototypes/layers.lua
@@ -159,7 +159,6 @@ data:extend({
   { type = "collision-layer", name = "fh-land"      },
   { type = "collision-layer", name = "fh-transit"   },
   { type = "collision-layer", name = "fh-rampart"   },
-  { type = "collision-layer", name = "fh-cell-tile" },  -- tile placement gate, see below
 })
 ```
 
@@ -181,13 +180,25 @@ Default membership, by prototype type (prefer these capability/type-based rules 
 
 | Layer | Default members (prototype types) |
 |---|---|
-| `fh-transit` | `transport-belt`, `underground-belt`, `splitter`, `lane-splitter`, `loader`, `loader-1x1`, `linked-belt`; all rail prototypes: `straight-rail`, `curved-rail-a`, `curved-rail-b`, `half-diagonal-rail`, the elevated variants, `rail-ramp`, `rail-support`, legacy rails; `rail-signal`, `rail-chain-signal`; `pipe`, `pipe-to-ground` |
-| `fh-rampart` | `ammo-turret`, `electric-turret`, `fluid-turret` (**not** `artillery-turret`), `radar`, `wall`, `gate`, `electric-pole`, `solar-panel`, `accumulator` |
+| `fh-transit` | `transport-belt`, `underground-belt`, `splitter`, `lane-splitter`, `loader`, `loader-1x1`, `linked-belt`; all rail prototypes: `straight-rail`, `curved-rail-a`, `curved-rail-b`, `half-diagonal-rail`, the elevated variants, `rail-ramp`, `rail-support`, legacy rails; `rail-signal`, `rail-chain-signal`, `train-stop`; `pipe`, `pipe-to-ground` |
+| `fh-rampart` | `ammo-turret`, `electric-turret`, `fluid-turret` (**not** `artillery-turret`), `radar`, `wall`, `gate`, `electric-pole`, `solar-panel`, `accumulator`, `pump` |
 | `fh-land` | Everything else with the `player-creation` flag — explicitly including `artillery-turret`, assembling machines, mining drills, roboports, and labs |
 
-**Open:** `pump` layer membership (lean: transit). **Open:** `train-stop` layer membership (lean: transit). **Open:** `loader`/`loader-1x1` membership (listed above under the transit lean; not yet final).
+These three were open and are now resolved, with different reasons:
 
-**Exemptions** — assigned to no layer; placeable/existing anywhere, in any state including Wilderness: `car`, `spider-vehicle`, `space-platform-hub`, `cargo-pod-container`, crash-site entities, and similar non-building player-creations. Identify these by capability where possible rather than by name.
+- **`train-stop` → transit.** It has no energy source at all, so it functions on an unpowered Trail. Land membership would have required a Deed under every station on a rail line, contradicting "Trails are how a force reaches outward."
+- **`pump` → rampart.** A pump needs electricity, and electricity is a Rampart right (poles are rampart-layer). Putting it in transit would have made it placeable on a pure Trail and permanently inert there; rampart membership makes the layer match where the entity can actually function.
+- **`loader` / `loader-1x1` → transit.** Belt family. A loader on a Trail has nothing to feed, since containers are land-layer, but it is harmless and belongs with its relatives.
+
+**Exemptions** — assigned to no layer; placeable and existing anywhere, in any state including Wilderness.
+
+The primary rule is capability-based, exactly as the design demands instead of name lists: **everything descending from `VehiclePrototype` is exempt.** In the 2.0 prototype hierarchy that parent covers `car`, `spider-vehicle`, and the whole `RollingStockPrototype` subtree — `locomotive`, `cargo-wagon`, `infinity-cargo-wagon`, `fluid-wagon`, `artillery-wagon` — and it picks up modded vehicles and modded rolling stock with no maintenance.
+
+Rolling stock is not optional here. Without the exemption, wagons and locomotives fall through to `fh-land` as player-creations, so a locomotive could not be placed on the force's own Trail rails — and a *moving* train carrying `fh-land` would collide with every Trail and Rampart blocker it drove through, stopping dead at cell boundaries.
+
+**Accepted leak:** an artillery wagon is mobile artillery and therefore slips the "superweapons require a Deed" rule. This is unavoidable — any mask that blocks its placement also blocks its movement. Spidertrons carrying rocket launchers are the same class of leak. Document it; do not try to close it with a build-event check.
+
+Additionally exempt, by name or by capability where one exists: `space-platform-hub`, `cargo-pod-container`, and crash-site entities.
 
 Membership is overridable per host and per third-party mod via startup settings and a mod-data convention, with precedence Freehold defaults < mod-data declarations < host settings — full specification in *Interfaces*.
 
@@ -197,7 +208,7 @@ Enforcement is implemented by **exactly one blocker entity per non-Deed cell**, 
 
 | State | Blocker entity | Collision mask layers |
 |---|---|---|
-| Wilderness | `fh-cell-wilderness` | `fh-land`, `fh-transit`, `fh-rampart`, `fh-cell-tile` |
+| Wilderness | `fh-cell-wilderness` | `fh-land`, `fh-transit`, `fh-rampart` |
 | Trail | `fh-cell-trail` | `fh-land`, `fh-rampart` |
 | Rampart | `fh-cell-rampart` | `fh-land` |
 | Deed | *(no entity)* | — |
@@ -210,7 +221,7 @@ Shared prototype spec for all three blockers:
 | force (at creation) | `neutral` |
 | destructibility | indestructible (`entity.destructible = false` after `create_entity`) |
 | `collision_box` | approximately `{{-15.99, -15.99}, {15.99, 15.99}}` |
-| `selection_priority` | high — the blocker is selectable primarily by the survey tool, and a high priority makes survey-tool area selections pick blockers up reliably |
+| `selection_priority` | **low — `5`**, matching Gridlocked. Deliberately near the bottom of the 0–255 range (default 50) so a blocker's full-cell selection box never steals the cursor from entities the player has built inside Trail and Rampart cells. `selection_priority` governs *cursor* selection only; area selection is unaffected by it, and the survey-tool handlers read `event.area` and ignore `event.entities` anyway. See ADR-0005. |
 | Recommended flags | `placeable-off-grid`, `not-repairable`, `not-on-map`, `not-deconstructable`, `not-blueprintable` |
 
 The `15.99` half-extent (rather than `16`) keeps the box fractionally inside the cell so it never collides across the boundary with entities legally placed flush against the edge of an adjacent cell. Because the mask contains only Freehold's custom layers — no player, object, or train layers — blockers never impede movement or pathfinding.
@@ -219,19 +230,24 @@ How enforcement works, concretely: an assembling machine carries `fh-land` in it
 
 **State transitions are blocker swaps**: destroy the old blocker, create the blocker for the new state (or none, when upgrading to Deed; when downgrading from Deed, create `fh-cell-rampart`). Each created blocker is registered with `script.register_on_object_destroyed` and its registration id recorded for cleanup in `on_object_destroyed`; blockers are derived state, rebuildable from the registry at any time (see *Architecture*).
 
-### The Tile Layer: Landfill and Causeways
+### Tiles Are Not Gated
 
-Tiles are gated by the fourth layer, `fh-cell-tile`, which appears **only** on the wilderness blocker's mask. In `data-final-fixes.lua`, every player-placeable tile result — landfill, concrete and its variants, foundation, and the like — gets `fh-cell-tile` added to its **tile** collision mask, and `check_collision_with_entities = true` set on the same tile prototype (without it the engine does not test tile placement against entity collision at all). A tile placement then collides with `fh-cell-wilderness` (whose entity mask contains `fh-cell-tile`) and with nothing else. Verify in playtesting that flipping `check_collision_with_entities` on these tiles introduces no vanilla regressions (it also makes the tile respect other colliding entities).
+**Freehold places no collision layer on any tile prototype and sets no flag on one.** Landfill, concrete, stone path, and foundation place and mine identically in every cell state, including Wilderness. Enforcement is entity-layer only. An earlier design gated tiles with a fourth layer, `fh-cell-tile`, plus `check_collision_with_entities = true`; that mechanism was cut before implementation for the reasons in ADR-0007, summarized here:
 
-Net effect: **tiles are blocked in Wilderness and placeable from Trail tier up.** This is what makes water crossings work as intended — the lake-causeway play:
+- `check_collision_with_entities` is a per-prototype boolean and cannot be scoped to one layer — it tests the tile's **whole** mask against entities. Concrete, refined concrete, stone path, and landfill all carry exactly `{ground_tile = true}`, the same mask as grass, dirt, and sand.
+- `fish` also carries `{ground_tile = true}` — that layer is what keeps fish out of landfill. Enabling the flag therefore makes **landfill fail to place wherever a fish happens to be swimming**, intermittently, because fish move. That is the lake causeway breaking at random. Several Gleba plants and wrigglers carry the layer too.
+- The engine also checks the flag when **mining** a tile, not only when building one, so a cell downgraded to Wilderness would trap its concrete permanently.
+- `data-final-fixes.lua` would have to set the flag on every player-placeable tile in the game, **including modded tiles whose masks Freehold does not control**. For a mod whose brand is an empty incompatibility list, that is the likeliest single source of one.
+
+The lake causeway is unaffected, because the gate was never what made it work:
 
 1. Trail-claim a line of cells across a lake (claiming a cell does not require buildable ground; the blocker sits over water just fine).
-2. Landfill a causeway through those Trail cells — landfill is now placeable there because only the wilderness blocker carries `fh-cell-tile`.
-3. Run rails or belts across the new land — both are transit-layer, legal on Trail.
+2. Landfill a causeway. Landfill was always going to place here — and now places in Wilderness too, which buys a force nothing it can build on.
+3. Run rails or belts across the new land — both are transit-layer, and **this** is the step Trail rights actually gate.
 
-Space platforms need no special tile handling in practice: platform surfaces are auto-disabled (no blockers, no grid — see *Interfaces*), so the tile layer is inert there and platform foundation tiles remain governed by the platform's own rules.
+Space platforms need no special handling: platform surfaces are auto-disabled (no blockers, no grid — see *Interfaces*), and platform foundation tiles were always governed by the platform's own rules.
 
-**Open** (owned by *Economy*, noted here because it is a tile-layer question): whether previously placed tiles must be, or can be, removed when a cell downgrades Trail→Wilderness. Lean: placed tiles may remain.
+Revisit post-v1 only if playtesting shows that unrestricted paving of Wilderness is a real gameplay problem, and then with a mechanism whose blast radius stops at Freehold's own prototypes.
 
 ### Engine Restriction: Masks Are Fixed at Startup
 
@@ -290,9 +306,15 @@ The claim event `on_cell_claimed` carries the charged `cost`; `on_cell_downgrade
 
 A **new claim on a Wilderness cell requires adjacency to a cell already owned by the acting force, in any state** (Trail, Rampart, or Deed all qualify). Upgrades of already-owned cells never re-check adjacency.
 
-- Lean **4-way orthogonal** adjacency. **Open:** whether to allow 8-way/diagonal adjacency instead.
-- **Open:** first-claim seeding. A force's very first claim on a surface has no owned neighbor; the mechanism is undecided between (a) exempting the first claim on a surface from the adjacency check, or (b) auto-granting the spawn cell to the force.
-- **Open — batch adjacency:** how a multi-cell batch evaluates adjacency for new Wilderness cells. Lean: progressive evaluation — a cell may satisfy adjacency through another cell of the same batch that is itself transitively connected to existing territory (without this, a dragged Trail corridor could never advance more than one cell per drag).
+- **Adjacency is 4-way orthogonal — resolved.** Only cells sharing an edge qualify; corner-touching cells do not. The reason is that Trail exists to carry belts, rails, and pipes, and transport is rook-connected: two cells touching only at a corner can pass nothing between them. 4-way makes the claim rule isomorphic to the physical rule, so a claimable direction is always a buildable direction. 8-way was rejected because it permits diagonal Trail "corridors" that read as corridors on the map but carry nothing, and lets a large rectangle anchor off a single corner touch.
+- **First-claim seeding — resolved: the standing-cell anchor.** If the acting force owns **no** cells on the surface, the batch anchors if the drag rectangle contains the cell the acting player is standing in. This is one extra clause in the anchor test rather than a separate code path, and it serves three purposes at once: it seeds Nauvis at game start, it seeds each new planet exactly where the force actually lands (rather than at `force.get_spawn_position`, which a Space Age cargo pod need not drop anywhere near), and it un-sticks a force that has downgraded away its last cell on a surface. The acting player must be physically present, so the mechanism rewards travelling rather than scouting from map view.
+
+  For the remote `claim` function, which may have no acting player: on a surface where the force owns nothing, the call is refused with reason `"no-anchor"` unless the caller passes `opts.ignore_adjacency = true`. Scenario and quest mods that need to seed territory deliberately use that flag; it is the only sanctioned way to bypass the rule. *(Implementer's call, recorded here so it stays consistent with the tool's semantics.)*
+- **Batch adjacency — resolved: the whole-rectangle anchor test.** A batch is *anchored* if the drag rectangle contains, or shares an edge with, any cell the acting force already owns in any state. An anchored batch claims every eligible Wilderness cell in it; an unanchored batch claims nothing, plays the denial sound, and shows flying text. There is no partial case.
+
+  This is progressive evaluation, reduced to the single test it collapses to. A rectangle of cells is always orthogonally connected, and every cell in it is either owned by the acting force (a valid adjacency source) or Wilderness (a claim candidate) — so a breadth-first walk outward from existing territory always reaches either the entire rectangle or none of it. No queue, no BFS, and — importantly — **no iteration-order dependence**: reachability is order-independent by construction, so progressive adjacency does not reintroduce the unpredictability that partial application was rejected for (*Player Experience*, Batch Semantics).
+
+  Consequences, both intended: a long drag anchored on one edge cell claims the whole line in one gesture (a 1×40 corridor costs 40 points), and a 20×20 rectangle sharing one edge with the border claims 400 cells for 400 points. Affordability is the limiter, not geometry — and all-or-nothing means the whole rectangle is bought or nothing is.
 - Adjacency is checked **only at claim time**. There is **no global-connectivity maintenance**: downgrades may later disconnect territory, disconnected islands remain owned, and those islands remain valid adjacency sources for future claims. No flood-fill, no revocation, no reconnection requirement — ever.
 
 Rejected alternative: Gridlocked-style adjacency-discount pricing, where cost arithmetic encoded connectivity. Freehold splits the concerns: prices are flat and legible; connectivity is a visible, binary claim-time rule.
@@ -317,7 +339,7 @@ Refunds are symmetric with the credit principle. Fully unwinding a Deed at 25% r
 | Rampart → Trail | No entities on the rampart layer |
 | Trail → Wilderness | No player constructions at all |
 
-**Open:** whether tiles placed while the cell held rights (landfill, concrete, foundation) must be — or even can be — removed when a cell returns to Wilderness. Lean: placed tiles may remain.
+**Tiles are irrelevant to downgrades.** Freehold does not gate tile placement in any state (see *Core Model*, Tiles Are Not Gated), so a cell returning to Wilderness keeps whatever landfill, concrete, or foundation is on it, and the owner can still mine it away freely. Nothing about tiles enters the downgrade validity check.
 
 **Deferred (post-v1, not in scope): depletion-aware refunds.** Snapshot the cell's total resource amount at claim time and scale the refund by the remaining fraction, so strip-mined cells refund less. v1 ships the flat rate only; the registry's `invested_points` and `claimed_tick` fields already provide the hooks.
 
@@ -402,7 +424,8 @@ Handler mechanics:
 
 - **Cell rectangle from area:** for `event.area`, the covered cells run from `floor(left_top.x / 32)` to `floor(right_bottom.x / 32)` on each axis. Cell coordinates equal Factorio's native chunk coordinates (see *Core Model*).
 - **Degenerate drag:** a single click without dragging produces a zero-size rectangle inside one cell and is handled as a 1×1 batch. There is no separate click path; every rule below applies identically.
-- **Eligibility filtering:** each mode acts only on cells eligible for its action, as defined by the mode itself ("claim Trail on all wilderness cells", "downgrade every owned cell"). Ineligible cells in the rectangle — e.g. a Deed cell during a Trail claim, an unowned cell during a downgrade, an owned cell that fails the downgrade entity check, or a Wilderness cell with no valid adjacency — are no-ops: not charged, not refunded, not modified. How adjacency interacts with a multi-cell batch is **open**; the lean (shared with *Economy*) is progressive evaluation — process cells breadth-first from existing territory so a cell claimed earlier in the batch is a valid adjacency source for later cells, letting a corridor dragged outward succeed in one gesture.
+- **Eligibility filtering:** each mode acts only on cells eligible for its action, as defined by the mode itself ("claim Trail on all wilderness cells", "downgrade every owned cell"). Ineligible cells in the rectangle — e.g. a Deed cell during a Trail claim, an unowned cell during a downgrade, an owned cell that fails the downgrade entity check, are no-ops: not charged, not refunded, not modified.
+- **Adjacency is a batch-level gate, not a per-cell filter.** Before eligibility is computed, the batch is tested for anchoring. A batch is anchored if **either**: the drag rectangle contains or shares an edge (4-way, never diagonal) with a cell the acting force already owns in any state; **or** the force owns no cells at all on this surface and the rectangle contains the cell the acting player is standing in. An unanchored batch applies nothing — it plays the denial sound and shows local flying text (`No adjacent territory`), rather than silently no-opping. An anchored batch proceeds, and every eligible Wilderness cell in the rectangle claims. See *Economy* for why this single test is equivalent to progressive breadth-first evaluation, and for the standing-cell clause's rationale.
 - **Events:** each applied cell change raises the corresponding custom event (`on_cell_claimed` / `on_cell_downgraded`) per cell; see *Interfaces*.
 
 ### Batch Semantics: All-or-Nothing
@@ -421,7 +444,9 @@ There is **no partial application, ever**. Applying "as many cells as you can af
 
 ### Hover and Cursor Feedback
 
-- **Cell state and next cost on hover.** The intended mechanism: blocker entities carry high `selection_priority`, so hovering a non-Deed cell while holding the tool makes the blocker the player's selected entity, and `on_selected_entity_changed` drives per-cell feedback — the pattern Gridlocked ships in production with its own cursor tool. Because prices are flat and fixed, the feedback content is static per state (Wilderness — Trail: 1 · Rampart: 3 · Deed: 5; Trail — Rampart: +2 · Deed: +4; Rampart — Deed: +2), rendered as floating text or the entity tooltip. **Implementation caution:** entity selection behavior with a `selection-tool` in the cursor differs from a plain item-with-label; verify early that `player.selected` updates while the tool is held. If selection proves suppressed, fall back to a short-interval `on_nth_tick` registered only while a player holds the tool (consistent with the no-idle-tick rule in *Architecture*), reading `player.position`/cursor hover to resolve the hovered cell. Deed cells have no blocker and no next upgrade.
+- **Cell state and next cost on hover.** The mechanism is a short-interval `on_nth_tick` handler registered **only while at least one player holds the survey tool**, and unregistered when the last holder puts it down — a scoped exception to the no-idle-tick rule in *Architecture*, not a violation of it. The handler resolves the hovered cell by arithmetic on the cursor position and reads the cell's state from the registry. Because prices are flat and fixed, the feedback content is static per state (Wilderness — Trail: 1 · Rampart: 3 · Deed: 5; Trail — Rampart: +2 · Deed: +4; Rampart — Deed: +2), rendered as floating text. Deed cells have no next upgrade, but this mechanism still resolves them correctly — unlike the rejected alternative below, since a Deed cell has no blocker to hover.
+
+  **Rejected: `on_selected_entity_changed` driven by high-`selection_priority` blockers.** Gridlocked's blockers exist only on unclaimed chunks, where nothing is built; Freehold's persist on Trail and Rampart cells full of the owner's belts, rails, and turrets, and a high-priority full-cell selection box would hijack hover, tooltips, and pipette from all of them. Blockers therefore take `selection_priority = 5`. See ADR-0005.
 - **Balance on the cursor label.** While the survey tool is held, `cursor_stack.label` continuously shows the force's balance (e.g. `42 Land points`), and `label_color` turns red when the balance cannot cover the hovered cell's next-tier cost (a Gridlocked UX detail deliberately kept). Update the label on every points change for the holder's force and on `on_selected_entity_changed`.
 
 ### Sounds and Claim Announcements
@@ -633,7 +658,7 @@ freehold/
 │   ├── mts.lua                 -- guarded by script.active_mods["multi-team-support"]
 │   └── odb.lua                 -- guarded by script.active_mods["open-discord-bridge"]
 ├── prototypes/
-│   ├── layers.lua              -- fh-land, fh-transit, fh-rampart, fh-cell-tile
+│   ├── layers.lua              -- fh-land, fh-transit, fh-rampart
 │   ├── blockers.lua            -- fh-cell-wilderness / -trail / -rampart
 │   ├── tool.lua                -- fh-survey-tool
 │   ├── tech.lua                -- fh-land-grants-N chain
@@ -691,7 +716,7 @@ Scenario checks run within that matrix:
 - **Save/load roundtrip:** including a save taken mid-`on_nth_tick` batch (queue persists, handler re-registers in `on_load`).
 - **`on_configuration_changed` upgrades:** migrations apply across all forces and surfaces.
 - **Building against every cell state:** manual placement, blueprints, and construction bots versus Wilderness/Trail/Rampart/Deed for entities of each layer.
-- **Tile placement per state:** landfill/concrete/foundation blocked in Wilderness, allowed from Trail up (the `fh-cell-tile` layer, see *Core Model*).
+- **Tile placement is unrestricted:** landfill, concrete, and foundation place and mine identically in every cell state, and no Freehold layer appears on any tile prototype (see *Core Model*, Tiles Are Not Gated).
 - **Research reversal:** `on_research_reversed` decrements grants correctly, including infinite-tech levels.
 - **Editor mode:** no crashes or registry corruption under editor surface/entity manipulation.
 
@@ -896,7 +921,6 @@ v1 ships the complete land-rights core: the fixed 32x32 cell grid with the Wilde
 
 - [ ] Collision-layer prototypes `fh-land`, `fh-transit`, `fh-rampart`; every player-creation assigned to exactly one layer in `data-final-fixes.lua` via collision-mask-util
 - [ ] Blocker prototypes `fh-cell-wilderness`, `fh-cell-trail`, `fh-cell-rampart` (simple-entity-with-owner, ~31.98-tile collision box; `force = "neutral"` passed at `create_entity`, `destructible = false` set at runtime); no blocker for Deed
-- [ ] Tile collision layer `fh-cell-tile` on the wilderness blocker; added to all player-placeable tile results (tiles placeable from Trail up)
 - [ ] Registry: `storage.cells[surface_index][cell_key]`, `storage.points[force_index]`, blocker registration ids, `storage.disabled_surfaces`, `storage.meta.version`
 - [ ] Survey tool `fh-survey-tool` (shortcut + custom-input, only-in-cursor, not-stackable), four selection-mode actions, all-or-nothing batch semantics with shortfall flying text
 - [ ] Flat pricing with full credit (Trail 1, Rampart 3, Deed 5), adjacency rule at claim time, downgrade validity via one `find_entities_filtered` query, refunds at `fh-refund-percent` (default 25)
@@ -961,10 +985,6 @@ Naming history: earlier working names picket, stockade, watchpost, and waystatio
 Each item below is deliberately unresolved. Where a lean is recorded, treat it as the default to implement unless playtesting or review overturns it.
 
 - **Open:** Default key binding for the survey-tool custom-input. The shortcut-bar button and spawn-item flow are fixed (*Player Experience*); only the default hotkey needs choosing.
-- **Open:** Claim adjacency - 4-way orthogonal only, or also 8-way diagonal? Lean: 4-way. Checked only at claim time in either case.
-- **Open:** First-claim seeding. A force's very first claim on a surface has no adjacent owned cell; either exempt the first claim from adjacency, or auto-grant the spawn cell. Pick one; both must interact sanely with MTS team creation.
-- **Open:** Layer membership for pump, train-stop, and loader prototypes. Lean: transit for pump and train-stop; loaders sit in the default transit membership listed in *Core Model* - confirm all three before locking the `data-final-fixes.lua` defaults.
-- **Open:** Whether tiles placed under Trail+ rights (landfill, concrete) must be, or may be, removed on a Trail -> Wilderness downgrade. Lean: placed tiles may remain.
 - **Open:** `on_forces_merged` policy. Lean: sum the two point balances and union the cell registries under the surviving force; conflict handling is part of the open question.
 - **Open:** Space Age planet-science tier grouping - how metallurgic, agricultural, electromagnetic, cryogenic, and promethium packs group into the post-`fh-land-grants-5` tiers before the terminal infinite tier.
 - **Open:** Whether `get_territory_stats(force_index)` returns a per-surface breakdown in addition to the force-wide `{trails, ramparts, deeds}` totals.

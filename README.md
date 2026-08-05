@@ -6,8 +6,8 @@ Freehold divides the map into 32x32 **cells** and puts each one on a four-state 
 
 | State | What you may build | Cumulative price |
 |---|---|---|
-| **Wilderness** | Nothing. No entities, no tiles. (Vehicles remain deployable anywhere.) | 0 |
-| **Trail** | Belts, rails, pipes — and tiles: landfill, concrete, foundation | 1 |
+| **Wilderness** | Nothing buildable. (Vehicles remain deployable anywhere.) | 0 |
+| **Trail** | Belts, rails, pipes | 1 |
 | **Rampart** | Everything Trail permits, plus turrets, walls, gates, radar, poles, solar, accumulators | 3 |
 | **Deed** | Everything, including artillery turrets | 5 |
 
@@ -34,7 +34,7 @@ New claims must touch land you already hold. That's checked only when you claim;
 
 ### The causeway
 
-Tiles are gated at Trail, not Deed. So: Trail-claim a line of cells across a lake (a claim doesn't need buildable ground), landfill a causeway through them, and run rail across. Water stops being a wall.
+Trail-claim a line of cells across a lake — a claim doesn't need buildable ground — landfill a causeway, and run rail across. Water stops being a wall. Freehold never gates tiles, so the landfill was always free; it's the rails that need Trail rights.
 
 ## Compatibility
 
