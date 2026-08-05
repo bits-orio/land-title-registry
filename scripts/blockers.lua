@@ -4,6 +4,7 @@
 
 local const = require("scripts.const")
 local registry = require("scripts.registry")
+local render = require("scripts.render")
 
 local blockers = {}
 
@@ -121,6 +122,10 @@ function blockers.reconcile(surface, cx, cy)
       register(entity, surface_index, cell_key)
     end
   end
+
+  -- Renders are derived state exactly like blockers: /fh-rebuild, surface
+  -- sweeps, and re-enables refresh them through the same reconcile.
+  render.refresh_cell(surface, cx, cy)
 end
 
 function blockers.on_chunk_generated(event)

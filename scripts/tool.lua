@@ -13,10 +13,9 @@ local tool = {}
 local TOOL_NAME = "fh-survey-tool"
 local HOVER_TICK_INTERVAL = 10
 
--- M1 uses utility sounds; fh- sound prototypes arrive with M3 polish.
-local SOUND_CLAIM = "utility/build_medium"
-local SOUND_DENY = "utility/cannot_build"
-local SOUND_REFUND = "utility/deconstruct_medium"
+local SOUND_CLAIM = "fh-sound-claim"
+local SOUND_DENY = "fh-sound-deny"
+local SOUND_REFUND = "fh-sound-refund"
 
 local LABEL_OK = { r = 1, g = 1, b = 1 }
 local LABEL_SHORT = { r = 1, g = 0.35, b = 0.35 }

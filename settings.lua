@@ -1,5 +1,42 @@
--- M3 adds fh-show-points; M4 adds the layer-override startup strings.
+-- M4 adds the layer-override startup strings.
+
+-- Per-planet border colors (used when MTS team colors are absent). The
+-- settings stage cannot enumerate planet prototypes (they are data-stage),
+-- so the known base/Space Age planets get named settings and every other
+-- planet falls back to fh-color-default at runtime.
+local color_settings = {
+  { name = "fh-color-default", color = { r = 0.85, g = 0.80, b = 0.62 } },
+  { name = "fh-color-nauvis", color = { r = 0.36, g = 0.68, b = 0.38 } },
+}
+if mods["space-age"] then
+  local sa = {
+    { name = "fh-color-vulcanus", color = { r = 0.85, g = 0.48, b = 0.24 } },
+    { name = "fh-color-fulgora", color = { r = 0.68, g = 0.50, b = 0.82 } },
+    { name = "fh-color-gleba", color = { r = 0.55, g = 0.72, b = 0.25 } },
+    { name = "fh-color-aquilo", color = { r = 0.42, g = 0.67, b = 0.82 } },
+  }
+  for _, entry in ipairs(sa) do color_settings[#color_settings + 1] = entry end
+end
+local extended = {}
+for i, entry in ipairs(color_settings) do
+  extended[#extended + 1] = {
+    type = "color-setting",
+    name = entry.name,
+    setting_type = "runtime-global",
+    default_value = entry.color,
+    order = "d[colors]-" .. string.char(96 + i),
+  }
+end
+data:extend(extended)
+
 data:extend({
+  {
+    type = "bool-setting",
+    name = "fh-show-points",
+    setting_type = "runtime-per-user",
+    default_value = true,
+    order = "c[ux]-b[show-points]",
+  },
   {
     type = "int-setting",
     name = "fh-points-per-level",

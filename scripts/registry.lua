@@ -29,6 +29,8 @@ function registry.init_storage()
   storage.blocker_regids = storage.blocker_regids or {}
   -- pending /fh-rebuild work items, drained by a temporary on_nth_tick
   storage.rebuild_queue = storage.rebuild_queue or {}
+  -- [surface_index][cell_key] -> array of LuaRenderObject owned by the cell
+  storage.renders = storage.renders or {}
   -- player_index -> true while that player holds the survey tool
   storage.tool_holders = storage.tool_holders or {}
   -- player_index -> last hovered cell key, for hover feedback

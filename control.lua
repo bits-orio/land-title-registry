@@ -8,6 +8,8 @@ local blockers = require("scripts.blockers")
 local economy = require("scripts.economy")
 local tool = require("scripts.tool")
 local tech = require("scripts.tech")
+local render = require("scripts.render")
+local hud = require("scripts.hud")
 local custom_events = require("scripts.custom_events")
 require("scripts.commands")
 require("scripts.remote")
@@ -61,9 +63,11 @@ end)
 
 script.on_event(defines.events.on_surface_cleared, function(event)
   registry.drop_surface_claims(event.surface_index)
+  render.drop_surface(event.surface_index)
 end)
 
 script.on_event(defines.events.on_surface_deleted, function(event)
+  render.drop_surface(event.surface_index)
   registry.drop_surface(event.surface_index)
 end)
 
@@ -72,7 +76,12 @@ script.on_event(defines.events.on_force_created, function(event)
   economy.init_force(event.force)
 end)
 
-script.on_event(defines.events.on_forces_merged, economy.on_forces_merged)
+script.on_event(defines.events.on_forces_merged, function(event)
+  economy.on_forces_merged(event)
+  -- Rebuilding reconciles both blockers (idempotent) and renders, whose
+  -- forces filters and colors must move to the surviving force.
+  blockers.enqueue_full_rebuild()
+end)
 
 -- Research income
 script.on_event(defines.events.on_research_finished, tech.on_research_finished)
@@ -85,16 +94,45 @@ script.on_event(defines.events.on_player_reverse_selected_area, tool.on_reverse_
 script.on_event(defines.events.on_player_alt_reverse_selected_area, tool.on_alt_reverse_selected)
 script.on_event(defines.events.on_player_cursor_stack_changed, tool.on_cursor_changed)
 
--- Players (charter presence + label refresh; on_player_changed_force is
+-- Players (charter presence, HUD, label refresh; on_player_changed_force is
 -- non-negotiable — MTS moves players between forces routinely)
-script.on_event(defines.events.on_player_created, tech.on_player_created)
+script.on_event(defines.events.on_player_created, function(event)
+  tech.on_player_created(event)
+  hud.on_player_created(event)
+end)
+script.on_event(defines.events.on_player_joined_game, hud.on_player_joined)
 script.on_event(defines.events.on_player_changed_surface, tech.on_player_changed_surface)
 script.on_event(defines.events.on_player_changed_force, function(event)
   tool.on_player_changed_force(event)
   tech.on_player_changed_force(event)
+  hud.on_player_changed_force(event)
 end)
 script.on_event(defines.events.on_player_left_game, tool.on_player_gone)
 script.on_event(defines.events.on_player_removed, tool.on_player_gone)
 
+-- Settings: HUD visibility per player; border-color changes re-render
+-- everything through the batched rebuild queue, never in one tick.
+script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
+  hud.on_setting_changed(event)
+  if string.find(event.setting, "^fh%-color%-") then
+    blockers.enqueue_full_rebuild()
+  end
+end)
+
 -- Freehold's own custom events double as internal refresh triggers.
-script.on_event(custom_events.on_points_changed, tool.on_points_changed)
+script.on_event(custom_events.on_points_changed, function(event)
+  tool.on_points_changed(event)
+  hud.on_points_changed(event)
+end)
+script.on_event(custom_events.on_cell_claimed, function(event)
+  local surface = game.surfaces[event.surface_index]
+  if surface and surface.valid then
+    render.refresh_around(surface, event.cell_pos.x, event.cell_pos.y)
+  end
+end)
+script.on_event(custom_events.on_cell_downgraded, function(event)
+  local surface = game.surfaces[event.surface_index]
+  if surface and surface.valid then
+    render.refresh_around(surface, event.cell_pos.x, event.cell_pos.y)
+  end
+end)
