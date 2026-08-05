@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "diagnostics.enable": true,
+  "runtime.version": "Lua 5.2",
+  "diagnostics.globals": [
+    "game", "defines", "script", "settings", "storage", "remote", "log",
+    "data", "mods", "commands", "prototypes", "rcon", "rendering", "helpers",
+    "serpent", "table_size", "localised_print", "global"
+  ],
+  "diagnostics.disable": ["lowercase-global", "undefined-doc-name"],
+  "workspace.checkThirdParty": false,
+  "telemetry.enable": false
+}

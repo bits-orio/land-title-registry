@@ -1,0 +1,294 @@
+name: Package Factorio Mod
+
+# Tag a release to publish: `git tag v0.1.0 && git push origin v0.1.0`.
+# The tag must match info.json's version (v<version>) — the build fails otherwise.
+# Prefer driving this through tools/release.sh, which pre-checks the changelog.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    env:
+      # Hoisted to job scope so step-level `if:` conditions can see it.
+      # (Step-level env is not available in the same step's if expression.)
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      DISCORD_ANNOUNCEMENTS_WEBHOOK: ${{ secrets.DISCORD_ANNOUNCEMENTS_WEBHOOK }}
+      FACTORIO_API_KEY: ${{ secrets.FACTORIO_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need history so we can compare against older tags
+
+      - name: Read mod info
+        id: info
+        run: |
+          NAME=$(jq -r .name info.json)
+          VERSION=$(jq -r .version info.json)
+          TITLE=$(jq -r .title info.json)
+          echo "name=${NAME}"       >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "title=${TITLE}"     >> "$GITHUB_OUTPUT"
+          echo "folder=${NAME}_${VERSION}" >> "$GITHUB_OUTPUT"
+
+      # A tag that disagrees with info.json produces a zip the mod portal will
+      # reject (or worse, silently publishes the wrong version number). Fail
+      # loudly and early instead.
+      - name: Sanity-check tag matches info.json
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$TAG_VERSION" != "${{ steps.info.outputs.version }}" ]; then
+            echo "::error::tag v${TAG_VERSION} does not match info.json version ${{ steps.info.outputs.version }}"
+            exit 1
+          fi
+
+      # Fetch the tag of the most recent PUBLISHED release (not just the most
+      # recent tag — a tag might exist without a release if an earlier workflow
+      # run failed). We run this BEFORE creating the current release so that
+      # "latest" refers to the actual previous one.
+      #
+      # We also explicitly EXCLUDE the tag being pushed: if this is a re-push
+      # of an already-released tag, /releases/latest can return the same tag
+      # we're processing (which makes release notes collapse to empty).
+      - name: Fetch previous published release
+        id: prev
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CURRENT_TAG="${GITHUB_REF_NAME}"
+          PREV_TAG=$(gh api "repos/${{ github.repository }}/releases" \
+            --jq "[.[] | select(.tag_name != \"${CURRENT_TAG}\") | select(.draft == false)][0].tag_name // \"\"" \
+            2>/dev/null || true)
+          PREV_VERSION="${PREV_TAG#v}"
+          echo "tag=${PREV_TAG}"          >> "$GITHUB_OUTPUT"
+          echo "version=${PREV_VERSION}"  >> "$GITHUB_OUTPUT"
+          echo "Current tag: '${CURRENT_TAG}'"
+          echo "Previous published release: '${PREV_TAG}' (version '${PREV_VERSION}')"
+
+      # Extract all changelog entries for versions in the range
+      # (prev_published, current]. If prev is empty (very first release),
+      # emit only the current version's entry. Falls back to git log if
+      # changelog.txt has no matching entry.
+      - name: Extract release notes
+        id: notes
+        run: |
+          VERSION="${{ steps.info.outputs.version }}"
+          PREV_VERSION="${{ steps.prev.outputs.version }}"
+
+          # Primary: walk changelog.txt top-down, including entries until we
+          # hit the previous published version. Changelog is newest-first.
+          NOTES=$(awk -v prev="$PREV_VERSION" '
+            BEGIN { collecting = 0 }
+            /^-{50,}$/ {
+              # Separator lines — keep only when collecting, and not the very
+              # first one (which precedes the newest entry).
+              if (collecting) print ""
+              next
+            }
+            /^Version: / {
+              if (prev != "" && $2 == prev) { exit }
+              collecting = 1
+              print "### " $0
+              next
+            }
+            /^Date: / {
+              if (collecting) print "_" $0 "_"
+              next
+            }
+            collecting {
+              sub(/^  /, "")  # strip leading 2-space indent
+              print
+            }
+          ' changelog.txt)
+
+          # Fallback: git log subjects since the previous release tag.
+          if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
+            PREV_TAG="${{ steps.prev.outputs.tag }}"
+            if [ -n "$PREV_TAG" ]; then
+              NOTES=$(git log --pretty=format:"- %s" "${PREV_TAG}..HEAD" \
+                | grep -v "^- Bump version" || true)
+            else
+              NOTES=$(git log --pretty=format:"- %s" HEAD \
+                | grep -v "^- Bump version" \
+                | head -50 || true)
+            fi
+          fi
+
+          # Truncate for Discord limit (embed description ~4096 chars).
+          NOTES="${NOTES:0:4000}"
+          {
+            echo 'notes<<NOTES_EOF'
+            echo "$NOTES"
+            echo 'NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+          echo "--- Release notes preview ---"
+          echo "$NOTES"
+          echo "--- End preview ---"
+
+      - name: Build zip
+        run: |
+          FOLDER="${{ steps.info.outputs.folder }}"
+          mkdir -p "build/${FOLDER}"
+          # The Factorio mod portal rejects any zip containing files with
+          # extensions exe / bat / ps1 / sh / py. Strip those at packaging
+          # time so the workflow doesn't depend on every script living under
+          # tools/ (link-mod.sh sits at the repo root for ergonomic reasons
+          # and would otherwise leak into the zip).
+          #
+          # docs/ and the design document are repo-only: they are large and of
+          # no use inside the shipped mod.
+          rsync -a --exclude='.git' \
+                   --exclude='.github' \
+                   --exclude='.gitignore' \
+                   --exclude='.claude' \
+                   --exclude='.vscode' \
+                   --exclude='.luarc.json' \
+                   --exclude='build' \
+                   --exclude='docs' \
+                   --exclude='FREEHOLD_DESIGN.md' \
+                   --exclude='CONTEXT.md' \
+                   --exclude='tools' \
+                   --exclude='*.sh' \
+                   --exclude='*.py' \
+                   --exclude='*.bat' \
+                   --exclude='*.ps1' \
+                   --exclude='*.exe' \
+                   ./ "build/${FOLDER}/"
+          cd build
+          zip -r "../${FOLDER}.zip" "${FOLDER}"
+
+      - name: Create GitHub Release
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.info.outputs.folder }}.zip
+          # Curated notes from changelog.txt. We don't use
+          # generate_release_notes here because combining it with body in v2
+          # has inconsistent behavior; the curated changelog is the canonical
+          # release notes for this mod anyway.
+          body: ${{ steps.notes.outputs.notes }}
+
+      - name: Post release announcement to Discord
+        if: ${{ env.DISCORD_WEBHOOK != '' }}
+        env:
+          # Pass via env rather than ${{ … }} template substitution in the
+          # run script. Template values are inlined LITERALLY into the bash
+          # script; if NOTES contains a double quote it closes the bash string
+          # assignment prematurely and the rest becomes bash commands.
+          # Env vars go through the OS environment — no bash parsing pitfalls.
+          RELEASE_VERSION: ${{ steps.info.outputs.version }}
+          RELEASE_TITLE:   ${{ steps.info.outputs.title }}
+          RELEASE_URL:     ${{ steps.release.outputs.url }}
+          RELEASE_NOTES:   ${{ steps.notes.outputs.notes }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg title "${RELEASE_TITLE} v${RELEASE_VERSION} Released!" \
+            --arg desc  "$RELEASE_NOTES" \
+            --arg url   "$RELEASE_URL" \
+            '{
+              embeds: [{
+                title:       $title,
+                description: $desc,
+                url:         $url,
+                color:       9138005
+              }]
+            }')
+
+          echo "--- Payload byte size: $(echo -n "$PAYLOAD" | wc -c)"
+          echo "--- Payload preview (sanitized, no webhook URL): ---"
+          echo "$PAYLOAD" | head -c 2000
+          echo ""
+          echo "--- End payload preview ---"
+
+          # Mask the webhook URL from the log BUT capture full HTTP status +
+          # response body so we can see WHY Discord rejected the request.
+          HTTP_CODE=$(curl -sS \
+            -w "%{http_code}" \
+            -o /tmp/discord_response.txt \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$DISCORD_WEBHOOK")
+          CURL_EXIT=$?
+
+          echo "--- Discord HTTP status: ${HTTP_CODE}"
+          echo "--- curl exit code: ${CURL_EXIT}"
+          echo "--- Discord response body: ---"
+          cat /tmp/discord_response.txt || true
+          echo ""
+          echo "--- End response body ---"
+
+          # Non-2xx means the webhook rejected us. Fail the step so it's
+          # visible, but only after we've logged everything useful.
+          if [ "$CURL_EXIT" -ne 0 ] || [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Discord webhook returned non-success status (${HTTP_CODE})"
+            exit 1
+          fi
+
+      # Upload to the Factorio mod portal. Runs even if Discord failed, since
+      # the GH release + tag are the source of truth and a portal upload
+      # missing is more expensive to recover than a missing Discord post.
+      # Idempotent — safe to re-run; it noops if the version is already on
+      # the portal. If THIS step fails, recover via the manual
+      # "Upload to Mod Portal" workflow (mod-portal-upload.yml).
+      #
+      # NOTE: the upload API adds a *release* to an *existing* mod page. The
+      # `freehold` page must be created once on mods.factorio.com by hand
+      # before the first portal upload can succeed.
+      - name: Upload to Factorio mod portal
+        id: upload
+        if: ${{ always() && steps.release.outcome == 'success' && env.FACTORIO_API_KEY != '' }}
+        run: |
+          ./tools/upload_mod_portal.sh \
+            "${{ steps.info.outputs.name }}" \
+            "${{ steps.info.outputs.version }}" \
+            "${{ steps.info.outputs.folder }}.zip"
+
+      # Short "now live on the mod portal" ping to a separate announcements
+      # channel. The full changelog goes to DISCORD_WEBHOOK (changelog
+      # channel); this is the human-facing "go play it" message that fires
+      # only after the portal upload actually succeeds.
+      - name: Post mod-portal release to announcements channel
+        if: ${{ steps.upload.outcome == 'success' && env.DISCORD_ANNOUNCEMENTS_WEBHOOK != '' }}
+        env:
+          RELEASE_VERSION: ${{ steps.info.outputs.version }}
+          RELEASE_TITLE:   ${{ steps.info.outputs.title }}
+          MOD_NAME:        ${{ steps.info.outputs.name }}
+        run: |
+          PORTAL_URL="https://mods.factorio.com/mod/${MOD_NAME}"
+          PAYLOAD=$(jq -n \
+            --arg title "${RELEASE_TITLE} v${RELEASE_VERSION} is live on the mod portal" \
+            --arg desc  "Download or update in-game from the mods menu." \
+            --arg url   "$PORTAL_URL" \
+            '{
+              embeds: [{
+                title:       $title,
+                description: $desc,
+                url:         $url,
+                color:       5763719
+              }]
+            }')
+
+          HTTP_CODE=$(curl -sS \
+            -w "%{http_code}" \
+            -o /tmp/announce_response.txt \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$DISCORD_ANNOUNCEMENTS_WEBHOOK")
+          CURL_EXIT=$?
+
+          echo "--- Announcements HTTP status: ${HTTP_CODE}"
+          echo "--- curl exit: ${CURL_EXIT}"
+          cat /tmp/announce_response.txt || true
+          echo ""
+
+          if [ "$CURL_EXIT" -ne 0 ] || [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Announcements webhook returned non-success status (${HTTP_CODE})"
+            exit 1
+          fi

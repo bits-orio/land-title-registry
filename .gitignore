@@ -1,0 +1,12 @@
+# Editor workspace files
+*.code-workspace
+
+# Git worktrees for feature branches
+/.worktrees/
+
+# Local test rig (save, mods symlink, server settings)
+/.run/
+
+# Build output
+/build/
+/*.zip

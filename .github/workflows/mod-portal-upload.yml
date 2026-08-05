@@ -1,0 +1,128 @@
+name: Upload to Mod Portal
+
+# Manual retry for the mod-portal upload step. The main release workflow
+# already attempts the upload after creating the GitHub release; use this
+# workflow when that step failed (network blip, portal outage, missing API
+# key at the time, etc.) so you don't have to delete and re-tag.
+#
+# The upload script is idempotent — if the version is already on the portal
+# this is a fast noop, so it's also safe to run "just in case".
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to upload (e.g. v0.1.0). Defaults to latest published release."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    env:
+      FACTORIO_API_KEY: ${{ secrets.FACTORIO_API_KEY }}
+      DISCORD_ANNOUNCEMENTS_WEBHOOK: ${{ secrets.DISCORD_ANNOUNCEMENTS_WEBHOOK }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          TAG="$INPUT_TAG"
+          if [ -z "$TAG" ]; then
+            TAG=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name)
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error::Could not resolve a tag to upload"
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}"         >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: ${TAG} (version ${VERSION})"
+
+      - name: Read mod info from info.json at that tag
+        id: info
+        run: |
+          # Use the info.json from the tagged commit, not from HEAD — the
+          # mod name is unlikely to change but tying everything to the tag
+          # keeps this workflow self-consistent.
+          NAME=$(git show "${{ steps.tag.outputs.tag }}:info.json" | jq -r .name)
+          TITLE=$(git show "${{ steps.tag.outputs.tag }}:info.json" | jq -r .title)
+          echo "name=${NAME}"   >> "$GITHUB_OUTPUT"
+          echo "title=${TITLE}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify API key is configured
+        if: ${{ env.FACTORIO_API_KEY == '' }}
+        run: |
+          echo "::error::FACTORIO_API_KEY secret is not set"
+          exit 1
+
+      - name: Download release zip
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The release was built as <name>_<version>.zip by release.yml.
+          ZIP="${{ steps.info.outputs.name }}_${{ steps.tag.outputs.version }}.zip"
+          gh release download "${{ steps.tag.outputs.tag }}" \
+            --pattern "${ZIP}" \
+            --output "${ZIP}"
+          ls -la "${ZIP}"
+
+      - name: Upload to Factorio mod portal
+        id: upload
+        run: |
+          ZIP="${{ steps.info.outputs.name }}_${{ steps.tag.outputs.version }}.zip"
+          ./tools/upload_mod_portal.sh \
+            "${{ steps.info.outputs.name }}" \
+            "${{ steps.tag.outputs.version }}" \
+            "${ZIP}"
+
+      # Mirror of the announce step in release.yml. When this manual workflow
+      # is the one that actually puts the version on the portal (because the
+      # original release run failed at upload), the announcement should fire
+      # from here too.
+      - name: Post mod-portal release to announcements channel
+        if: ${{ steps.upload.outcome == 'success' && env.DISCORD_ANNOUNCEMENTS_WEBHOOK != '' }}
+        env:
+          RELEASE_VERSION: ${{ steps.tag.outputs.version }}
+          RELEASE_TITLE:   ${{ steps.info.outputs.title }}
+          MOD_NAME:        ${{ steps.info.outputs.name }}
+        run: |
+          PORTAL_URL="https://mods.factorio.com/mod/${MOD_NAME}"
+          PAYLOAD=$(jq -n \
+            --arg title "${RELEASE_TITLE} v${RELEASE_VERSION} is live on the mod portal" \
+            --arg desc  "Download or update in-game from the mods menu." \
+            --arg url   "$PORTAL_URL" \
+            '{
+              embeds: [{
+                title:       $title,
+                description: $desc,
+                url:         $url,
+                color:       5763719
+              }]
+            }')
+
+          HTTP_CODE=$(curl -sS \
+            -w "%{http_code}" \
+            -o /tmp/announce_response.txt \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$DISCORD_ANNOUNCEMENTS_WEBHOOK")
+          CURL_EXIT=$?
+
+          echo "--- Announcements HTTP status: ${HTTP_CODE}"
+          echo "--- curl exit: ${CURL_EXIT}"
+          cat /tmp/announce_response.txt || true
+          echo ""
+
+          if [ "$CURL_EXIT" -ne 0 ] || [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Announcements webhook returned non-success status (${HTTP_CODE})"
+            exit 1
+          fi
