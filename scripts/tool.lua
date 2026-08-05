@@ -111,6 +111,7 @@ end
 -- the batch center. force.print lands in the MTS team channel automatically
 -- when MTS is present, and ODB does not relay it — both by construction.
 local ACTION_LOCALE = {
+  advance = "freehold.announce-advance",
   trail = "freehold.announce-trail",
   rampart = "freehold.announce-rampart",
   deed = "freehold.announce-deed",
@@ -147,7 +148,11 @@ local function handle_selection(action, event)
   announce(player, surface, rect, action, result)
 end
 
-function tool.on_selected(event) handle_selection("trail", event) end
+-- The advertised interaction is two gestures (ADR-0011): drag raises every
+-- covered cell one rung, right-drag lowers one rung. The Shift variants are
+-- unadvertised accelerators that jump with full credit — the economy's
+-- path-independence makes stepping and jumping cost the same.
+function tool.on_selected(event) handle_selection("advance", event) end
 function tool.on_alt_selected(event) handle_selection("deed", event) end
 function tool.on_reverse_selected(event) handle_selection("downgrade", event) end
 function tool.on_alt_reverse_selected(event) handle_selection("rampart", event) end

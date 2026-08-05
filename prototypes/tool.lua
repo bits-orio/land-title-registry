@@ -21,7 +21,7 @@ data:extend({
   {
     type = "selection-tool",
     name = "fh-survey-tool",
-    icon = "__base__/graphics/icons/landfill.png",
+    icon = "__freehold__/graphics/survey-tool.png",
     icon_size = 64,
     stack_size = 1,
     flags = { "not-stackable", "only-in-cursor", "spawnable" },

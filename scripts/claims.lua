@@ -295,7 +295,15 @@ function claims.apply_batch(surface, force, player, rect, action, opts)
   local candidates = {}
   for cy = rect.y1, rect.y2 do
     for cx = rect.x1, rect.x2 do
-      local t = evaluate_claim(surface, force, cx, cy, action)
+      -- "advance" raises each cell one rung from wherever it is; the
+      -- explicit-target actions (deed/rampart accelerators, remote claims)
+      -- jump with full credit. Both share the same evaluation.
+      local target = action
+      if action == "advance" then
+        local rec = registry.get(surface.index, registry.cell_key(cx, cy))
+        target = const.NEXT_STATE[rec and rec.state or "wilderness"]
+      end
+      local t = target and evaluate_claim(surface, force, cx, cy, target)
       if t then
         if t.is_new_claim then
           candidates[t.cell_key] = t
@@ -343,6 +351,35 @@ function claims.apply_batch(surface, force, player, rect, action, opts)
     if rec and rec.force_index == force.index then result.hint = "already-" .. rec.state end
   end
   return result
+end
+
+-- Grant a free Trail on one Wilderness cell — the starter-cell guidance
+-- anchor, given once per force per planet at first presence (ADR-0011).
+-- invested_points = 0: granted, not bought (the step-price refund on a
+-- later downgrade leaks 0.25 points; accepted).
+function claims.grant_free(surface, force, player, cx, cy)
+  if storage.disabled_surfaces[surface.index] then return false end
+  local cell_key = registry.cell_key(cx, cy)
+  if registry.get(surface.index, cell_key) then return false end
+  if not blockers.cell_touches_generated(surface, cx, cy) then return false end
+  registry.set(surface.index, cell_key, {
+    state = "trail",
+    force_index = force.index,
+    claimed_tick = game.tick,
+    invested_points = 0,
+    claimant = player and player.name or nil,
+  })
+  blockers.set(surface, cx, cy, "trail")
+  script.raise_event(custom_events.on_cell_claimed, {
+    surface_index = surface.index,
+    cell_pos = { x = cx, y = cy },
+    force_name = force.name,
+    old_state = "wilderness",
+    new_state = "trail",
+    player_index = player and player.index or nil,
+    cost = 0,
+  })
+  return true
 end
 
 return claims

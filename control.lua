@@ -12,6 +12,7 @@ local tech = require("scripts.tech")
 local render = require("scripts.render")
 local hud = require("scripts.hud")
 local custom_events = require("scripts.custom_events")
+local welcome = require("scripts.welcome")
 local mts_compat = require("compat.mts")
 local odb_compat = require("compat.odb")
 require("scripts.commands")
@@ -115,6 +116,7 @@ end)
 script.on_event(defines.events.on_forces_merged, function(event)
   -- Charters union FIRST so the survivor cannot re-farm chartered planets.
   tech.merge_charters(event.source_index, event.destination.index)
+  welcome.on_forces_merged(event)
   economy.on_forces_merged(event)
   -- Rebuilding reconciles both blockers (idempotent) and renders, whose
   -- forces filters and colors must move to the surviving force.
@@ -137,7 +139,9 @@ script.on_event(defines.events.on_player_cursor_stack_changed, tool.on_cursor_ch
 script.on_event(defines.events.on_player_created, function(event)
   tech.on_player_created(event)
   hud.on_player_created(event)
+  welcome.on_player_created(event)
 end)
+script.on_event(defines.events.on_gui_click, welcome.on_gui_click)
 script.on_event(defines.events.on_player_joined_game, hud.on_player_joined)
 script.on_event(defines.events.on_player_changed_surface, tech.on_player_changed_surface)
 script.on_event(defines.events.on_player_changed_force, function(event)
@@ -168,6 +172,7 @@ script.on_event(custom_events.on_cell_claimed, function(event)
   if surface and surface.valid then
     render.refresh_around(surface, event.cell_pos.x, event.cell_pos.y)
   end
+  welcome.on_cell_claimed(event)
   if odb_compat.active then odb_compat.on_cell_claimed(event) end
 end)
 script.on_event(custom_events.on_cell_downgraded, function(event)

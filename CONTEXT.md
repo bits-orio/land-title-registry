@@ -60,7 +60,10 @@ An edge between two orthogonally adjacent cells whose states differ. Borders are
 The corner marker sprite at a vertex touched by at least one frontier edge. The mod's visual signature — square cells delegate identity to rendering rather than geometry.
 
 **Survey tool**:
-`fh-survey-tool`, the single selection-tool item through which all claiming, upgrading, and downgrading happens. Only-in-cursor, never craftable, acquired via shortcut button or hotkey.
+`fh-survey-tool`, the single selection-tool item through which all claiming, upgrading, and downgrading happens. Two gestures: drag raises one rung, right-drag lowers one (Shift variants jump, unadvertised). Only-in-cursor, never craftable, acquired via shortcut button or hotkey.
+
+**Starter cell**:
+The free Trail granted on the cell a player stands on at their force's first presence on each planet — the visible anchor growth starts from. Granted, not bought (invested 0).
 
 **Batch**:
 The set of cells covered by one survey-tool drag. All-or-nothing: if the total cost exceeds the balance, nothing is applied. Never partially applied — predictability over cleverness.

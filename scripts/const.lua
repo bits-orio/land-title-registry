@@ -59,6 +59,14 @@ const.VALIDITY_LAYERS = {
   trail = { "fh-land", "fh-transit", "fh-rampart" },
 }
 
+-- The rung above each state, for the advance action (drag = raise one rung).
+const.NEXT_STATE = {
+  wilderness = "trail",
+  trail = "rampart",
+  rampart = "deed",
+  -- deed: top of the ladder
+}
+
 -- Next step up the ladder, for hover feedback and the cursor label's
 -- can-afford tint.
 const.NEXT_STEP_COST = {

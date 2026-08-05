@@ -35,6 +35,11 @@ function registry.init_storage()
   storage.tool_holders = storage.tool_holders or {}
   -- player_index -> last hovered cell key, for hover feedback
   storage.hover = storage.hover or {}
+  -- player_index -> true once the welcome panel has been shown
+  storage.welcomed = storage.welcomed or {}
+  -- force_index -> render objects of the origin gesture hints, destroyed on
+  -- the force's first paid claim
+  storage.tutorial_renders = storage.tutorial_renders or {}
 end
 
 function registry.init_surface(surface_index)

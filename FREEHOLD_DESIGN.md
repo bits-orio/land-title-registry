@@ -448,14 +448,16 @@ All claiming, upgrading, and downgrading is done with a single item: the **surve
 
 ### Selection Modes
 
-The four selection modes of the tool map one-to-one onto the four actions, applied to the rectangle of cells covered by the drag:
+**Redesigned during playtesting (ADR-0011): the advertised interaction is two gestures.** Four modifier-combos proved to be a memory test; and since full credit makes stepping and jumping cost the same, tier-jump modes were solving a problem the pricing had already solved.
 
-| Mode | Event | Action on the dragged rectangle | Eligible cells | Cost per eligible cell |
-|---|---|---|---|---|
-| select (drag) | `on_player_selected_area` | Claim Trail | Wilderness cells | 1 |
-| alt-select | `on_player_alt_selected_area` | Claim/upgrade to Deed | Wilderness, Trail, Rampart cells | 5 / +4 / +2 (full credit for held tiers) |
-| reverse-select | `on_player_reverse_selected_area` | Downgrade one step, with refund | Owned cells passing the downgrade validity check | refund = step price × `fh-refund-percent` / 100 |
-| alt-reverse-select | `on_player_alt_reverse_selected_area` | Claim/upgrade to Rampart | Wilderness, Trail cells | 3 / +2 (credited through Trail) |
+| Mode | Event | Action on the dragged rectangle |
+|---|---|---|
+| select (drag) | `on_player_selected_area` | **Raise one rung**: every covered cell advances one state (Wilderness→Trail→Rampart→Deed; Deeds no-op) |
+| reverse-select (right-drag) | `on_player_reverse_selected_area` | **Lower one rung**, with refund, subject to the validity check |
+| alt-select (Shift-drag) | `on_player_alt_selected_area` | Unadvertised accelerator: jump to Deed with full credit |
+| alt-reverse-select (Shift-right-drag) | `on_player_alt_reverse_selected_area` | Unadvertised accelerator: jump to Rampart with full credit |
+
+"Left raises land, right lowers it." Onboarding (welcome panel, tips-and-tricks, the free starter cell with surface-drawn gesture hints) ships alongside — see ADR-0011. The remote `claim` function keeps explicit target states.
 
 Prices, credits, the adjacency rule for new claims on Wilderness, and downgrade validity (the entity check) are specified in *Economy*; the tool applies them, it does not define them.
 
