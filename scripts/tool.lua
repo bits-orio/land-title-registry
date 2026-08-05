@@ -115,7 +115,9 @@ end
 
 local function announce(player, surface, rect, action, result)
   if not settings.global["fh-print-claims"].value then return end
-  if result.applied == 0 then return end
+  -- Denied results carry no `applied` at all — {denied = "anchor"} — so the
+  -- nil must be handled explicitly, not just the zero.
+  if result.denied or not result.applied or result.applied == 0 then return end
   local cx = (rect.x1 + rect.x2 + 1) / 2 * const.CELL
   local cy = (rect.y1 + rect.y2 + 1) / 2 * const.CELL
   local gps = string.format("[gps=%d,%d,%s]", cx, cy, surface.name)
