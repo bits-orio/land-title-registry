@@ -13,6 +13,7 @@ local render = require("scripts.render")
 local hud = require("scripts.hud")
 local custom_events = require("scripts.custom_events")
 local welcome = require("scripts.welcome")
+local chronicle = require("scripts.chronicle")
 local mts_compat = require("compat.mts")
 local odb_compat = require("compat.odb")
 require("scripts.commands")
@@ -106,10 +107,12 @@ end)
 script.on_event(defines.events.on_surface_cleared, function(event)
   registry.drop_surface_claims(event.surface_index)
   render.drop_surface(event.surface_index)
+  chronicle.drop_surface(event.surface_index)
 end)
 
 script.on_event(defines.events.on_surface_deleted, function(event)
   render.drop_surface(event.surface_index)
+  chronicle.drop_surface(event.surface_index)
   registry.drop_surface(event.surface_index)
 end)
 
@@ -122,6 +125,7 @@ script.on_event(defines.events.on_forces_merged, function(event)
   -- Charters union FIRST so the survivor cannot re-farm chartered planets.
   tech.merge_charters(event.source_index, event.destination.index)
   welcome.on_forces_merged(event)
+  chronicle.on_forces_merged(event)
   economy.on_forces_merged(event)
   -- Rebuilding reconciles both blockers (idempotent) and renders, whose
   -- forces filters and colors must move to the surviving force.
@@ -181,6 +185,7 @@ script.on_event(custom_events.on_cell_claimed, function(event)
     render.refresh_around(surface, event.cell_pos.x, event.cell_pos.y)
   end
   welcome.on_cell_claimed(event)
+  chronicle.on_cell_claimed(event)
   if odb_compat.active then odb_compat.on_cell_claimed(event) end
 end)
 script.on_event(custom_events.on_cell_downgraded, function(event)

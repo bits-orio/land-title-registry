@@ -1018,7 +1018,7 @@ v1 ships the complete land-rights core: the fixed 32x32 cell grid with the Wilde
 | Candidate | One-liner |
 | --- | --- |
 | Zoning designations | The headline: designate Deed cells for purposes with bonuses. |
-| Ghost borders | MTS-only overlay of other teams' claim outlines (see below). |
+| Ghost borders | **Shipped early as the cell chronicle** (ADR-0012): per-cell speedrun leaderboard — fastest first-Deed times on team clocks, top three drawn under each cell's top edge on every copy of the planet, displacement on better times, celebration without points. |
 | Estate reports / spectator views | Territory summaries and spectator-facing map views. |
 | Planet personalities | Gleba: unused claims rot and partially refund; Vulcanus: demolisher-territory deeds; Aquilo: claims require heated adjacency; Fulgora: island-shaped parcels. |
 | Wilderness regrowth | Trees slowly recolonize unclaimed cells. |

@@ -5,6 +5,7 @@
 local const = require("scripts.const")
 local registry = require("scripts.registry")
 local render = require("scripts.render")
+local chronicle = require("scripts.chronicle")
 
 local blockers = {}
 
@@ -139,6 +140,7 @@ function blockers.reconcile(surface, cx, cy)
   -- Renders are derived state exactly like blockers: /fh-rebuild, surface
   -- sweeps, and re-enables refresh them through the same reconcile.
   render.refresh_cell(surface, cx, cy)
+  chronicle.refresh_cell(surface, cx, cy)
 end
 
 -- Every cell of the newly generated chunk gets the blocker matching its

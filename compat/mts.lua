@@ -11,6 +11,7 @@
 local economy = require("scripts.economy")
 local blockers = require("scripts.blockers")
 local render = require("scripts.render")
+local chronicle = require("scripts.chronicle")
 
 local mts = { active = false }
 
@@ -29,6 +30,15 @@ render.team_color_provider = function(force_index)
   if force and force.valid then
     return force.custom_color or force.color
   end
+end
+
+-- Cell chronicle: team display names and team-clock starts come straight
+-- from mts-v1's get_team_info — zero new MTS surface. Non-team forces fall
+-- back to force name + absolute time inside the chronicle module.
+chronicle.team_info_provider = function(force_name)
+  if not remote.interfaces["mts-v1"] then return nil end
+  if not remote.interfaces["mts-v1"]["get_team_info"] then return nil end
+  return remote.call("mts-v1", "get_team_info", force_name)
 end
 
 -- Grid only on team surfaces. The landing pen, lobbies, and any special
