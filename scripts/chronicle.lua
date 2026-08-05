@@ -57,6 +57,15 @@ local function entries_of(planet_name, cell_key)
   return storage.chronicle[planet_name][cell_key]
 end
 
+-- The chronicle group of a surface: its planet (cross-team comparable —
+-- the point of the feature), falling back to a per-surface group for
+-- surfaces without a planet association so the leaderboard still draws
+-- locally instead of silently skipping.
+local function group_of(surface)
+  if surface.planet then return surface.planet.name end
+  return "surface:" .. surface.name
+end
+
 -- Destroy and redraw the chronicle text of one cell on one surface.
 function chronicle.refresh_cell(surface, cx, cy)
   local surface_index = surface.index
@@ -73,9 +82,7 @@ function chronicle.refresh_cell(surface, cx, cy)
   end
 
   if storage.disabled_surfaces[surface_index] then return end
-  local planet = surface.planet
-  if not planet then return end
-  local entries = (storage.chronicle[planet.name] or {})[cell_key]
+  local entries = (storage.chronicle[group_of(surface)] or {})[cell_key]
   if not entries or #entries == 0 then return end
 
   local objects = {}
@@ -97,9 +104,9 @@ function chronicle.refresh_cell(surface, cx, cy)
   refs[cell_key] = objects
 end
 
-local function redraw_on_planet(planet_name, cx, cy)
+local function redraw_on_planet(group, cx, cy)
   for _, surface in pairs(game.surfaces) do
-    if surface.planet and surface.planet.name == planet_name then
+    if group_of(surface) == group then
       chronicle.refresh_cell(surface, cx, cy)
     end
   end
@@ -110,13 +117,20 @@ end
 function chronicle.on_cell_claimed(event)
   if event.new_state ~= "deed" then return end
   local surface = game.surfaces[event.surface_index]
-  if not (surface and surface.valid and surface.planet) then return end
-  local planet_name = surface.planet.name
+  if not (surface and surface.valid) then
+    log("FH-CHRON skip: invalid surface " .. tostring(event.surface_index))
+    return
+  end
+  local group = group_of(surface)
   local cell_key = registry.cell_key(event.cell_pos.x, event.cell_pos.y)
-  local entries = entries_of(planet_name, cell_key)
+  local entries = entries_of(group, cell_key)
 
   for _, entry in pairs(entries) do
-    if entry.force_name == event.force_name then return end -- time already set
+    if entry.force_name == event.force_name then
+      log(string.format("FH-CHRON skip: %s already recorded on %s (%d,%d)",
+        event.force_name, group, event.cell_pos.x, event.cell_pos.y))
+      return
+    end
   end
 
   local info = team_info(event.force_name)
@@ -132,7 +146,9 @@ function chronicle.on_cell_claimed(event)
     if entry.force_name == event.force_name then rank = i break end
   end
 
-  redraw_on_planet(planet_name, event.cell_pos.x, event.cell_pos.y)
+  log(string.format("FH-CHRON record: %s rank %d/%d on %s cell (%d,%d) clock %d",
+    event.force_name, rank, #entries, group, event.cell_pos.x, event.cell_pos.y, clock))
+  redraw_on_planet(group, event.cell_pos.x, event.cell_pos.y)
 
   -- Recognition only when there is actual competition on this cell.
   if #entries < 2 or rank > 3 then return end
@@ -187,8 +203,8 @@ function chronicle.backfill()
   local added = 0
   for surface_index, cells in pairs(storage.cells) do
     local surface = game.surfaces[surface_index]
-    if surface and surface.valid and surface.planet then
-      local planet_name = surface.planet.name
+    if surface and surface.valid then
+      local planet_name = group_of(surface)
       for cell_key, rec in pairs(cells) do
         if rec.state == "deed" then
           local force = game.forces[rec.force_index]
@@ -213,6 +229,7 @@ function chronicle.backfill()
       end
     end
   end
+  log("FH-CHRON backfill: " .. added .. " entries added")
   return added
 end
 

@@ -41,13 +41,46 @@ chronicle.team_info_provider = function(force_name)
   return remote.call("mts-v1", "get_team_info", force_name)
 end
 
--- Grid only on team surfaces. The landing pen, lobbies, and any special
--- surface MTS invents later are not team surfaces and get no grid — with
--- no enumeration of surface roles anywhere (uses mts-v1's existing
--- is_team_surface). Called by control.lua's init_surface.
+-- Grid only on team surfaces — but ONLY once MTS's team flow is actually
+-- running (at least one team exists). MTS merely being installed must not
+-- kill Freehold on plain nauvis freeplay: is_team_surface("nauvis") is
+-- false there too, and pre-gating on it swept legitimate grids (found in
+-- playtest, reproduced headless). No surface names are enumerated: the
+-- signal is MTS's own team list and team lifecycle events.
+local function teams_active()
+  if not remote.interfaces["mts-v1"] then return false end
+  if not remote.interfaces["mts-v1"]["get_team_list"] then return false end
+  local list = remote.call("mts-v1", "get_team_list")
+  if type(list) ~= "table" then return false end
+  -- MTS pre-creates its slot POOL at init, so a non-empty list does not
+  -- mean the flow is running — an OCCUPIED slot does.
+  for _, info in pairs(list) do
+    if info.is_occupied then return true end
+  end
+  return false
+end
+
 function mts.should_disable(surface)
   if not remote.interfaces["mts-v1"] then return false end
+  if not teams_active() then return false end
   return not remote.call("mts-v1", "is_team_surface", surface.name)
+end
+
+-- When the first team appears, the flow is real: gate the non-team,
+-- claim-less surfaces (the pen and lobbies; a surface holding claims is
+-- legitimate ground and is left alone).
+local function sweep_non_team_surfaces()
+  for _, surface in pairs(game.surfaces) do
+    if not surface.platform
+      and not storage.disabled_surfaces[surface.index]
+      and mts.should_disable(surface) then
+      local cells = storage.cells[surface.index]
+      if not (cells and next(cells)) then
+        storage.disabled_surfaces[surface.index] = true
+        blockers.enqueue_surface_rebuild(surface)
+      end
+    end
+  end
 end
 
 -- Resolve MTS's custom-event ids and subscribe. Ids regenerate every
@@ -70,6 +103,11 @@ function mts.resolve_events()
         blockers.enqueue_surface_rebuild(surface)
       end
     end)
+  end
+
+  local on_team_created = remote.call("mts-v1", "get_event_id", "on_team_created")
+  if on_team_created then
+    script.on_event(on_team_created, sweep_non_team_surfaces)
   end
 
   -- Recycled team slots must not inherit the previous occupant's balance —
