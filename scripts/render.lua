@@ -31,9 +31,8 @@ local registry = require("scripts.registry")
 
 local render = {}
 
--- Per-state edge art (M3 lean: Trail dashed, Rampart long-dashed, Deed
--- solid). An edge uses the art of its HIGHER state side.
-local STATE_RANK = { wilderness = 0, trail = 1, rampart = 2, deed = 3 }
+-- Per-state edge art (Trail dashed, Rampart long-dashed, Deed solid).
+-- Each claimed side of a frontier draws its own art — see INSET below.
 local EDGE_ART = {
   trail = { width = 2, dash = 0.9, gap = 0.9 },
   rampart = { width = 3, dash = 2.2, gap = 0.7 },
@@ -88,11 +87,13 @@ local function is_frontier(surface_index, ax, ay, bx, by)
   return state_at(surface_index, ax, ay) ~= state_at(surface_index, bx, by)
 end
 
-local function edge_art(surface_index, ax, ay, bx, by)
-  local sa, sb = state_at(surface_index, ax, ay), state_at(surface_index, bx, by)
-  local higher = STATE_RANK[sa] > STATE_RANK[sb] and sa or sb
-  return EDGE_ART[higher]
-end
+-- Border lines are INSET into their own claimed side rather than drawn on
+-- the shared boundary. Where two claimed states abut, BOTH sides draw their
+-- own line in their own art, 2×INSET apart — adjoining territories read as
+-- separate outlines instead of merging into one shape (survey stakes stay
+-- on the true shared vertices). A wilderness side draws nothing, so outer
+-- frontiers remain single lines.
+local INSET = 0.4
 
 local function draw_edge(objects, surface, from, to, art, color, force)
   objects[#objects + 1] = rendering.draw_line({
@@ -118,6 +119,15 @@ local function draw_edge(objects, surface, from, to, art, color, force)
     render_mode = "chart", -- ScriptRenderMode is a string union, not defines
     forces = { force },
   })
+end
+
+-- One claimed side of a frontier edge: art and color are the side's own.
+local function draw_edge_side(objects, surface, side_state, side_owner, from, to)
+  if side_state == "wilderness" or not side_owner then return end
+  local force = game.forces[side_owner]
+  if not (force and force.valid) then return end
+  draw_edge(objects, surface, from, to, EDGE_ART[side_state],
+    resolve_color(surface, side_owner), force)
 end
 
 -- The four edges touching vertex V(cx, cy) — the NW corner of cell (cx, cy):
@@ -151,31 +161,26 @@ function render.refresh_cell(surface, cx, cy)
 
   local objects = {}
   local x0, y0 = cx * const.CELL, cy * const.CELL
+  local C = const.CELL
 
-  -- West edge: between (cx-1, cy) and (cx, cy).
-  if is_frontier(surface_index, cx - 1, cy, cx, cy) then
-    local art = edge_art(surface_index, cx - 1, cy, cx, cy)
-    for force_index in pairs(edge_forces(surface_index, cx - 1, cy, cx, cy)) do
-      local force = game.forces[force_index]
-      if force and force.valid then
-        draw_edge(objects, surface,
-          { x = x0, y = y0 }, { x = x0, y = y0 + const.CELL },
-          art, resolve_color(surface, force_index), force)
-      end
-    end
+  -- West edge: between W = (cx-1, cy) and this cell. Each claimed side
+  -- draws its own inset line.
+  local sw = state_at(surface_index, cx - 1, cy)
+  local sc = state_at(surface_index, cx, cy)
+  if sw ~= sc then
+    draw_edge_side(objects, surface, sc, owner_at(surface_index, cx, cy),
+      { x = x0 + INSET, y = y0 + INSET }, { x = x0 + INSET, y = y0 + C - INSET })
+    draw_edge_side(objects, surface, sw, owner_at(surface_index, cx - 1, cy),
+      { x = x0 - INSET, y = y0 + INSET }, { x = x0 - INSET, y = y0 + C - INSET })
   end
 
-  -- North edge: between (cx, cy-1) and (cx, cy).
-  if is_frontier(surface_index, cx, cy - 1, cx, cy) then
-    local art = edge_art(surface_index, cx, cy - 1, cx, cy)
-    for force_index in pairs(edge_forces(surface_index, cx, cy - 1, cx, cy)) do
-      local force = game.forces[force_index]
-      if force and force.valid then
-        draw_edge(objects, surface,
-          { x = x0, y = y0 }, { x = x0 + const.CELL, y = y0 },
-          art, resolve_color(surface, force_index), force)
-      end
-    end
+  -- North edge: between N = (cx, cy-1) and this cell.
+  local sn = state_at(surface_index, cx, cy - 1)
+  if sn ~= sc then
+    draw_edge_side(objects, surface, sc, owner_at(surface_index, cx, cy),
+      { x = x0 + INSET, y = y0 + INSET }, { x = x0 + C - INSET, y = y0 + INSET })
+    draw_edge_side(objects, surface, sn, owner_at(surface_index, cx, cy - 1),
+      { x = x0 + INSET, y = y0 - INSET }, { x = x0 + C - INSET, y = y0 - INSET })
   end
 
   -- NW survey stake: drawn when at least one touching edge is a frontier.

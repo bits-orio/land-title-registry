@@ -353,29 +353,31 @@ function claims.apply_batch(surface, force, player, rect, action, opts)
   return result
 end
 
--- Grant a free Trail on one Wilderness cell — the starter-cell guidance
--- anchor, given once per force per planet at first presence (ADR-0011).
--- invested_points = 0: granted, not bought (the step-price refund on a
--- later downgrade leaks 0.25 points; accepted).
-function claims.grant_free(surface, force, player, cx, cy)
+-- Grant one Wilderness cell free at a given state — the starter-cell
+-- guidance anchor (ADR-0011): a full Deed, so the player immediately sees
+-- the transparent everything-buildable end state of the ladder and can
+-- place their first machines. invested_points = 0: granted, not bought
+-- (the step-price refund chain on downgrading a granted cell leaks 1.25
+-- points at the default rate; accepted).
+function claims.grant_free(surface, force, player, cx, cy, state)
   if storage.disabled_surfaces[surface.index] then return false end
   local cell_key = registry.cell_key(cx, cy)
   if registry.get(surface.index, cell_key) then return false end
   if not blockers.cell_touches_generated(surface, cx, cy) then return false end
   registry.set(surface.index, cell_key, {
-    state = "trail",
+    state = state,
     force_index = force.index,
     claimed_tick = game.tick,
     invested_points = 0,
     claimant = player and player.name or nil,
   })
-  blockers.set(surface, cx, cy, "trail")
+  blockers.set(surface, cx, cy, state)
   script.raise_event(custom_events.on_cell_claimed, {
     surface_index = surface.index,
     cell_pos = { x = cx, y = cy },
     force_name = force.name,
     old_state = "wilderness",
-    new_state = "trail",
+    new_state = state,
     player_index = player and player.index or nil,
     cost = 0,
   })

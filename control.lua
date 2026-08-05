@@ -85,6 +85,11 @@ script.on_configuration_changed(function()
   end
   storage.meta.cell_size = cell_size
   if odb_compat.active then odb_compat.register() end
+  -- Retrofit sweep: players already in the world when the starter-grant
+  -- feature (or a newer form of it) arrives get their grant on upgrade.
+  for _, player in pairs(game.connected_players) do
+    tech.on_player_joined({ player_index = player.index })
+  end
 
   -- storage.meta.version is 1; migration steps compare against it here as
   -- the schema evolves.
@@ -142,7 +147,10 @@ script.on_event(defines.events.on_player_created, function(event)
   welcome.on_player_created(event)
 end)
 script.on_event(defines.events.on_gui_click, welcome.on_gui_click)
-script.on_event(defines.events.on_player_joined_game, hud.on_player_joined)
+script.on_event(defines.events.on_player_joined_game, function(event)
+  hud.on_player_joined(event)
+  tech.on_player_joined(event)
+end)
 script.on_event(defines.events.on_player_changed_surface, tech.on_player_changed_surface)
 script.on_event(defines.events.on_player_changed_force, function(event)
   tool.on_player_changed_force(event)

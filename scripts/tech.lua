@@ -53,34 +53,59 @@ end
 
 -- Record presence of `force` on `surface`'s planet; grant when it is a new
 -- planet and not the force's first (home) one.
+-- Starter cell (ADR-0011): a free DEED on the cell the player is actually
+-- standing on — the visible anchor showing the cell grid, where growth
+-- begins, and the transparent end state of the ladder. The condition is
+-- "the force owns nothing on this planet", NOT first-presence bookkeeping:
+-- that retrofits saves that recorded presence before the grant existed,
+-- and doubles as recovery if a force downgrades away everything. Granting
+-- at PRESENCE position is what makes Space Age cargo pods work too.
+local function force_owns_on_planet(force, planet)
+  for _, candidate in pairs(game.surfaces) do
+    if candidate.planet and candidate.planet.name == planet.name then
+      if storage.cells[candidate.index] then
+        for _, rec in pairs(storage.cells[candidate.index]) do
+          if rec.force_index == force.index then return true end
+        end
+      end
+    end
+  end
+  return false
+end
+
+local function maybe_grant_starter(force, surface, player, draw_hints)
+  if not (player and player.valid and player.physical_surface_index == surface.index) then return end
+  local planet = surface.planet
+  if not planet then return end
+  if force_owns_on_planet(force, planet) then return end
+
+  local cx = math.floor(player.physical_position.x / const.CELL)
+  local cy = math.floor(player.physical_position.y / const.CELL)
+  if claims.grant_free(surface, force, player, cx, cy, "deed") then
+    force.print({ "freehold.starter-cell",
+      string.format("[gps=%d,%d,%s]",
+        cx * const.CELL + const.CELL / 2,
+        cy * const.CELL + const.CELL / 2, surface.name) })
+    if draw_hints then
+      welcome.draw_origin_hints(force, surface, cx, cy)
+    end
+  end
+end
+
 local function establish_presence(force, surface, player)
   if not (force and force.valid and surface and surface.valid) then return end
   local planet = surface.planet
   if not planet then return end -- space platforms and planet-less surfaces
 
   local charters = charters_of(force.index)
-  if charters[planet.name] then return end
-
   local is_first_planet = next(charters) == nil
-  charters[planet.name] = true
 
-  -- Starter cell (ADR-0011): a free Trail on the cell the player is
-  -- actually standing on — the visible anchor that shows the cell grid and
-  -- where growth begins. Granting at PRESENCE position rather than the
-  -- spawn point is what makes this work for Space Age cargo pods too.
-  if player and player.valid and player.physical_surface_index == surface.index then
-    local cx = math.floor(player.physical_position.x / const.CELL)
-    local cy = math.floor(player.physical_position.y / const.CELL)
-    if claims.grant_free(surface, force, player, cx, cy) then
-      force.print({ "freehold.starter-cell",
-        string.format("[gps=%d,%d,%s]",
-          cx * const.CELL + const.CELL / 2,
-          cy * const.CELL + const.CELL / 2, surface.name) })
-      if is_first_planet then
-        welcome.draw_origin_hints(force, surface, cx, cy)
-      end
-    end
-  end
+  -- The starter grant runs before the charter early-return so it can
+  -- retrofit saves whose presence was recorded before the grant existed.
+  maybe_grant_starter(force, surface, player, is_first_planet)
+
+  if charters[planet.name] then return end
+  charters[planet.name] = true
 
   if is_first_planet then return end -- home planet: starting grant covers it
 
@@ -97,6 +122,11 @@ function tech.on_player_created(event)
 end
 
 function tech.on_player_changed_surface(event)
+  local player = game.get_player(event.player_index)
+  if player and player.valid then establish_presence(player.force, player.surface, player) end
+end
+
+function tech.on_player_joined(event)
   local player = game.get_player(event.player_index)
   if player and player.valid then establish_presence(player.force, player.surface, player) end
 end
