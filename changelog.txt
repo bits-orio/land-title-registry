@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.2
+Date: 2026-08-05
+  Bugfixes:
+    - MTS-enabled saves building on a non-team surface (plain nauvis) lost their grid: the team-surface gate no longer re-evaluates existing surfaces on configuration changes, and surfaces holding claims self-heal back to enabled with a rebuild.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.1
 Date: 2026-08-05
   Features:

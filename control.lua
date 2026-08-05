@@ -55,8 +55,32 @@ end)
 
 script.on_configuration_changed(function()
   registry.init_storage()
+  -- Ensure per-surface tables WITHOUT re-evaluating enablement: the MTS
+  -- grid-only-on-team-surfaces rule applies at fresh-game init and surface
+  -- creation only. Re-running it here disabled surfaces that already
+  -- carried claims (an MTS-enabled save building on plain nauvis) and the
+  -- next rebuild swept their blockers — overlays and grid gone.
   for _, surface in pairs(game.surfaces) do
-    init_surface(surface)
+    registry.init_surface(surface.index)
+  end
+
+  -- One-shot self-heal for saves bitten by the above: a disabled,
+  -- non-platform surface that holds claims is legitimate Freehold ground —
+  -- re-enable and reconcile it back. Flagged so it never fights a
+  -- DELIBERATE set_surface_enabled(false) by an integrator later.
+  if not storage.disable_healed then
+    storage.disable_healed = true
+    for surface_index in pairs(storage.disabled_surfaces) do
+      local surface = game.surfaces[surface_index]
+      if surface and surface.valid and not surface.platform then
+        local cells = storage.cells[surface_index]
+        if cells and next(cells) then
+          storage.disabled_surfaces[surface_index] = nil
+          blockers.enqueue_surface_rebuild(surface)
+          game.print({ "freehold.surface-healed", surface.name })
+        end
+      end
+    end
   end
   for _, force in pairs(game.forces) do
     economy.init_force(force)
@@ -168,6 +192,21 @@ script.on_event(defines.events.on_player_joined_game, function(event)
     storage.chronicle_backfilled = true
     if chronicle.backfill() > 0 then
       blockers.enqueue_full_rebuild()
+    end
+  end
+  -- Same join anchor for the disabled-surface heal (see config-changed).
+  if not storage.disable_healed then
+    storage.disable_healed = true
+    for surface_index in pairs(storage.disabled_surfaces) do
+      local surface = game.surfaces[surface_index]
+      if surface and surface.valid and not surface.platform then
+        local cells = storage.cells[surface_index]
+        if cells and next(cells) then
+          storage.disabled_surfaces[surface_index] = nil
+          blockers.enqueue_surface_rebuild(surface)
+          game.print({ "freehold.surface-healed", surface.name })
+        end
+      end
     end
   end
 end)
