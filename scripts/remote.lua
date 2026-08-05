@@ -2,8 +2,10 @@
 -- docs/API.md). Registered at control.lua root scope, so mods declaring
 -- "? freehold" can resolve it from their own root scope.
 --
--- Conventions: `cell_pos` is {x, y} in cell coordinates (identical to chunk
--- coordinates); `surface`/`force` take runtime objects; the points functions
+-- Conventions: `cell_pos` is {x, y} in cell coordinates (cell (x, y) covers
+-- tiles [size*x, size*x+size-1] per axis, size from fh-cell-size; equal to
+-- chunk coordinates only at size 32); `surface`/`force` take runtime
+-- objects; the points functions
 -- take a plain force_index. Functions returning ok, reason return true, nil
 -- on success or false plus a short refusal string.
 
@@ -116,6 +118,12 @@ remote.add_interface("freehold", {
 
   get_surface_enabled = function(surface)
     return not storage.disabled_surfaces[surface.index]
+  end,
+
+  -- Cell edge length in tiles (startup fh-cell-size). Cell coordinates
+  -- equal chunk coordinates only when this is 32.
+  get_cell_size = function()
+    return const.CELL
   end,
 
   -- Custom-event ids are regenerated every session: resolve at YOUR

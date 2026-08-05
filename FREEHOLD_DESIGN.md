@@ -107,7 +107,7 @@ Freehold divides every enabled surface into **cells** and attaches building righ
 
 ### The Cell
 
-A cell is **32x32 tiles, exactly aligned to native Factorio chunks**: one cell covers precisely one chunk footprint, and cell coordinates are chunk coordinates. The size is **fixed and deliberately not configurable**.
+A cell is a square of **`fh-cell-size` tiles** — a startup setting allowing **16 or 32, default 16** (ADR-0010, overturning the original fixed-32 decision at the designer's request). Every allowed size divides the 32-tile chunk, so a cell always sits strictly inside exactly one chunk; cell coordinates equal chunk coordinates only at size 32, and all code goes through `const.chunk_of_cell` / `const.cell_range_of_chunk` rather than assuming identity. Changing the setting on an existing save cannot be migrated: all claims are released with a full refund of their invested points.
 
 Two engineering reasons drive this:
 
@@ -263,7 +263,7 @@ Recorded here as engineering rationale so the questions stay closed:
 - **Hexagons, triangles, pentagons — rejected.** Regular pentagons cannot tile the plane at all. Hex and triangle cells have diagonal edges that axis-aligned rectangular collision boxes cannot trace, so engine-level enforcement via blocker entities is impossible — enforcement would degrade into terrain ownership or script-side build policing, both of which abandon the engine-enforced rights model. Square cells are retained; the mod's visual identity comes from rendering (border styles, corner survey stakes — see *Player Experience*), not from geometry.
 - **24-tile cells — rejected.** Straddle chunk boundaries every third cell, forcing either temporary build gaps or sliver-blocker management at the generated-world frontier, the most fragile code path.
 - **16- and 64-tile cells — rejected** in favor of the native 32-tile chunk footprint.
-- **Configurable cell size — rejected.** Breaks cross-game standardization; identical conditions on every server are a feature.
+- **Configurable cell size — originally rejected here, overturned by ADR-0010** (startup setting, 16/32, default 16). The cross-game standardization argument was consciously set aside by the designer; chunk divisibility is retained, and non-divisor sizes (24, 48) remain excluded.
 
 ---
 
@@ -421,6 +421,7 @@ fh-tech-tiers = cube-basic-contemplation-unit; cube-fundamental-comprehension-ca
 
 | Setting | Scope | Type | Default | Range | Purpose |
 |---|---|---|---|---|---|
+| `fh-cell-size` | startup | string | 16 | {16, 32} | Cell edge length in tiles; changing on an existing save releases all claims with a full refund (ADR-0010) |
 | `fh-starting-points` | runtime-global | int | 75 | — | Initial balance granted to each force |
 | `fh-settlement-charter` | runtime-global | int | 30 | — | One-time lump sum per force per planet |
 | `fh-refund-percent` | runtime-global | int | 25 | 0–100 | Fraction of the step price refunded on downgrade |
@@ -1028,7 +1029,7 @@ Ghost borders deserve elaboration because they exploit an MTS structural fact: M
 | Per-team founding charters | Rejected | Asymmetric starting conditions violate MTS's equal-conditions philosophy; only global, all-team presets are acceptable (v1.x). |
 | Non-square cell geometries (hexagons, pentagons, triangles) | Rejected | Regular pentagons cannot tile the plane at all; hex and triangle cells have diagonal edges that axis-aligned rectangular collision boxes cannot trace, so engine-level enforcement via blocker entities is impossible - enforcement would degrade into terrain ownership or script-side build policing, both of which abandon the engine-enforced rights model. Visual identity comes from rendering, not geometry. |
 | 24-tile cell size | Rejected | Straddles native chunk boundaries every third cell, forcing either temporary build gaps or sliver-blocker management at the generated-world frontier - the most fragile code path. |
-| Configurable cell size | Rejected | Breaks cross-game standardization; 32x32, chunk-aligned, is fixed. |
+| Configurable cell size | Rejected, later overturned (ADR-0010) | Now a startup setting {16, 32}, default 16; chunk-divisibility retained, non-divisors still excluded. |
 | Separate power collision layer | Rejected | Merged into rampart: poles, solar panels, and accumulators make ramparts self-sufficient and price powered corridors correctly. |
 | Standalone Rampart without Trail | Reverted | The Trail prerequisite prices self-sufficient forts at 3 points, eliminates a fourth blocker state, and pure Trails are unpowered by design since poles are rampart-layer. |
 | Shared-surface team race modes | Rejected | MTS's core design keeps every team on separate surfaces with independent team clocks for fairness; Freehold must never assume shared-surface competition. |

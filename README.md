@@ -2,7 +2,7 @@
 
 **Land rights, earned cell by cell.**
 
-Freehold divides the map into 32x32 **cells** and puts each one on a four-state ladder. Land stops being binary — you don't own a chunk or not, you hold a particular *right* over it, and you buy your way up.
+Freehold divides the map into square **cells** (16 tiles by default; 32 available via startup setting) and puts each one on a four-state ladder. Land stops being binary — you don't own a chunk or not, you hold a particular *right* over it, and you buy your way up.
 
 | State | What you may build | Cumulative price |
 |---|---|---|

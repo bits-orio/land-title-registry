@@ -4,7 +4,21 @@
 
 local const = {}
 
-const.CELL = 32
+-- Cell edge length in tiles, from the startup setting (ADR-0010). Allowed
+-- values all divide the 32-tile chunk, so every cell sits strictly inside
+-- exactly one chunk and FACTOR cells span a chunk edge.
+const.CELL = tonumber(settings.startup["fh-cell-size"].value)
+const.FACTOR = 32 / const.CELL
+
+-- The chunk containing cell (cx, cy) — 1-D helper, apply per axis.
+function const.chunk_of_cell(c)
+  return math.floor(c / const.FACTOR)
+end
+
+-- Inclusive cell-coordinate range covered by chunk coordinate k (1-D).
+function const.cell_range_of_chunk(k)
+  return k * const.FACTOR, (k + 1) * const.FACTOR - 1
+end
 
 -- Cumulative invested points at each state. Wilderness is 0 and is never a
 -- stored state string — absence from the registry means Wilderness.

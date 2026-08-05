@@ -21,7 +21,7 @@ local function claim_cell(surface, cell_pos, force) ... end
 player.print("Cell claimed for 1 Land point.")
 ```
 
-Applies to: identifiers, comments, locale strings, chat messages, GUI labels, changelog entries, commit messages. A cell happens to be exactly one chunk footprint — that is an implementation fact, not a reason to blur the vocabulary.
+Applies to: identifiers, comments, locale strings, chat messages, GUI labels, changelog entries, commit messages. Cell size is the `fh-cell-size` startup setting (16 or 32); a cell coincides with a chunk footprint only at 32, so never assume the identity — go through `const.chunk_of_cell` / `const.cell_range_of_chunk`.
 
 Currency is **"Land points"** in every player-facing string; `points` in code.
 

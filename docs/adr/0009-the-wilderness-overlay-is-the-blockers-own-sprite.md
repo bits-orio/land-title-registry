@@ -9,5 +9,5 @@ The stripe period divides the sprite size, so the pattern continues seamlessly a
 Consequences:
 
 - The overlay appears only where chunks are generated and visible (fog hides it), and only in world/zoomed remote view — the blocker carries `not-on-map`, so chart view stays uncolored. Map-view territory display arrives with M3's chart renders.
-- The sprite is generated, not hand-drawn: `tools/gen_wilderness_overlay.py` (Pillow) writes `graphics/wilderness-overlay.png`. Regenerate rather than editing the PNG.
-- Do not "optimize" the overlay into scripted renders, and do not add pictures to the Trail/Rampart blockers without revisiting M3 — wilderness-is-marked / claimed-is-clear is the intended reading.
+- The sprite is generated, not hand-drawn: `tools/gen_overlays.py` (Pillow) writes the overlay PNGs. Regenerate rather than editing the PNG.
+- Do not "optimize" the overlay into scripted renders. *(Amended after M3, by user request: Trail and Rampart blockers now carry their own subtle overlays — steel-blue opposite-diagonal lanes and amber crosshatch, far fainter than wilderness — via the same mechanism. Deed cells remain overlay-free: full rights look like normal land. `tools/gen_overlays.py` generates all three.)*

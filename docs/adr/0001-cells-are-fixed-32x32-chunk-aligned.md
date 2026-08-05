@@ -1,5 +1,7 @@
 # Cells are fixed at 32x32, exactly aligned to native chunks
 
+> **Partially superseded by ADR-0010** (2026-08-05): cell size is now a startup setting, 16 or 32 tiles (default 16), overturning the "configurable size — rejected" verdict below at the designer's request. Chunk *divisibility* is retained — every allowed size sits strictly inside one chunk — and the non-divisor rejection stands. The frontier-fragility argument is weakened by the ungenerated-chunk probe recorded in ADR-0010.
+
 A cell is 32x32 tiles covering precisely one Factorio chunk footprint, so cell coordinates *are* chunk coordinates. The size is fixed and deliberately not configurable.
 
 Two reasons drive it:

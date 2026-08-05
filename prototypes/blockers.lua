@@ -10,6 +10,11 @@
 -- player builds inside Trail and Rampart cells. Area selection is unaffected
 -- by priority, and the survey-tool handlers read event.area anyway.
 
+-- Cell size is a startup setting (ADR-0010): {16, 32} tiles, both divisors
+-- of the 32-tile chunk, so every cell sits strictly inside one chunk.
+local SIZE = tonumber(settings.startup["fh-cell-size"].value)
+local HALF = SIZE / 2
+
 local function blocker(name, layers, picture)
   return {
     type = "simple-entity-with-owner",
@@ -23,32 +28,42 @@ local function blocker(name, layers, picture)
       "not-blueprintable",
     },
     allow_copy_paste = false,
-    collision_box = { { -15.99, -15.99 }, { 15.99, 15.99 } },
-    selection_box = { { -16, -16 }, { 16, 16 } },
+    -- The 0.01 inset keeps the box fractionally inside the cell so it never
+    -- collides across the boundary with entities placed flush against the
+    -- edge of an adjacent cell.
+    collision_box = { { -(HALF - 0.01), -(HALF - 0.01) }, { HALF - 0.01, HALF - 0.01 } },
+    selection_box = { { -HALF, -HALF }, { HALF, HALF } },
     selection_priority = 5,
     collision_mask = { layers = layers },
-    -- The wilderness blocker carries the red-ribbon overlay as its own
-    -- sprite (ADR-0009): the entity already sits exactly on every wilderness
-    -- cell, so the engine renders the overlay with zero render objects and
-    -- it appears/disappears with claims automatically. Drawn on the floor
-    -- layer so everything else renders above it. Trail/Rampart blockers
-    -- stay invisible — claimed land looks normal.
+    -- Each blocker carries its state's overlay as its own sprite (ADR-0009):
+    -- the entity already sits exactly on the right cells, so the engine
+    -- renders the overlay with zero render objects and it swaps with state
+    -- transitions automatically. Drawn on the floor layer so everything
+    -- else renders above it.
     picture = picture,
     render_layer = picture and "floor" or nil,
   }
 end
 
-local wilderness_overlay = {
-  filename = "__freehold__/graphics/wilderness-overlay.png",
-  width = 1024,
-  height = 1024,
-  scale = 1, -- 1024 px at 32 px/tile = exactly one 32-tile cell
-}
+-- Each 1024-px overlay is scaled to cover exactly one cell (SIZE tiles at
+-- 32 px/tile). Wilderness is the loud one; trail and rampart are subtle
+-- tints so claimed land still reads as normal ground at a glance. Deed has
+-- no blocker and no overlay.
+local function overlay(name)
+  return {
+    filename = "__freehold__/graphics/" .. name .. ".png",
+    width = 1024,
+    height = 1024,
+    scale = SIZE * 32 / 1024,
+  }
+end
 
 data:extend({
   blocker("fh-cell-wilderness",
     { ["fh-land"] = true, ["fh-transit"] = true, ["fh-rampart"] = true },
-    wilderness_overlay),
-  blocker("fh-cell-trail", { ["fh-land"] = true, ["fh-rampart"] = true }),
-  blocker("fh-cell-rampart", { ["fh-land"] = true }),
+    overlay("wilderness-overlay")),
+  blocker("fh-cell-trail", { ["fh-land"] = true, ["fh-rampart"] = true },
+    overlay("trail-overlay")),
+  blocker("fh-cell-rampart", { ["fh-land"] = true },
+    overlay("rampart-overlay")),
 })

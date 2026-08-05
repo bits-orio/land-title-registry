@@ -1,5 +1,17 @@
 -- M4 adds the layer-override startup strings.
 
+data:extend({
+  {
+    type = "string-setting",
+    name = "fh-cell-size",
+    setting_type = "startup",
+    default_value = "16",
+    allowed_values = { "16", "32" },
+    order = "a[core]-a[cell-size]",
+  },
+})
+
+
 -- Per-planet border colors (used when MTS team colors are absent). The
 -- settings stage cannot enumerate planet prototypes (they are data-stage),
 -- so the known base/Space Age planets get named settings and every other

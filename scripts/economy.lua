@@ -65,11 +65,8 @@ function economy.on_forces_merged(event)
   local destination = event.destination
   local source_index = event.source_index
 
-  -- Union charter records first so the survivor cannot re-farm a planet the
-  -- source had already chartered. (Late require: economy must not depend on
-  -- tech at module load — tech requires economy.)
-  require("scripts.tech").merge_charters(source_index, destination.index)
-
+  -- (Charter records are unioned by control.lua's wrapper before this runs —
+  -- require() is parse-time-only in Factorio, so no late require here.)
   local source_points = storage.points[source_index]
   storage.points[source_index] = nil
 

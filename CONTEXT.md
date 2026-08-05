@@ -7,7 +7,7 @@ Land rights, earned cell by cell. Every 32x32 cell of the map sits on a four-sta
 ## Language
 
 **Cell**:
-The mod's unit of land: 32x32 tiles, exactly aligned to one native Factorio chunk footprint. Cell coordinates are chunk coordinates. Fixed size, deliberately not configurable.
+The mod's unit of land: a square of `fh-cell-size` tiles (startup setting, 16 or 32, default 16), always strictly inside one native chunk. Cell coordinates equal chunk coordinates only at size 32.
 _Avoid_: chunk (reserved for the engine concept), tile, plot, parcel, square
 
 **Chunk**:

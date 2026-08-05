@@ -3,6 +3,7 @@
 -- the two temporary on_nth_tick handlers (rebuild queue, hover) are managed
 -- by their modules and re-registered from on_load iff their storage says so.
 
+local const = require("scripts.const")
 local registry = require("scripts.registry")
 local blockers = require("scripts.blockers")
 local economy = require("scripts.economy")
@@ -31,6 +32,7 @@ script.on_init(function()
   for _, force in pairs(game.forces) do
     economy.init_force(force)
   end
+  storage.meta.cell_size = const.CELL
   -- Blanket any chunks that existed before Freehold did (mid-game install,
   -- scenario-pregenerated maps). Fresh maps enqueue little or nothing.
   blockers.enqueue_full_rebuild()
@@ -49,6 +51,31 @@ script.on_configuration_changed(function()
   for _, force in pairs(game.forces) do
     economy.init_force(force)
   end
+
+  -- The registry is keyed by cell coordinates, which are meaningless under a
+  -- different cell size — a size change on an existing save cannot be
+  -- migrated. Refund every cell's invested points in full and return the
+  -- world to Wilderness (ADR-0010).
+  local cell_size = const.CELL
+  if storage.meta.cell_size ~= nil and storage.meta.cell_size ~= cell_size then
+    for _, cells in pairs(storage.cells) do
+      for _, rec in pairs(cells) do
+        local force = game.forces[rec.force_index]
+        if force and force.valid then
+          economy.change(force, rec.invested_points, "cell-size-reset")
+        end
+      end
+    end
+    for surface_index in pairs(storage.cells) do
+      storage.cells[surface_index] = {}
+      render.drop_surface(surface_index)
+      registry.init_surface(surface_index)
+    end
+    game.print({ "freehold.cell-size-reset" })
+    blockers.enqueue_full_rebuild()
+  end
+  storage.meta.cell_size = cell_size
+
   -- storage.meta.version is 1; migration steps compare against it here as
   -- the schema evolves.
 end)
@@ -77,6 +104,8 @@ script.on_event(defines.events.on_force_created, function(event)
 end)
 
 script.on_event(defines.events.on_forces_merged, function(event)
+  -- Charters union FIRST so the survivor cannot re-farm chartered planets.
+  tech.merge_charters(event.source_index, event.destination.index)
   economy.on_forces_merged(event)
   -- Rebuilding reconciles both blockers (idempotent) and renders, whose
   -- forces filters and colors must move to the surviving force.

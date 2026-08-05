@@ -128,16 +128,20 @@ function blockers.reconcile(surface, cx, cy)
   render.refresh_cell(surface, cx, cy)
 end
 
+-- Every cell of the newly generated chunk gets the blocker matching its
+-- REGISTERED state (FACTOR^2 cells per chunk). Never skip registered cells:
+-- the only way a chunk generates for one is a surface regeneration, and
+-- skipping would leave it blockerless — which is how Deed is represented.
 function blockers.on_chunk_generated(event)
   local surface = event.surface
   if storage.disabled_surfaces[surface.index] then return end
-  local pos = event.position
-  -- Spawn the blocker matching the cell's REGISTERED state. Never skip
-  -- registered cells: the only way a chunk generates for one is a surface
-  -- regeneration, and skipping would leave it blockerless — which is how
-  -- Deed is represented.
-  local state = registry.state_of(surface.index, registry.cell_key(pos.x, pos.y))
-  blockers.set(surface, pos.x, pos.y, state)
+  local x0, x1 = const.cell_range_of_chunk(event.position.x)
+  local y0, y1 = const.cell_range_of_chunk(event.position.y)
+  for cy = y0, y1 do
+    for cx = x0, x1 do
+      blockers.set(surface, cx, cy, registry.state_of(surface.index, registry.cell_key(cx, cy)))
+    end
+  end
 end
 
 -- A blocker died that we did not destroy ourselves (another mod, the editor,
@@ -153,7 +157,8 @@ function blockers.on_object_destroyed(event)
   if not (surface and surface.valid) then return end
   if storage.disabled_surfaces[surface.index] then return end
   local pos = registry.cell_key_to_pos(entry.cell_key)
-  if not surface.is_chunk_generated(pos) then return end
+  local chunk = { x = const.chunk_of_cell(pos.x), y = const.chunk_of_cell(pos.y) }
+  if not surface.is_chunk_generated(chunk) then return end
   blockers.set(surface, pos.x, pos.y, registry.state_of(surface.index, entry.cell_key))
 end
 
@@ -170,9 +175,16 @@ local function drain_rebuild_queue()
     local item = queue[n]
     queue[n] = nil
     n = n - 1
+    -- Queue items are CHUNK coordinates; reconcile every cell of the chunk.
     local surface = game.surfaces[item.surface_index]
     if surface and surface.valid and surface.is_chunk_generated({ x = item.x, y = item.y }) then
-      blockers.reconcile(surface, item.x, item.y)
+      local x0, x1 = const.cell_range_of_chunk(item.x)
+      local y0, y1 = const.cell_range_of_chunk(item.y)
+      for cy = y0, y1 do
+        for cx = x0, x1 do
+          blockers.reconcile(surface, cx, cy)
+        end
+      end
     end
   end
   if n == 0 then

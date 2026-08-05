@@ -149,9 +149,12 @@ local function evaluate_claim(surface, force, cx, cy, target)
   local rec = registry.get(surface_index, cell_key)
 
   if rec == nil then
-    -- New claim on Wilderness; needs a generated chunk so the blocker swap
-    -- has somewhere to happen.
-    if not surface.is_chunk_generated({ x = cx, y = cy }) then return nil end
+    -- New claim on Wilderness; needs the CONTAINING chunk generated so the
+    -- blocker swap has somewhere to happen (cell coords are not chunk
+    -- coords unless fh-cell-size is 32).
+    if not surface.is_chunk_generated({ x = const.chunk_of_cell(cx), y = const.chunk_of_cell(cy) }) then
+      return nil
+    end
     return {
       cx = cx, cy = cy, cell_key = cell_key,
       old_state = "wilderness", new_state = target,

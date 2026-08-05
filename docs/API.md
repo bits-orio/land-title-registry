@@ -4,7 +4,7 @@ Stable from v1: these signatures and payloads are a compatibility contract. Decl
 
 ## Conventions
 
-- `cell_pos` is `{x, y}` in **cell coordinates**, identical to Factorio's chunk coordinates (cell `(x, y)` covers tiles `[32x, 32x+31] × [32y, 32y+31]`).
+- `cell_pos` is `{x, y}` in **cell coordinates**: cell `(x, y)` covers tiles `[s·x, s·x+s−1] × [s·y, s·y+s−1]` where `s = get_cell_size()` (startup `fh-cell-size`, 16 or 32). Cell coordinates equal chunk coordinates only at size 32.
 - `surface` and `force` take runtime objects (`LuaSurface`, `LuaForce`); the points functions take a plain `force_index`.
 - State strings are exactly `"trail"`, `"rampart"`, `"deed"`. `nil` from `get_cell` means Wilderness.
 - Functions documented as `ok, reason` return `true, nil` on success, or `false` plus a short refusal string: `"surface-disabled"`, `"no-anchor"`, `"insufficient-points"`, `"ineligible"`, `"invalid-surface"`, `"invalid-force"`, `"invalid-cell-pos"`, `"invalid-target-state"`.
@@ -23,6 +23,7 @@ Stable from v1: these signatures and payloads are a compatibility contract. Decl
 | `get_territory_stats(force_index, opts)` | table | `{trails, ramparts, deeds}` across all surfaces. With `opts = {by_surface = true}`, adds `by_surface = {[surface_index] = {trails, ramparts, deeds}}`. |
 | `set_surface_enabled(surface, enabled)` | — | A disabled surface gets no blockers and no grid. Disabling sweeps existing blockers via the batched rebuild queue; re-enabling reconciles them back from the registry. Claims are refused with `"surface-disabled"` while disabled; the registry itself survives. |
 | `get_surface_enabled(surface)` | `boolean` | Whether Freehold's grid is active on the surface. |
+| `get_cell_size()` | `uint` | Cell edge length in tiles (startup `fh-cell-size`). |
 | `get_event_id(name)` | `uint` or `nil` | Resolves a custom-event name to this session's event id. |
 
 ## Custom events
