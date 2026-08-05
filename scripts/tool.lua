@@ -1,0 +1,196 @@
+-- Survey-tool UX: selection-event handling, batch feedback (sounds, flying
+-- text), the cursor balance label, and hover feedback via a tick handler
+-- scoped to tool holders (ADR-0005 — registered only while at least one
+-- player holds the tool; an idle game pays nothing).
+
+local const = require("scripts.const")
+local registry = require("scripts.registry")
+local economy = require("scripts.economy")
+local claims = require("scripts.claims")
+
+local tool = {}
+
+local TOOL_NAME = "fh-survey-tool"
+local HOVER_TICK_INTERVAL = 10
+
+-- M1 uses utility sounds; fh- sound prototypes arrive with M3 polish.
+local SOUND_CLAIM = "utility/build_medium"
+local SOUND_DENY = "utility/cannot_build"
+local SOUND_REFUND = "utility/deconstruct_medium"
+
+local LABEL_OK = { r = 1, g = 1, b = 1 }
+local LABEL_SHORT = { r = 1, g = 0.35, b = 0.35 }
+
+local function holding_tool(player)
+  local stack = player.cursor_stack
+  return stack ~= nil and stack.valid_for_read and stack.name == TOOL_NAME
+end
+
+local function update_label(player)
+  if not holding_tool(player) then return end
+  player.cursor_stack.label = economy.format(economy.get(player.force.index)) .. " Land points"
+end
+
+-- ---------------------------------------------------------------------------
+-- Selection handling
+
+local function rect_from_area(area)
+  return {
+    x1 = math.floor(area.left_top.x / const.CELL),
+    y1 = math.floor(area.left_top.y / const.CELL),
+    x2 = math.floor(area.right_bottom.x / const.CELL),
+    y2 = math.floor(area.right_bottom.y / const.CELL),
+  }
+end
+
+local function feedback(player, action, result)
+  if result.denied then
+    player.play_sound({ path = SOUND_DENY })
+    local text
+    if result.denied == "points" then
+      text = {
+        "freehold.insufficient-points",
+        economy.format(result.need),
+        economy.format(result.have),
+        economy.format(result.need - result.have),
+      }
+    elseif result.denied == "anchor" then
+      text = { "freehold.no-adjacency" }
+    else
+      text = { "freehold.surface-disabled" }
+    end
+    player.create_local_flying_text({ text = text, create_at_cursor = true })
+    return
+  end
+
+  if result.applied == 0 then return end -- ineligible cells are silent no-ops
+
+  if action == "downgrade" then
+    player.play_sound({ path = SOUND_REFUND })
+    player.create_local_flying_text({
+      text = { "freehold.batch-refunded", economy.format(result.refund) },
+      create_at_cursor = true,
+    })
+  else
+    player.play_sound({ path = SOUND_CLAIM })
+    player.create_local_flying_text({
+      text = { "freehold.batch-claimed", economy.format(result.cost) },
+      create_at_cursor = true,
+    })
+  end
+  update_label(player)
+end
+
+local function handle_selection(action, event)
+  if event.item ~= TOOL_NAME then return end
+  local player = game.get_player(event.player_index)
+  if not (player and player.valid) then return end
+  local surface = event.surface
+  if not (surface and surface.valid) then return end
+
+  local result = claims.apply_batch(surface, player.force, player, rect_from_area(event.area), action)
+  feedback(player, action, result)
+end
+
+function tool.on_selected(event) handle_selection("trail", event) end
+function tool.on_alt_selected(event) handle_selection("deed", event) end
+function tool.on_reverse_selected(event) handle_selection("downgrade", event) end
+function tool.on_alt_reverse_selected(event) handle_selection("rampart", event) end
+
+-- ---------------------------------------------------------------------------
+-- Hover feedback: a short-interval on_nth_tick registered only while at
+-- least one player holds the tool. Resolves the hovered cell from the
+-- selected entity when there is one (low-priority blockers are still
+-- selected over empty ground) and the player position otherwise.
+
+local function show_hover(player, surface, cx, cy)
+  if storage.disabled_surfaces[surface.index] then return end
+  local rec = registry.get(surface.index, registry.cell_key(cx, cy))
+  local text
+  if rec and rec.force_index ~= player.force.index then
+    local owner = game.forces[rec.force_index]
+    text = { "freehold.hover-other-force", owner and owner.name or "?" }
+  else
+    local state = rec and rec.state or "wilderness"
+    text = { "freehold.hover-" .. state }
+  end
+  player.create_local_flying_text({
+    text = text,
+    position = { x = cx * const.CELL + const.CELL / 2, y = cy * const.CELL + const.CELL / 2 },
+    time_to_live = 120,
+  })
+end
+
+local function hover_tick()
+  for player_index in pairs(storage.tool_holders) do
+    local player = game.get_player(player_index)
+    if player and player.valid and player.connected and holding_tool(player) then
+      local surface = player.surface
+      local selected = player.selected
+      local pos = (selected and selected.valid) and selected.position or player.position
+      local cx = math.floor(pos.x / const.CELL)
+      local cy = math.floor(pos.y / const.CELL)
+      local hover_id = surface.index .. ":" .. registry.cell_key(cx, cy)
+
+      if storage.hover[player_index] ~= hover_id then
+        storage.hover[player_index] = hover_id
+        show_hover(player, surface, cx, cy)
+      end
+
+      -- Red label when the balance cannot cover the hovered cell's next-tier
+      -- step; Deed cells have no next step.
+      local state = registry.state_of(surface.index, registry.cell_key(cx, cy))
+      local next_cost = const.NEXT_STEP_COST[state]
+      local short = next_cost ~= nil and economy.get(player.force.index) < next_cost
+      player.cursor_stack.label_color = short and LABEL_SHORT or LABEL_OK
+    end
+  end
+end
+
+-- Registration must be reproducible from storage alone: called after holder
+-- changes and from on_load.
+function tool.ensure_hover_handler()
+  if next(storage.tool_holders) then
+    script.on_nth_tick(HOVER_TICK_INTERVAL, hover_tick)
+  else
+    script.on_nth_tick(HOVER_TICK_INTERVAL, nil)
+  end
+end
+
+function tool.on_cursor_changed(event)
+  local player = game.get_player(event.player_index)
+  if not (player and player.valid) then return end
+  if holding_tool(player) then
+    storage.tool_holders[player.index] = true
+    update_label(player)
+  else
+    storage.tool_holders[player.index] = nil
+    storage.hover[player.index] = nil
+  end
+  tool.ensure_hover_handler()
+end
+
+function tool.on_player_gone(event)
+  storage.tool_holders[event.player_index] = nil
+  storage.hover[event.player_index] = nil
+  tool.ensure_hover_handler()
+end
+
+-- HUD refresh triggers (the mod-gui HUD itself is M3; the cursor label is
+-- M1's balance surface). on_player_changed_force is non-negotiable — MTS
+-- moves players between forces as a normal part of team flows.
+function tool.on_player_changed_force(event)
+  local player = game.get_player(event.player_index)
+  if player and player.valid then update_label(player) end
+end
+
+function tool.on_points_changed(event)
+  for player_index in pairs(storage.tool_holders) do
+    local player = game.get_player(player_index)
+    if player and player.valid and player.force.name == event.force_name then
+      update_label(player)
+    end
+  end
+end
+
+return tool
