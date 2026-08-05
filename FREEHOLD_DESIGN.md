@@ -277,7 +277,7 @@ The economy is a single-currency system: forces earn **points** (displayed in UI
 - Initialize a force's balance on `defines.events.on_force_created` (and for all existing forces in `on_init` / `on_configuration_changed` — iterate **all** forces, never just `game.forces.player`; see *Architecture*).
 - Every balance mutation — claim spend, downgrade refund, research grant, starting grant, settlement charter, remote `set_points`/`add_points`/`reset_force` — raises the custom event `on_points_changed` with payload `{force_name, points, delta, reason}` (see *Interfaces*). A short stable vocabulary for `reason` is recommended, e.g. `"claim"`, `"refund"`, `"research"`, `"research-reversed"`, `"starting-grant"`, `"settlement-charter"`, `"remote"`, `"reset"`.
 - The per-player HUD and the survey-tool cursor label both display the acting force's balance (see *Player Experience*); refresh them from the `on_points_changed` path.
-- **Open:** the `defines.events.on_forces_merged` policy is undecided. Lean: sum the two balances and union the cell registries; but this is not resolved.
+- **`on_forces_merged` — resolved: union everything into the destination.** Sum the two balances, reassign every cell record's `force_index` to the destination force, union the settlement-charter records (so the survivor cannot re-farm a planet the source had already charted), refresh renders whose `forces` filter names the now-destroyed force, and raise `on_points_changed` with reason `"merge"`. There is **no conflict resolution to design**: a cell record holds exactly one `force_index`, so the two forces' cell sets are disjoint by construction and the union is total and unambiguous. MTS never calls `merge_forces`, so this is a defensive-correctness handler reached by console commands, scenarios, and other mods — the bar is leaving `storage` consistent, not pricing the merge.
 
 ### Prices and the full-credit principle
 
@@ -355,12 +355,47 @@ Research is the recurring faucet. Income comes from a **sequential** chain of le
 | `fh-land-grants-4` | + production, utility | 20 | " |
 | `fh-land-grants-5` | + space | Base game: infinite (terminal). Space Age: finite, about 20 | " |
 
+**That table is the expected output of the mechanism, not the mechanism.** Pack membership is **derived from the actual technology DAG at data stage**, never hardcoded — see *Deriving the tier ladder* below. Under vanilla the derivation should reproduce exactly the tiers above; under Space Age it should extend them with the planet tiers below. Both are testable assertions, not constants in the source.
+
+**Space Age tiers**, as the derivation should produce them:
+
+| Prototype | Science packs (cumulative) | Levels |
+|---|---|---|
+| `fh-land-grants-6` | + metallurgic, agricultural, electromagnetic | ~20 |
+| `fh-land-grants-7` | + cryogenic | ~20 |
+| `fh-land-grants-8` | + promethium | infinite (terminal) |
+
+The three inner-planet packs share one tier deliberately. Vulcanus, Fulgora, and Gleba are completed in any order, but a technology's `unit.ingredients` is a conjunction — there is no "any one of these packs". A per-planet chain would therefore pick an arbitrary planet order and stall a force's entire land income if they happened to visit Fulgora first. Grouping the three is symmetric, and it mirrors how Space Age itself gates: three inner planets in any order, then Aquilo, then the Shattered Planet.
+
 - Each tier's prerequisite is the previous tier; players see a single ladder, not a lattice.
 - Within a tier, science cost ramps **roughly linearly** via `unit.count_formula`; the terminal infinite tier uses the **linear** formula `L*1000*multiplier` with `max_level = "infinite"`. Linear is deliberate: exponential infinite techs effectively shut the faucet off late-game, whereas linear cost keeps land income flowing at a tapering but never-zero rate for megabase-scale play. (This linear-cost terminal-technology idea is deliberately retained from Gridlocked; its parallel per-pack tech structure is not — see below.)
 - `fh-tech-cost-multiplier` (startup, default 1) globally scales science costs; being startup-scope it is readable at data stage and should be baked into each tier's `unit.count` / `unit.count_formula` (e.g. `"L*" .. (1000 * multiplier)`).
 - **Engine note:** Factorio parses a trailing `-<number>` in a technology name as a level within a name family, and leveled prototypes express their range via the name suffix (starting level) plus `max_level` (ending level). The implementer must reconcile the tier naming with per-tier level counts when writing the prototypes (vanilla's `mining-productivity-*` chain is the reference pattern for a chained leveled family ending in an infinite tech).
-- **Space Age variant:** with `space-age` active (check `mods["space-age"]` at data stage), tier 5 becomes finite (about 20 levels), followed by planet-science tiers, ending in a terminal infinite tier with the same linear formula. **Open:** how the metallurgic, agricultural, electromagnetic, cryogenic, and promethium packs group into those planet tiers.
 - **Research-reversal correctness is a hard requirement.** `defines.events.on_research_reversed` must decrement the force's points by `fh-points-per-level` per reversed level, **including infinite-tech levels**, so that finish-then-reverse is exactly net zero. Gridlocked has a known TODO bug here; Freehold must get it right, and the testing matrix in *Architecture* includes research reversal explicitly.
+
+#### Deriving the tier ladder
+
+Freehold must never name a science pack as a constant. Overhaul mods make hardcoded pack lists wrong at best and fatal at worst:
+
+- **Krastorio2** keeps the vanilla packs and adds four of its own (`kr-basic-tech-card` … `kr-singularity-tech-card`) — a vanilla chain loads, but sits at the wrong depths.
+- **Periodic Madness** keeps `automation`, `logistic`, and `chemical` but interleaves eight of its own between them; `pm-advanced-advanced-transition-metal-science-pack` comes *before* chemical, so a vanilla ordering is simply wrong.
+- **Ultracube** replaces science outright — `cube-basic-contemplation-unit`, `cube-fundamental-comprehension-card`, and so on. **No vanilla pack prototype exists at all.** A chain naming `automation-science-pack` in `unit.ingredients` references a nonexistent prototype: a data-stage crash, or at best a permanently unresearchable chain and a dead income faucet for the entire game.
+
+The ladder is therefore computed in `data-final-fixes.lua`:
+
+1. **Candidate packs** — every `tool` prototype that appears in some technology's `unit.ingredients`. This picks up overhaul packs automatically and excludes tools that are not science.
+2. **Availability depth** — for each pack, the minimum prerequisite-depth of a technology that unlocks a recipe producing it. Packs craftable from game start have depth 0. Depth is a BFS over the technology prerequisite graph.
+3. **Order** — sort by depth ascending, then by prototype name. The name tiebreak is not cosmetic: it makes the ladder deterministic rather than dependent on `pairs()` iteration order.
+4. **Slice** — group the ordered packs into tiers by depth band. Each tier's `unit.ingredients` is cumulative: every pack up to and including its band.
+5. **Terminal tier** — takes every pack, `max_level = "infinite"`, linear `count_formula`.
+
+**Host override channel.** A startup string setting `fh-tech-tiers` pins the ladder explicitly, in the same spirit as the layer-membership override settings (*Interfaces*): semicolon-separated tiers, each a comma-separated cumulative pack list. Empty (the default) means derive. This gives overhaul authors and server hosts the final word when the derivation gets a novel tech tree wrong, without waiting for a Freehold release:
+
+```
+fh-tech-tiers = cube-basic-contemplation-unit; cube-fundamental-comprehension-card; cube-abstract-interrogation-card; cube-deep-introspection-card; cube-synthetic-premonition-card
+```
+
+**Validation.** The derivation reproducing the vanilla and Space Age tables above is a test assertion in the testing matrix, not an assumption.
 
 ### Starting grant and settlement charters
 
@@ -404,7 +439,7 @@ All claiming, upgrading, and downgrading is done with a single item: the **surve
 - **Never craftable:** no recipe produces it, it appears in no crafting menu, and it cannot be placed in the world or in containers. The only way to hold it is the spawn-item flow.
 - **Acquisition:** two entry points, both using the engine's spawn-item action so the tool appears directly in the cursor:
   - A shortcut-bar button: `type = "shortcut"`, suggested name `fh-get-survey-tool`, `action = "spawn-item"`, `item_to_spawn = "fh-survey-tool"`, `associated_control_input` pointing at the custom input below.
-  - A hotkey: `type = "custom-input"`, suggested name `fh-get-survey-tool`, `action = "spawn-item"`, `item_to_spawn = "fh-survey-tool"`. **Open:** the default `key_sequence` is undecided; ship unbound (`""`) or pick a default before release.
+  - A hotkey: `type = "custom-input"`, name `fh-get-survey-tool`, `action = "spawn-item"`, `item_to_spawn = "fh-survey-tool"`, default `key_sequence = "ALT + S"` (S for Survey — unused by vanilla, which occupies ALT+A/B/C/D/E/F/G/L/R/T/U/Y, and distinct from Gridlocked's ALT+K should both ever be installed). Like every custom-input, players rebind it per-player in Settings → Controls → Mods; the default is only a default.
 - **Selection modes:** the prototype defines all four `SelectionModeData` blocks (`select`, `alt_select`, `reverse_select`, `alt_reverse_select`). Give each a distinct `border_color` hinting at the target state (exact colors are art-direction work, tracked with the open border-art question under *Rendering*). `mode = {"any-entity"}` is sufficient; the script handlers derive the affected cells from `event.area` and ignore `event.entities`, so no entity filters are load-bearing. Because `selection-tool` inherits from `item-with-label`, the cursor stack has `label` and `label_color` — the balance readout described under *Hover and Cursor Feedback* depends on this.
 
 ### Selection Modes
@@ -560,7 +595,7 @@ Notes:
 
 - Cell coordinates are identical to chunk coordinates (1 cell = 1 chunk footprint, see *Core Model*). The cell center in tile coordinates is `{cx * 32 + 16, cy * 32 + 16}`; blockers are looked up with `surface.find_entity(blocker_name, cell_center)` when operating on a cell — the registry never stores entity references.
 - `invested_points` records cumulative spend so downgrades can refund the correct step price (see *Economy*).
-- **Open — `cell_key` encoding:** a packed integer is recommended (e.g. an illustrative packing `(x + 0x8000) * 0x10000 + (y + 0x8000)` for coordinates in ±32k), with an `"x,y"` string as an acceptable alternative. Implementer's choice; pick one, wrap it in `cell_key(x, y)` / `cell_key_to_pos(key)` helpers in `scripts/registry.lua`, and use it nowhere else directly.
+- **`cell_key` encoding — resolved: the packed integer.** `cell_key(x, y) = (x + 0x8000) * 0x10000 + (y + 0x8000)`, valid for cell coordinates in ±32k — comfortably covering the ±1M-tile map limit (±31.25k cells). Compact in saves and fast to compare. Wrapped in `cell_key(x, y)` / `cell_key_to_pos(key)` helpers in `scripts/registry.lua` and used nowhere else directly; the encoding is persisted in `storage.cells`, so changing it later means a migration.
 
 #### Derived state and recovery: `/fh-rebuild`
 
@@ -576,13 +611,13 @@ Large rebuilds run through the batched `on_nth_tick` queue described below, neve
 
 | Event | Responsibility (one line) |
 |---|---|
-| `on_chunk_generated` | Spawn the wilderness blocker for the new cell, unless the surface is disabled or the cell already exists in the registry. |
+| `on_chunk_generated` | Spawn the blocker **matching the cell's registered state** — wilderness if the cell is absent from the registry, `fh-cell-trail` / `fh-cell-rampart` if registered, none if Deed — unless the surface is disabled. Do **not** skip registered cells: the only way a chunk generates for a registered cell is a surface regeneration, and skipping would leave that cell with no blocker, which is exactly how Deed is represented. Spawning by registered state is uniformly correct and handles regeneration for free. |
 | `on_chunk_charted` | Lazily create frontier border renders and survey stakes for claims in the newly charted area, each render's `forces` filter set to the cell's owning force (each force sees only its own claims). |
 | `on_surface_created` | Initialize per-surface tables (`cells`, `renders`). |
-| `on_surface_cleared` | Drop transient blocker registrations and render bookkeeping (world objects are gone). **Open:** whether the claim registry itself survives a surface clear (with `/fh-rebuild`-style reconciliation recreating blockers as chunks regenerate) or is dropped with everything else. |
+| `on_surface_cleared` | Drop **everything** for that surface: the claim registry entries, blocker registrations, and render bookkeeping. A surface clear is an out-of-band administrative reset, not a gameplay action; leaving a force owning Deeds over regenerated wilderness with none of its buildings is incoherent. No refund is paid — Freehold returns the surface to a consistent wilderness state rather than trying to price an operation it did not initiate. MTS deletes surfaces rather than clearing them, so this path is rare. |
 | `on_surface_deleted` | Delete all per-surface keys from `storage`. |
 | `on_force_created` | Initialize `storage.points[force.index]` with the starting grant (see *Economy*). |
-| `on_forces_merged` | **Open — merge policy:** lean is to sum the two balances and union the registries under the surviving force; conflict resolution is undecided. |
+| `on_forces_merged` | Sum balances into the destination, reassign every source cell's `force_index`, union charter records, refresh affected renders, raise `on_points_changed` with reason `"merge"`. Disjoint by construction — no conflict resolution needed. See *Economy*. |
 | `on_player_created` | Build the per-player HUD (see *Player Experience*). |
 | `on_player_changed_force` | Rebind the player's HUD to the new force's balance — mandatory, MTS moves players between forces and a stale HUD is a known Gridlocked failure. |
 | `on_research_finished` | Credit points for completed `fh-land-grants-N` levels. |
@@ -746,7 +781,7 @@ Conventions used by the functions:
 | `claim(surface, cell_pos, force, target_state, opts)` | `ok, reason` | Programmatic claim/upgrade of one cell to `target_state`. Applies exactly the survey tool's rules: flat step prices with full credit for already-held rights, adjacency check for new claims on Wilderness, Trail as strict prerequisite for Rampart, disabled-surface check (pricing in *Economy*). `opts` is an optional table; omit it or pass `nil` in normal use. |
 | `downgrade(surface, cell_pos, force, opts)` | `ok, reason` | Downgrades one cell one step with refund (step price × `fh-refund-percent` / 100, default 25%), subject to the downgrade validity check — the cell must contain no entities requiring the revoked right (see *Economy*). |
 | `get_cell(surface, cell_pos)` | `nil` or table | Registry record `{state, force_index, claimed_tick, invested_points}`. `nil` means Wilderness. |
-| `get_territory_stats(force_index)` | table | `{trails, ramparts, deeds}` counts across all surfaces. **Open:** whether to add a per-surface breakdown to the return shape. |
+| `get_territory_stats(force_index, opts)` | table | `{trails, ramparts, deeds}` counts across all surfaces. With `opts = {by_surface = true}`, additionally includes `by_surface = {[surface_index] = {trails, ramparts, deeds}}`. A call-time option rather than a mod setting, deliberately: different consumers want different shapes simultaneously (an MTS scoreboard wants the breakdown, a HUD wants cheap totals), and both shapes are frozen contract members from v1. |
 | `set_surface_enabled(surface, enabled)` | — | A disabled surface gets no blockers and no grid at all (`storage.disabled_surfaces`, see *Architecture*). Intended for MTS landing pens, scenario lobbies, and similar special surfaces. Behavior on re-enabling a previously disabled surface (e.g. reconciling blockers/renders from the registry, as `/fh-rebuild` does) is an implementation question. |
 | `get_surface_enabled(surface)` | `boolean` | Whether Freehold's grid is active on the surface. |
 | `get_event_id(name)` | `uint` | Resolves a custom-event name (below) to this session's event id. |
@@ -787,7 +822,28 @@ fh-transit-additions = heat-pipe, type:storage-tank
 fh-rampart-removals  = solar-panel
 ```
 
-**Mod channel — the mod-data convention.** Factorio 2.0's `mod-data` prototype allows cross-mod data-stage sharing. Other mods declare which layers their entities belong to under a well-known mod-data name, and Freehold reads those declarations in `data-final-fixes.lua`. **Open:** the exact shape. The lean is a mod-data prototype named `"freehold-layers"` whose `data` table is keyed by declaring-mod name: `data[mod_name] = {transit = {...}, rampart = {...}, land = {...}}`, where each list holds entity names and `type:` entries and an explicit `land` list pins entities to land against Freehold's type-based defaults. Note for whoever closes the open question: prototype names are unique per type, so a single shared prototype name cannot be `data:extend`-ed by multiple mods independently — the final shape may need one mod-data prototype per declaring mod (for example a name-prefix convention) rather than one shared table.
+**Mod channel — the mod-data convention (resolved).** Factorio 2.0's `mod-data` prototype exists for exactly this, and its `data_type` field is documented as the cross-mod discovery mechanism: *"Arbitrary string that mods can use to declare type of data. Can be used for mod compatibility when one mod declares block of data that is expected to be discovered by another mod."*
+
+So the convention is **not** one shared prototype name. Each declaring mod creates **its own** `mod-data` prototype, named however it likes, and tags it:
+
+```lua
+data:extend({{
+  type      = "mod-data",
+  name      = "my-rail-mod-freehold-layers",   -- any unique name
+  data_type = "freehold-layers",               -- the discovery key
+  data = {
+    transit = { "mrm-maglev-rail", "mrm-monorail-track" },
+    rampart = { "mrm-guard-tower" },
+    land    = { "mrm-depot" },                 -- pin against type defaults
+  },
+}})
+```
+
+Freehold's `data-final-fixes.lua` then scans `data.raw["mod-data"]` for every prototype whose `data_type` is `"freehold-layers"` and applies them all. This dissolves the name-collision problem the earlier lean worried about: no two mods contend for a prototype name, there is no get-or-create merge dance, and declaration order between mods is irrelevant.
+
+Each list holds entity prototype names or `type:` entries; an explicit `land` list pins entities to land against Freehold's type-based defaults.
+
+**One requirement for declaring mods:** declare in `data.lua` or `data-updates.lua`, never in `data-final-fixes.lua`. A mod that declares `"? freehold"` for load order loads *after* Freehold, so a declaration made in its own `data-final-fixes.lua` would arrive too late to be read. The mod-data channel needs no dependency declaration at all — only the event-consumption channel does.
 
 **Precedence:** Freehold defaults < mod-data declarations < host settings. The host always has the final word.
 
@@ -799,7 +855,7 @@ MTS is an optional dependency. All MTS-specific code lives in `compat/mts.lua` b
 
 - **Team lifecycle.** Freehold consumes the `mts-v1` interface: it resolves MTS's `on_team_created` and `on_team_released` custom events via MTS's `get_event_id` (the same resolve-every-session, never-store rule as Freehold's own events) and resets points for recycled team slots — internally the same routine as `reset_force`. Without this, a force slot recycled to a new team would inherit the previous team's balance.
 - **Team colors.** Border renders use the team color obtained via `mts-v1` instead of the per-planet color settings used without MTS (see *Player Experience*).
-- **Landing pen / lobby surfaces.** These must be disabled so they get no grid. **Open:** which side drives this. The lean: MTS, which knows its own surface policy, calls Freehold's `set_surface_enabled` — rather than Freehold querying MTS about surfaces.
+- **Landing pen / lobby surfaces — resolved: Freehold queries, MTS ships nothing.** With MTS active, `compat/mts.lua` enables the grid **only on team surfaces**, determined by calling `mts-v1`'s existing `is_team_surface` / `get_surface_owner` functions as surfaces are created (and on init for existing surfaces). The landing pen is not a team surface, so it gets no grid — and neither does any special surface MTS invents later, with no enumeration of surface roles anywhere. This needs no new `mts-v1` functions and keeps the no-shim rule absolute: MTS contains not a single line about Freehold, not even a `set_surface_enabled` call.
 - **Territory stats.** MTS records and scoreboards consume `get_territory_stats` and subscribe to the `on_cell_claimed` event stream. Freehold pushes nothing MTS-specific; the generic surface is enough.
 - **Free composition elsewhere.** Claim announcements use `force.print`, which lands in the MTS team chat channel automatically; the HUD handles `on_player_changed_force` because MTS moves players between forces (both in *Player Experience*). Under MTS's per-team surface isolation, blocker enforcement is exact (see the shared-surface limitation in *Architecture*).
 
@@ -830,9 +886,9 @@ Channel routing on the bridge side supports exact event keys, namespace globs (`
 | --- | --- |
 | `freehold.settlement_charter` | A force's first presence on a planet grants the settlement charter (see *Economy*). |
 | `freehold.first_deed` | A force's first Deed on each planet. |
-| `freehold.territory_milestone` | Territory count crosses a threshold. **Open:** the threshold (e.g. every 25th Deed). |
+| `freehold.territory_milestone` | A force's Deed count on a planet crosses a multiple of 25 (25, 50, 75, …), tracked per force per planet. |
 
-- Per-claim emission is **not** default. **Open:** whether to offer an opt-in setting for it.
+- Per-claim emission does not exist in v1 — not even behind a setting. Adding an opt-in later is additive; removing spam is not. (Resolved from the former open question.)
 - No `set_baseline` takeovers in v1.
 
 **Known interaction to document for hosts.** ODB's baseline `research_finished` announcement fires for every completed `fh-land-grants-N` level, which can read as Discord spam late-game (the terminal tier is infinite). Mitigations: hosts can mute or reroute `research_finished` through ODB's channel routing; a Freehold-enriched research takeover via `set_baseline` is a future consideration only, not v1.
@@ -849,24 +905,23 @@ Freehold thereby dogfoods both of the author's platform mods — MTS for multi-t
 
 ### Cookbook for third-party mod authors
 
-**1. Declare your entities' layers (data stage).** Illustrative of the lean mod-data shape; adjust when the open shape question is closed.
+**1. Declare your entities' layers (data stage).** Create your *own* `mod-data` prototype and tag it with `data_type = "freehold-layers"`. Freehold discovers every prototype carrying that tag — you never contend with another mod for a prototype name, and declaration order between mods does not matter.
 
 ```lua
 -- data-updates.lua of "my-rail-mod"
--- Merge into the shared table if another mod created it first: prototype names
--- are unique per type, so a plain data:extend would silently overwrite an
--- existing "freehold-layers" prototype from another mod.
-local shared = data.raw["mod-data"] and data.raw["mod-data"]["freehold-layers"]
-if not shared then
-  shared = { type = "mod-data", name = "freehold-layers", data = {} }
-  data:extend({ shared })
-end
-shared.data["my-rail-mod"] = {             -- keyed by your mod name
-  transit = { "mrm-maglev-rail", "mrm-monorail-track" },  -- entity names, or "type:<engine-type>"
-  rampart = { "mrm-guard-tower" },
-  land    = { "mrm-depot" },               -- pin to land against type-based defaults
-}
+data:extend({{
+  type      = "mod-data",
+  name      = "my-rail-mod-freehold-layers",  -- any name you like; keep it unique
+  data_type = "freehold-layers",              -- the discovery key Freehold scans for
+  data = {
+    transit = { "mrm-maglev-rail", "mrm-monorail-track" },  -- names, or "type:<engine-type>"
+    rampart = { "mrm-guard-tower" },
+    land    = { "mrm-depot" },                -- pin to land against type-based defaults
+  },
+}})
 ```
+
+Declare from `data.lua` or `data-updates.lua`, **never** from `data-final-fixes.lua` — a mod that declares `"? freehold"` loads after Freehold, so a declaration made in its own final-fixes stage would arrive too late to be read. No dependency declaration is needed for this channel at all.
 
 Host settings still win over your declaration (precedence: defaults < mod-data < host settings). Every entity ends in exactly one layer.
 
@@ -984,13 +1039,7 @@ Naming history: earlier working names picket, stockade, watchpost, and waystatio
 
 Each item below is deliberately unresolved. Where a lean is recorded, treat it as the default to implement unless playtesting or review overturns it.
 
-- **Open:** Default key binding for the survey-tool custom-input. The shortcut-bar button and spawn-item flow are fixed (*Player Experience*); only the default hotkey needs choosing.
-- **Open:** `on_forces_merged` policy. Lean: sum the two point balances and union the cell registries under the surviving force; conflict handling is part of the open question.
-- **Open:** Space Age planet-science tier grouping - how metallurgic, agricultural, electromagnetic, cryogenic, and promethium packs group into the post-`fh-land-grants-5` tiers before the terminal infinite tier.
-- **Open:** Whether `get_territory_stats(force_index)` returns a per-surface breakdown in addition to the force-wide `{trails, ramparts, deeds}` totals.
 - **Open:** Border art direction per state (e.g. Trail dashed, Rampart crenellated, Deed solid). The corner survey-stake markers are fixed as the visual signature; the per-state edge styles are not.
-- **Open:** `cell_key` encoding: packed integer (recommended) or `"x,y"` string. Implementer's choice, but pick once - it is persisted in `storage.cells`.
-- **Open:** ODB territory-milestone threshold (e.g. every 25th Deed) and whether to offer an opt-in setting for per-claim emission. Per-claim emission is never the default (anti-spam principle, *Interfaces*).
 - **Open:** Exact numeric tuning of every value in *Economy* - prices, `fh-refund-percent` (25), `fh-points-per-level` (5), `fh-starting-points` (75), `fh-settlement-charter` (30), tech level counts and cost ramps, `fh-tech-cost-multiplier` (1). All shipped numbers are launch ballparks pending playtesting.
 
 ### Handoff Note
