@@ -9,6 +9,7 @@ local economy = require("scripts.economy")
 local tool = require("scripts.tool")
 local custom_events = require("scripts.custom_events")
 require("scripts.commands")
+require("scripts.remote")
 
 local function init_surface(surface)
   registry.init_surface(surface.index)

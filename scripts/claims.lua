@@ -241,10 +241,11 @@ end
 --   {denied = "points", need = n, have = n}
 --   {applied = n, cost = n}      (claim actions; n may be 0 -> silent no-op)
 --   {applied = n, refund = n}    (downgrade)
-function claims.apply_batch(surface, force, player, rect, action)
+function claims.apply_batch(surface, force, player, rect, action, opts)
   if storage.disabled_surfaces[surface.index] then
     return { denied = "disabled" }
   end
+  local ignore_adjacency = opts ~= nil and opts.ignore_adjacency or false
 
   if action == "downgrade" then
     local transitions = {}
@@ -268,8 +269,10 @@ function claims.apply_batch(surface, force, player, rect, action)
   end
 
   -- Anchor first, before eligibility, per the design: an unanchored claim
-  -- drag is a loud denial, never a silent no-op.
-  if not batch_is_anchored(surface, rect, force, player) then
+  -- drag is a loud denial, never a silent no-op. opts.ignore_adjacency is
+  -- the single sanctioned bypass, for scenario/quest mods seeding territory
+  -- through the remote interface (ADR-0006).
+  if not ignore_adjacency and not batch_is_anchored(surface, rect, force, player) then
     return { denied = "anchor" }
   end
 
@@ -291,8 +294,17 @@ function claims.apply_batch(surface, force, player, rect, action)
       end
     end
   end
-  for _, t in ipairs(reachable_claims(surface, rect, force, player, candidates)) do
-    transitions[#transitions + 1] = t
+  if ignore_adjacency then
+    for cy = rect.y1, rect.y2 do
+      for cx = rect.x1, rect.x2 do
+        local t = candidates[registry.cell_key(cx, cy)]
+        if t then transitions[#transitions + 1] = t end
+      end
+    end
+  else
+    for _, t in ipairs(reachable_claims(surface, rect, force, player, candidates)) do
+      transitions[#transitions + 1] = t
+    end
   end
 
   local total_cost = 0

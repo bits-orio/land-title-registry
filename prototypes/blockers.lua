@@ -10,7 +10,7 @@
 -- player builds inside Trail and Rampart cells. Area selection is unaffected
 -- by priority, and the survey-tool handlers read event.area anyway.
 
-local function blocker(name, layers)
+local function blocker(name, layers, picture)
   return {
     type = "simple-entity-with-owner",
     name = name,
@@ -27,13 +27,28 @@ local function blocker(name, layers)
     selection_box = { { -16, -16 }, { 16, 16 } },
     selection_priority = 5,
     collision_mask = { layers = layers },
-    -- No picture: blockers are invisible. Ownership is shown by the border
-    -- renders (M3), not by the enforcement entity.
+    -- The wilderness blocker carries the red-ribbon overlay as its own
+    -- sprite (ADR-0009): the entity already sits exactly on every wilderness
+    -- cell, so the engine renders the overlay with zero render objects and
+    -- it appears/disappears with claims automatically. Drawn on the floor
+    -- layer so everything else renders above it. Trail/Rampart blockers
+    -- stay invisible — claimed land looks normal.
+    picture = picture,
+    render_layer = picture and "floor" or nil,
   }
 end
 
+local wilderness_overlay = {
+  filename = "__freehold__/graphics/wilderness-overlay.png",
+  width = 1024,
+  height = 1024,
+  scale = 1, -- 1024 px at 32 px/tile = exactly one 32-tile cell
+}
+
 data:extend({
-  blocker("fh-cell-wilderness", { ["fh-land"] = true, ["fh-transit"] = true, ["fh-rampart"] = true }),
+  blocker("fh-cell-wilderness",
+    { ["fh-land"] = true, ["fh-transit"] = true, ["fh-rampart"] = true },
+    wilderness_overlay),
   blocker("fh-cell-trail", { ["fh-land"] = true, ["fh-rampart"] = true }),
   blocker("fh-cell-rampart", { ["fh-land"] = true }),
 })

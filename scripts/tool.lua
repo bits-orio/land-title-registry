@@ -26,9 +26,25 @@ local function holding_tool(player)
   return stack ~= nil and stack.valid_for_read and stack.name == TOOL_NAME
 end
 
+-- Cursor-stack writes are guarded by value comparison: a write to the stack
+-- while the player is mid-drag can cancel the selection, so never touch the
+-- stack unless the value actually changed.
 local function update_label(player)
   if not holding_tool(player) then return end
-  player.cursor_stack.label = economy.format(economy.get(player.force.index)) .. " Land points"
+  local stack = player.cursor_stack
+  local text = economy.format(economy.get(player.force.index)) .. " Land points"
+  if stack.label ~= text then stack.label = text end
+end
+
+local function set_label_color(stack, color)
+  local current = stack.label_color
+  if current
+    and math.abs(current.r - color.r) < 0.01
+    and math.abs(current.g - color.g) < 0.01
+    and math.abs(current.b - color.b) < 0.01 then
+    return
+  end
+  stack.label_color = color
 end
 
 -- ---------------------------------------------------------------------------
@@ -142,7 +158,7 @@ local function hover_tick()
       local state = registry.state_of(surface.index, registry.cell_key(cx, cy))
       local next_cost = const.NEXT_STEP_COST[state]
       local short = next_cost ~= nil and economy.get(player.force.index) < next_cost
-      player.cursor_stack.label_color = short and LABEL_SHORT or LABEL_OK
+      set_label_color(player.cursor_stack, short and LABEL_SHORT or LABEL_OK)
     end
   end
 end

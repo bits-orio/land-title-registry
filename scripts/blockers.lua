@@ -82,7 +82,12 @@ end
 function blockers.reconcile(surface, cx, cy)
   local surface_index = surface.index
   local cell_key = registry.cell_key(cx, cy)
-  local expected = const.BLOCKER[registry.state_of(surface_index, cell_key)]
+  -- A disabled surface expects NO blocker anywhere: the same reconcile that
+  -- builds an enabled surface sweeps a disabled one clean.
+  local expected
+  if not storage.disabled_surfaces[surface_index] then
+    expected = const.BLOCKER[registry.state_of(surface_index, cell_key)]
+  end
   local center = blockers.cell_center(cx, cy)
 
   registry.init_surface(surface_index)
@@ -161,10 +166,8 @@ local function drain_rebuild_queue()
     queue[n] = nil
     n = n - 1
     local surface = game.surfaces[item.surface_index]
-    if surface and surface.valid and not storage.disabled_surfaces[item.surface_index] then
-      if surface.is_chunk_generated({ x = item.x, y = item.y }) then
-        blockers.reconcile(surface, item.x, item.y)
-      end
+    if surface and surface.valid and surface.is_chunk_generated({ x = item.x, y = item.y }) then
+      blockers.reconcile(surface, item.x, item.y)
     end
   end
   if n == 0 then
@@ -184,7 +187,6 @@ function blockers.ensure_rebuild_handler()
 end
 
 function blockers.enqueue_surface_rebuild(surface)
-  if storage.disabled_surfaces[surface.index] then return 0 end
   local queue = storage.rebuild_queue
   local count = 0
   for chunk in surface.get_chunks() do
