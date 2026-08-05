@@ -100,7 +100,7 @@ Two events are non-negotiable because MTS moves players between forces and recyc
 - `on_player_changed_force` — rebind the HUD to the **new** force's balance.
 - `reset_force` (remote) — implemented from day one, resetting the balance to the starting grant and refreshing every member's HUD.
 
-**Never store a custom event id in `storage`.** Ids are regenerated every session; resolve them at `control.lua` root scope. This applies both to Freehold's own ids and to ids resolved from `mts-v1` or `open-discord-bridge-v1`.
+**Never store a custom event id in `storage`.** Ids are regenerated every session; resolve them in `on_init` AND `on_load` (2.0 rejects root-scope `remote.call` and allows it in `on_load` — verified against the engine). This applies both to Freehold's own ids and to ids resolved from `mts-v1` or `open-discord-bridge-v1`.
 
 All cross-mod calls sit behind `script.active_mods[...]` guards plus a defensive `remote.interfaces[...]` check.
 

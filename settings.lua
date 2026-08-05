@@ -1,4 +1,26 @@
--- M4 adds the layer-override startup strings.
+-- Layer-membership override channels (host has the final word; precedence
+-- Freehold defaults < mod-data declarations < these settings). Entries are
+-- comma-separated: an entity prototype name, or a prototype type with the
+-- "type:" prefix (e.g. "heat-pipe, type:storage-tank"). Removals send an
+-- entity back to land — the universal default.
+local layer_overrides = {
+  { name = "fh-transit-additions", order = "e[layers]-a" },
+  { name = "fh-transit-removals", order = "e[layers]-b" },
+  { name = "fh-rampart-additions", order = "e[layers]-c" },
+  { name = "fh-rampart-removals", order = "e[layers]-d" },
+}
+local override_settings = {}
+for _, entry in ipairs(layer_overrides) do
+  override_settings[#override_settings + 1] = {
+    type = "string-setting",
+    name = entry.name,
+    setting_type = "startup",
+    default_value = "",
+    allow_blank = true,
+    order = entry.order,
+  }
+end
+data:extend(override_settings)
 
 data:extend({
   {

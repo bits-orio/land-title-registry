@@ -2,10 +2,9 @@
 -- fh-land / fh-transit / fh-rampart — except the exempt class, which carries
 -- no layer and can exist anywhere.
 --
--- Membership is capability/type-based, never a name blacklist. The mod-data
--- declaration channel and the host startup-setting overrides land in M4; this
--- file is structured so they slot into resolve_layer's precedence chain
--- (defaults < mod-data < host settings) without reshaping anything.
+-- Membership is capability/type-based, never a name blacklist, with two
+-- override channels: mod-data declarations (data_type = "freehold-layers")
+-- and host startup settings. Precedence: defaults < mod-data < host.
 
 local mask_util = require("collision-mask-util")
 
@@ -90,7 +89,69 @@ local EXEMPT_NAMES = {
   ["cargo-pod-container"] = true,
 }
 
+-- ---------------------------------------------------------------------------
+-- Override channels (precedence: defaults < mod-data declarations < host
+-- settings; within each channel, an entity-name entry beats a type: entry).
+
+-- Mod channel: any mod-data prototype tagged data_type = "freehold-layers"
+-- declares { transit = {...}, rampart = {...}, land = {...} } of entity
+-- names / "type:<type>" entries. Sorted by prototype name for determinism.
+local moddata_by_name, moddata_by_type = {}, {}
+local LAYER_OF_KEY = { transit = "fh-transit", rampart = "fh-rampart", land = "fh-land" }
+if data.raw["mod-data"] then
+  local declarations = {}
+  for proto_name, proto in pairs(data.raw["mod-data"]) do
+    if proto.data_type == "freehold-layers" then
+      declarations[#declarations + 1] = proto_name
+    end
+  end
+  table.sort(declarations)
+  for _, proto_name in ipairs(declarations) do
+    local decl = data.raw["mod-data"][proto_name].data or {}
+    for key, layer in pairs(LAYER_OF_KEY) do
+      for _, entry in pairs(decl[key] or {}) do
+        if type(entry) == "string" then
+          local type_name = entry:match("^type:%s*(.+)$")
+          if type_name then
+            moddata_by_type[type_name] = layer
+          else
+            moddata_by_name[entry] = layer
+          end
+        end
+      end
+    end
+  end
+end
+
+-- Host channel: startup string settings. Removals always send back to land.
+local host_by_name, host_by_type = {}, {}
+local HOST_SETTINGS = {
+  ["fh-transit-additions"] = "fh-transit",
+  ["fh-transit-removals"] = "fh-land",
+  ["fh-rampart-additions"] = "fh-rampart",
+  ["fh-rampart-removals"] = "fh-land",
+}
+for setting_name, layer in pairs(HOST_SETTINGS) do
+  for entry in string.gmatch(settings.startup[setting_name].value, "[^,]+") do
+    local trimmed = entry:match("^%s*(.-)%s*$")
+    if trimmed ~= "" then
+      local type_name = trimmed:match("^type:%s*(.+)$")
+      if type_name then
+        host_by_type[type_name] = layer
+      else
+        host_by_name[trimmed] = layer
+      end
+    end
+  end
+end
+
 local function resolve_layer(proto)
+  -- Host beats mod-data beats defaults; overrides beat the exemption rules
+  -- too — the host always has the final word, even to layer a vehicle.
+  local override = host_by_name[proto.name] or host_by_type[proto.type]
+    or moddata_by_name[proto.name] or moddata_by_type[proto.type]
+  if override then return override end
+
   if EXEMPT_TYPES[proto.type] then return nil end
   if EXEMPT_NAMES[proto.name] then return nil end
   if proto.name:sub(1, 11) == "crash-site-" then return nil end

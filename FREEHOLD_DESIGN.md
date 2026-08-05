@@ -804,7 +804,7 @@ Freehold generates its event ids with `script.generate_event_name()` at `control
 | `on_cell_downgraded` | `surface_index`, `cell_pos`, `force_name`, `old_state`, `new_state`, `refund` (number, points refunded — may be fractional), `player_index` (optional) | A cell is downgraded one step. |
 | `on_points_changed` | `force_name` (string), `points` (number, new balance), `delta` (int), `reason` (short string identifying the source, e.g. a claim, refund, research grant, settlement charter, or remote call) | Any change to a force's balance, from any source. |
 
-**The lookup pattern.** Event ids are regenerated every session and must **never** be stored — not in Freehold's `storage`, not in a consumer's. `remote.call` is not permitted inside `on_load`, so the correct consumer pattern is to resolve the id **at `control.lua` root scope** — the `"? freehold"` optional dependency guarantees Freehold loads first and its interface is already registered — and subscribe with `script.on_event` at root scope too, which runs on every session start (full snippet in the cookbook below). Storing an id in `storage` is a save-corruption bug waiting to happen: the number can differ on the next load.
+**The lookup pattern.** Event ids are regenerated every session and must **never** be stored — not in Freehold's `storage`, not in a consumer's. **Corrected during M4 against the real engine:** Factorio 2.0 rejects `remote.call` at `control.lua` root scope ("Attempt to remote call outside of an event") but **allows it in `on_load`** (the 1.1-era prohibition is gone — verified empirically 2026-08-05). The correct consumer pattern is therefore a `resolve()` function called from **both `on_init` and `on_load`** — the two entry points that run before any events each session — that resolves ids via `get_event_id` and subscribes with `script.on_event`. The `"? freehold"` optional dependency guarantees Freehold's interface is registered by then. Storing an id in `storage` remains a save-corruption bug: the number can differ on the next load. Freehold's own `compat/mts.lua` is the reference implementation of this pattern.
 
 **Why events beat polling.** This follows MTS's published COMPAT.md patterns 5 and 6 — expose runtime rules through a remote interface so other mods can reuse them, and emit custom events for lifecycle hooks. An integrator receives a push at the exact tick of the change with full context in the payload (transition, actor, cost/refund) instead of running `on_tick`/`on_nth_tick` loops that diff territory snapshots. Freehold itself has no unconditional `on_tick` handler (see *Architecture*), and its event surface is what keeps that discipline from being undone downstream: nothing about Freehold's state requires any consumer to poll.
 
@@ -931,11 +931,12 @@ Declare from `data.lua` or `data-updates.lua`, **never** from `data-final-fixes.
 
 Host settings still win over your declaration (precedence: defaults < mod-data < host settings). Every entity ends in exactly one layer.
 
-**2. Consume Freehold's events (control stage).** Resolve ids at root scope every session; never store them. (`remote.call` is not permitted in `on_load`, so root scope — which runs on every load — is both the safe and the simple place. The `"? freehold"` dependency guarantees Freehold's interface is registered before your `control.lua` runs.)
+**2. Consume Freehold's events (control stage).** Resolve ids in `on_init` **and** `on_load`, never at root scope (2.0 rejects root-scope `remote.call`; it allows it in `on_load`) and never stored in `storage`.
 
 ```lua
 -- control.lua of an integrating mod (declare "? freehold" for load order)
-if remote.interfaces["freehold"] then
+local function resolve_freehold_events()
+  if not remote.interfaces["freehold"] then return end
   local on_cell_claimed =
     remote.call("freehold", "get_event_id", "on_cell_claimed")
   script.on_event(on_cell_claimed, function(e)
@@ -947,6 +948,8 @@ if remote.interfaces["freehold"] then
     end
   end)
 end
+script.on_init(resolve_freehold_events)
+script.on_load(resolve_freehold_events)
 -- Never write the event id to storage: ids are regenerated every session.
 ```
 
@@ -990,9 +993,9 @@ v1 ships the complete land-rights core: the fixed 32x32 cell grid with the Wilde
 - [x] HUD via mod-gui, `fh-show-points` per-user setting, refresh on points change / force change (`on_player_changed_force`) / player join and create (`on_player_created`)
 - [x] Frontier-only border rendering (eager from the registry — the lazy-on-chart variant was superseded, see *Rendering*), per-force `forces` filter, per-planet colors via `surface.planet.name` with a provider hook for MTS team colors (compat wiring lands in M4), corner survey-stake markers, per-state edge art (Trail dashed / Rampart long-dash / Deed solid), world + chart render families, `fh-` sound prototypes
 - [x] Remote interface `freehold` (all functions in *Interfaces*, including `reset_force`), custom events `on_cell_claimed` / `on_cell_downgraded` / `on_points_changed` resolvable via `get_event_id` *(pulled forward from M4 during M1 — it is also the headless test surface; contract in `docs/API.md`)*
-- [ ] Layer overrides: startup settings `fh-transit-additions/-removals`, `fh-rampart-additions/-removals`; mod-data declaration channel; precedence defaults < mod-data < host settings
-- [ ] `compat/mts.lua` (mts-v1 consumer: team lifecycle events, team colors; landing-pen surface disabling per the open direction in *Interfaces* — lean: MTS calls `set_surface_enabled`; territory stats exposed to MTS scoreboards) and `compat/odb.lua` (register_source + milestone emits), both behind `script.active_mods` guards
-- [ ] `/fh-rebuild` console command; space-platform surfaces auto-disabled; full event inventory wired; no unconditional `on_tick`
+- [x] Layer overrides: startup settings `fh-transit-additions/-removals`, `fh-rampart-additions/-removals`; mod-data declaration channel (`data_type = "freehold-layers"`); precedence defaults < mod-data < host settings, name entries beating `type:` entries within a channel
+- [x] `compat/mts.lua` (mts-v1 consumer: `on_team_surface_created` enables team surfaces and settles the creation-order race, `on_team_released` resets recycled slots, team colors via the force's own color, grid-only-on-team-surfaces via `is_team_surface`) and `compat/odb.lua` (register_source + settlement-charter / first-deed / 25-deed milestone emits), both behind `script.active_mods` guards, composed through control.lua (script.on_event replaces handlers — compat modules never subscribe to shared events themselves)
+- [x] `/fh-rebuild` console command; space-platform surfaces auto-disabled; full event inventory wired; no unconditional `on_tick`
 - [ ] Migrations folder, `locale/en/`, testing matrix from *Architecture* green
 
 ### v1.x Candidates

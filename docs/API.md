@@ -1,6 +1,6 @@
 # The `freehold` remote interface
 
-Stable from v1: these signatures and payloads are a compatibility contract. Declare `"? freehold"` in your `info.json` so Freehold loads first, and resolve everything at your `control.lua` root scope.
+Stable from v1: these signatures and payloads are a compatibility contract. Declare `"? freehold"` in your `info.json` so Freehold loads first, and resolve event ids from `on_init` **and** `on_load` — Factorio 2.0 rejects `remote.call` at `control.lua` root scope, and allows it in `on_load`.
 
 ## Conventions
 
@@ -28,7 +28,7 @@ Stable from v1: these signatures and payloads are a compatibility contract. Decl
 
 ## Custom events
 
-Resolve ids via `get_event_id` at your `control.lua` root scope **every session** — ids are regenerated per session and must never be stored in `storage`.
+Resolve ids via `get_event_id` from `on_init` **and** `on_load` every session — ids are regenerated per session and must never be stored in `storage` (root-scope `remote.call` is rejected by 2.0).
 
 | Event | Payload (plus engine `name`/`tick`) |
 | --- | --- |
@@ -40,7 +40,8 @@ Resolve ids via `get_event_id` at your `control.lua` root scope **every session*
 
 ```lua
 -- control.lua of an integrating mod (declare "? freehold" for load order)
-if remote.interfaces["freehold"] then
+local function resolve_freehold_events()
+  if not remote.interfaces["freehold"] then return end
   local on_cell_claimed = remote.call("freehold", "get_event_id", "on_cell_claimed")
   script.on_event(on_cell_claimed, function(e)
     if e.new_state == "deed" then
@@ -48,5 +49,7 @@ if remote.interfaces["freehold"] then
     end
   end)
 end
+script.on_init(resolve_freehold_events)
+script.on_load(resolve_freehold_events)
 -- Never write the event id to storage: ids are regenerated every session.
 ```

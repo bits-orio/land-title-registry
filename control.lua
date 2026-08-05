@@ -12,14 +12,19 @@ local tech = require("scripts.tech")
 local render = require("scripts.render")
 local hud = require("scripts.hud")
 local custom_events = require("scripts.custom_events")
+local mts_compat = require("compat.mts")
+local odb_compat = require("compat.odb")
 require("scripts.commands")
 require("scripts.remote")
 
 local function init_surface(surface)
   registry.init_surface(surface.index)
   -- Space platforms are exempt from the grid entirely: platform tiles
-  -- already constrain building.
-  if surface.platform then
+  -- already constrain building. Under MTS, only team surfaces get the grid
+  -- (the landing pen and other special surfaces are not team surfaces);
+  -- the on_team_surface_created subscription in compat/mts.lua settles the
+  -- creation-order race by re-enabling and rebuilding.
+  if surface.platform or (mts_compat.active and mts_compat.should_disable(surface)) then
     storage.disabled_surfaces[surface.index] = true
   end
 end
@@ -33,6 +38,8 @@ script.on_init(function()
     economy.init_force(force)
   end
   storage.meta.cell_size = const.CELL
+  if mts_compat.active then mts_compat.resolve_events() end
+  if odb_compat.active then odb_compat.register() end
   -- Blanket any chunks that existed before Freehold did (mid-game install,
   -- scenario-pregenerated maps). Fresh maps enqueue little or nothing.
   blockers.enqueue_full_rebuild()
@@ -41,6 +48,7 @@ end)
 script.on_load(function()
   blockers.ensure_rebuild_handler()
   tool.ensure_hover_handler()
+  if mts_compat.active then mts_compat.resolve_events() end
 end)
 
 script.on_configuration_changed(function()
@@ -75,6 +83,7 @@ script.on_configuration_changed(function()
     blockers.enqueue_full_rebuild()
   end
   storage.meta.cell_size = cell_size
+  if odb_compat.active then odb_compat.register() end
 
   -- storage.meta.version is 1; migration steps compare against it here as
   -- the schema evolves.
@@ -152,12 +161,14 @@ end)
 script.on_event(custom_events.on_points_changed, function(event)
   tool.on_points_changed(event)
   hud.on_points_changed(event)
+  if odb_compat.active then odb_compat.on_points_changed(event) end
 end)
 script.on_event(custom_events.on_cell_claimed, function(event)
   local surface = game.surfaces[event.surface_index]
   if surface and surface.valid then
     render.refresh_around(surface, event.cell_pos.x, event.cell_pos.y)
   end
+  if odb_compat.active then odb_compat.on_cell_claimed(event) end
 end)
 script.on_event(custom_events.on_cell_downgraded, function(event)
   local surface = game.surfaces[event.surface_index]
