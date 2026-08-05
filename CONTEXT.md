@@ -66,7 +66,10 @@ The corner marker sprite at a vertex touched by at least one frontier edge. The 
 The set of cells covered by one survey-tool drag. All-or-nothing: if the total cost exceeds the balance, nothing is applied. Never partially applied — predictability over cleverness.
 
 **Adjacency**:
-The claim-time requirement that a new Wilderness claim touch a cell the acting force already owns in any state. Checked only at claim time; there is no global-connectivity maintenance, and disconnected islands stay owned and stay valid adjacency sources.
+The claim-time requirement that a new Wilderness claim share an edge (4-way, never diagonal) with a cell the acting force already owns in any state. Checked only at claim time; there is no global-connectivity maintenance, and disconnected islands stay owned and stay valid adjacency sources.
+
+**Anchor**:
+What makes a batch eligible to claim: the drag rectangle contains or edge-touches owned territory — or, when the force owns nothing on the surface, contains the cell the acting player is standing in. A batch is anchored or it isn't; there is no partial case.
 
 **Settlement charter**:
 The one-time lump sum granted the first time a force establishes presence on a planet. Strictly once per force per planet, keyed by `surface.planet.name`. Solves the new-planet cold start; clock-fair under MTS because the trigger is team-internal progression.

@@ -1037,10 +1037,10 @@ Naming history: earlier working names picket, stockade, watchpost, and waystatio
 
 ### Open Questions
 
-Each item below is deliberately unresolved. Where a lean is recorded, treat it as the default to implement unless playtesting or review overturns it.
+The 2026-08-04 grilling session (see `docs/adr/0005` through `0008` and the resolutions inline throughout this document) closed ten of the twelve questions this section once held. The two below are deliberately unresolved — both are settled by looking at the running game, not by more design:
 
-- **Open:** Border art direction per state (e.g. Trail dashed, Rampart crenellated, Deed solid). The corner survey-stake markers are fixed as the visual signature; the per-state edge styles are not.
-- **Open:** Exact numeric tuning of every value in *Economy* - prices, `fh-refund-percent` (25), `fh-points-per-level` (5), `fh-starting-points` (75), `fh-settlement-charter` (30), tech level counts and cost ramps, `fh-tech-cost-multiplier` (1). All shipped numbers are launch ballparks pending playtesting.
+- **Open (M3, art):** Border art direction per state — the lean remains Trail dashed, Rampart crenellated, Deed solid. The corner survey-stake markers are fixed as the visual signature; the per-state edge styles await actual sprites on an actual map.
+- **Open (M5, playtesting):** Exact numeric tuning of every value in *Economy* — prices, `fh-refund-percent` (25), `fh-points-per-level` (5), `fh-starting-points` (75), `fh-settlement-charter` (30), tech level counts and cost ramps, `fh-tech-cost-multiplier` (1). All shipped numbers are launch ballparks pending playtesting.
 
 ### Handoff Note
 
