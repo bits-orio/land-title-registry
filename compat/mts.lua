@@ -35,6 +35,12 @@ end
 -- Cell chronicle: team display names and team-clock starts come straight
 -- from mts-v1's get_team_info — zero new MTS surface. Non-team forces fall
 -- back to force name + absolute time inside the chronicle module.
+chronicle.surface_planet_provider = function(surface)
+  if not remote.interfaces["mts-v1"] then return nil end
+  if not remote.interfaces["mts-v1"]["get_surface_planet"] then return nil end
+  return remote.call("mts-v1", "get_surface_planet", surface.name)
+end
+
 chronicle.team_info_provider = function(force_name)
   if not remote.interfaces["mts-v1"] then return nil end
   if not remote.interfaces["mts-v1"]["get_team_info"] then return nil end

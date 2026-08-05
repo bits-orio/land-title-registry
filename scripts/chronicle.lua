@@ -57,13 +57,59 @@ local function entries_of(planet_name, cell_key)
   return storage.chronicle[planet_name][cell_key]
 end
 
--- The chronicle group of a surface: its planet (cross-team comparable —
--- the point of the feature), falling back to a per-surface group for
--- surfaces without a planet association so the leaderboard still draws
--- locally instead of silently skipping.
+-- Resolves the PLANET a surface represents when the engine association is
+-- absent — MTS team copies are map clones with surface.planet == nil, and
+-- compat/mts.lua plugs mts-v1's get_surface_planet in here. Cross-team
+-- comparability lives or dies on this mapping.
+chronicle.surface_planet_provider = nil
+
+-- The chronicle group of a surface: its represented planet (cross-team
+-- comparable — the point of the feature), falling back to a per-surface
+-- group so the leaderboard still draws locally rather than skipping.
 local function group_of(surface)
   if surface.planet then return surface.planet.name end
+  if chronicle.surface_planet_provider then
+    local planet = chronicle.surface_planet_provider(surface)
+    if planet then return planet end
+  end
   return "surface:" .. surface.name
+end
+
+-- Migrate any per-surface fallback groups whose surface now resolves to a
+-- planet (e.g. the provider arrived after entries were recorded): merge
+-- entries into the planet group, best time per team winning. One-shot,
+-- called from the join/backfill anchor.
+function chronicle.regroup()
+  local moved = 0
+  for _, surface in pairs(game.surfaces) do
+    local fallback = "surface:" .. surface.name
+    local bucket = storage.chronicle[fallback]
+    local target = group_of(surface)
+    if bucket and target ~= fallback then
+      for cell_key, entries in pairs(bucket) do
+        local dest = entries_of(target, cell_key)
+        for _, entry in pairs(entries) do
+          local present
+          for _, existing in pairs(dest) do
+            if existing.force_name == entry.force_name then present = existing end
+          end
+          if present then
+            if entry.clock < present.clock then present.clock = entry.clock end
+          else
+            dest[#dest + 1] = { force_name = entry.force_name, clock = entry.clock }
+          end
+          moved = moved + 1
+        end
+        table.sort(dest, function(a, b)
+          if a.clock ~= b.clock then return a.clock < b.clock end
+          return a.force_name < b.force_name
+        end)
+      end
+      storage.chronicle[fallback] = nil
+    end
+  end
+  if moved > 0 then log("FH-CHRON regroup: " .. moved .. " entries moved to planet groups") end
+  return moved
 end
 
 -- Destroy and redraw the chronicle text of one cell on one surface.

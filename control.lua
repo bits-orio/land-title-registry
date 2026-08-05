@@ -194,6 +194,15 @@ script.on_event(defines.events.on_player_joined_game, function(event)
       blockers.enqueue_full_rebuild()
     end
   end
+  -- Per-surface chronicle groups whose surface now resolves to a planet
+  -- (the mts-v1 provider arriving after entries recorded) merge into the
+  -- planet group; a rebuild redraws standings. One-shot.
+  if not storage.chronicle_regrouped then
+    storage.chronicle_regrouped = true
+    if chronicle.regroup() > 0 then
+      blockers.enqueue_full_rebuild()
+    end
+  end
   -- Same join anchor for the disabled-surface heal (see config-changed).
   if not storage.disable_healed then
     storage.disable_healed = true
