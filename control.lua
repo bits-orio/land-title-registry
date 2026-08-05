@@ -91,6 +91,11 @@ script.on_configuration_changed(function()
   for _, player in pairs(game.connected_players) do
     tech.on_player_joined({ player_index = player.index })
   end
+  -- Deeds that predate the chronicle enter it from the registry; a batched
+  -- rebuild redraws everything (reconcile draws chronicle text too).
+  if chronicle.backfill() > 0 then
+    blockers.enqueue_full_rebuild()
+  end
 
   -- storage.meta.version is 1; migration steps compare against it here as
   -- the schema evolves.
@@ -154,6 +159,7 @@ script.on_event(defines.events.on_gui_click, welcome.on_gui_click)
 script.on_event(defines.events.on_player_joined_game, function(event)
   hud.on_player_joined(event)
   tech.on_player_joined(event)
+  welcome.on_player_joined(event)
 end)
 script.on_event(defines.events.on_player_changed_surface, tech.on_player_changed_surface)
 script.on_event(defines.events.on_player_changed_force, function(event)

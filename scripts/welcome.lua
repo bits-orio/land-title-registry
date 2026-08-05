@@ -27,6 +27,16 @@ function welcome.show(player)
   frame.force_auto_center()
 end
 
+-- Existing saves: players created before the panel existed get it once on
+-- their next join.
+function welcome.on_player_joined(event)
+  local player = game.get_player(event.player_index)
+  if not (player and player.valid) then return end
+  if storage.welcomed[player.index] then return end
+  storage.welcomed[player.index] = true
+  welcome.show(player)
+end
+
 function welcome.on_player_created(event)
   local player = game.get_player(event.player_index)
   if not (player and player.valid) then return end

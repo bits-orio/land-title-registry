@@ -178,6 +178,44 @@ function chronicle.on_forces_merged(event)
   end
 end
 
+-- Retrofit: deeds that predate the chronicle feature enter it from the
+-- registry. The stored claimed_tick is the cell's FIRST CLAIM (not its
+-- deed moment) — the best record that exists, so backfilled times read
+-- slightly faster than they were; honest and one-time. Idempotent: teams
+-- already present in a cell's chronicle are never re-added.
+function chronicle.backfill()
+  local added = 0
+  for surface_index, cells in pairs(storage.cells) do
+    local surface = game.surfaces[surface_index]
+    if surface and surface.valid and surface.planet then
+      local planet_name = surface.planet.name
+      for cell_key, rec in pairs(cells) do
+        if rec.state == "deed" then
+          local force = game.forces[rec.force_index]
+          if force and force.valid then
+            local entries = entries_of(planet_name, cell_key)
+            local present = false
+            for _, entry in pairs(entries) do
+              if entry.force_name == force.name then present = true end
+            end
+            if not present then
+              local info = team_info(force.name)
+              local clock = math.max(0, (rec.claimed_tick or 0) - (info.clock_start_tick or 0))
+              entries[#entries + 1] = { force_name = force.name, clock = clock }
+              table.sort(entries, function(a, b)
+                if a.clock ~= b.clock then return a.clock < b.clock end
+                return a.force_name < b.force_name
+              end)
+              added = added + 1
+            end
+          end
+        end
+      end
+    end
+  end
+  return added
+end
+
 function chronicle.drop_surface(surface_index)
   local refs = storage.chronicle_renders[surface_index]
   if refs then
