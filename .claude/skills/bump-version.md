@@ -26,9 +26,11 @@ When the user asks to bump the version, release a new version, or after the vers
 
    All must be **correct**: no claim that contradicts current behavior. Do not invent or expand claims to features that have not been tested. Show any doc edits to the user for approval before committing.
 
-3. **Check for a storage migration.** If the release changes `storage`'s schema, the blocker prototypes, or the render scheme, it must ship a file in `migrations/` and a bump of `storage.meta.version` in the same release. A schema change without a migration is a release blocker, not a follow-up.
+3. **Verify locale integrity**: run `python3 tools/check_locale.py`. It fails the release if any key the Lua references is missing *or defined in the wrong section* — blind `cat >>` appends land at the end of the file, which is some other `[section]`, and the runtime lookup under `[freehold]` then misses silently ("Unknown key" in game).
 
-4. **Generate a changelog entry** at the top of `changelog.txt`:
+4. **Check for a storage migration.** If the release changes `storage`'s schema, the blocker prototypes, or the render scheme, it must ship a file in `migrations/` and a bump of `storage.meta.version` in the same release. A schema change without a migration is a release blocker, not a follow-up.
+
+5. **Generate a changelog entry** at the top of `changelog.txt`:
    - Determine the previous version's git tag (format: `v<old_version>`). If no tag exists, use `git log` to find commits since the last changelog entry.
    - Collect the diff: `git log --pretty=format:"- %s" v<old_version>..HEAD` (exclude "Bump version" commits).
    - Write a new entry at the **top** of `changelog.txt` following the existing format exactly:
@@ -46,15 +48,15 @@ When the user asks to bump the version, release a new version, or after the vers
    - Only include sections (Features, Changes, Bugfixes) that have entries. Categorize each commit appropriately. Reword commit messages into clear, user-facing descriptions — don't just paste raw commit subjects. Use the domain vocabulary from `CONTEXT.md`: **cell**, never "chunk"; **Land points**, not "currency".
    - Show the draft entry to the user for approval before writing it.
 
-5. **Recreate mod symlinks** by running:
+6. **Recreate mod symlinks** by running:
    ```bash
    ./link-mod.sh
    ```
    This removes old `freehold_*` symlinks and creates new ones with the current version in every Factorio mods directory that exists on this machine.
 
-6. **Commit the version bump**: stage `info.json`, `changelog.txt`, any `migrations/` file, and any doc edits from step 2. Commit with message: `Bump version to <new_version>` (or `Release <new_version>: <one-line summary>` if substantial doc/feature work shipped — match the recent commit history's style).
+7. **Commit the version bump**: stage `info.json`, `changelog.txt`, any `migrations/` file, and any doc edits from step 2. Commit with message: `Bump version to <new_version>` (or `Release <new_version>: <one-line summary>` if substantial doc/feature work shipped — match the recent commit history's style).
 
-7. **Release** (when the user asks): push the bump commit, then run `./tools/release.sh`. The script verifies the changelog entry, creates and pushes `v<new_version>`, and the GitHub Actions workflow takes over (build zip → GitHub release → Discord → mod portal upload).
+8. **Release** (when the user asks): push the bump commit, then run `./tools/release.sh`. The script verifies the changelog entry, creates and pushes `v<new_version>`, and the GitHub Actions workflow takes over (build zip → GitHub release → Discord → mod portal upload).
    - The workflow fails fast if the tag and `info.json` version disagree.
    - If the mod-portal upload step fails (portal outage, etc.), the GH release and tag remain. Re-run the upload via the **Upload to Mod Portal** workflow (Actions tab → workflow_dispatch). The upload script is idempotent — it noops if the version is already published.
    - Discord and mod-portal steps are skipped when their secrets are unset, so the GitHub release always publishes.
