@@ -1,13 +1,13 @@
-# Freehold
+# Land Title Registry
 
-Land rights, earned cell by cell. Every 32x32 cell of the map sits on a four-state ladder — Wilderness → Trail → Rampart → Deed — and the engine's own collision system, not a script watching build events, decides what may be placed where. Forces buy their way up the ladder with Land points earned from research. Exposes the `freehold` remote interface so other mods can query and drive claims.
+Land rights, earned cell by cell. Every 32x32 cell of the map sits on a four-state ladder — Wilderness → Trail → Rampart → Deed — and the engine's own collision system, not a script watching build events, decides what may be placed where. Forces buy their way up the ladder with Land points earned from research. Exposes the `land-title-registry` remote interface so other mods can query and drive claims.
 
-> This glossary is seeded from `FREEHOLD_DESIGN.md`. Grow it as areas are documented; keep it and the code in the same vocabulary.
+> This glossary is seeded from `DESIGN.md`. Grow it as areas are documented; keep it and the code in the same vocabulary.
 
 ## Language
 
 **Cell**:
-The mod's unit of land: a square of `fh-cell-size` tiles (startup setting, 16/24/32, default 24). May straddle chunk boundaries (24); never assume cell-chunk alignment.
+The mod's unit of land: a square of `ltr-cell-size` tiles (startup setting, 16/24/32, default 24). May straddle chunk boundaries (24); never assume cell-chunk alignment.
 _Avoid_: chunk (reserved for the engine concept), tile, plot, parcel, square
 
 **Chunk**:
@@ -45,7 +45,7 @@ The neutral, indestructible entity centered on a non-Deed cell whose collision m
 _Avoid_: marker, claim entity, tile entity
 
 **Layer**:
-One of the three custom collision-layer prototypes — `fh-land`, `fh-transit`, `fh-rampart`. Every player-creation prototype belongs to exactly one, assigned at data stage and unchangeable at runtime. No layer is ever placed on a tile prototype.
+One of the three custom collision-layer prototypes — `ltr-land`, `ltr-transit`, `ltr-rampart`. Every player-creation prototype belongs to exactly one, assigned at data stage and unchangeable at runtime. No layer is ever placed on a tile prototype.
 
 **Exempt**:
 A player-creation assigned to no layer, so it can exist in any state including Wilderness — vehicles, space platform hubs, cargo pods, crash-site entities. Identified by capability where possible, never by a hand-maintained name blacklist.
@@ -60,7 +60,7 @@ An edge between two orthogonally adjacent cells whose states differ. Borders are
 The corner marker sprite at a vertex touched by at least one frontier edge. The mod's visual signature — square cells delegate identity to rendering rather than geometry.
 
 **Survey tool**:
-`fh-survey-tool`, the single selection-tool item through which all claiming, upgrading, and downgrading happens. Two gestures: drag raises one rung, right-drag lowers one (Shift variants jump, unadvertised). Only-in-cursor, never craftable, acquired via shortcut button or hotkey.
+`ltr-survey-tool`, the single selection-tool item through which all claiming, upgrading, and downgrading happens. Two gestures: drag raises one rung, right-drag lowers one (Shift variants jump, unadvertised). Only-in-cursor, never craftable, acquired via shortcut button or hotkey.
 
 **Starter cell**:
 The free Trail granted on the cell a player stands on at their force's first presence on each planet — the visible anchor growth starts from. Granted, not bought (invested 0).
@@ -78,4 +78,4 @@ What makes a batch eligible to claim: the drag rectangle contains or edge-touche
 The one-time lump sum granted the first time a force establishes presence on a planet. Strictly once per force per planet, keyed by `surface.planet.name`. Solves the new-planet cold start; clock-fair under MTS because the trigger is team-internal progression.
 
 **Land grants**:
-The `fh-land-grants-N` sequential technology chain — the recurring income faucet. Ends in a terminal infinite tech with a **linear** cost formula, so late-game income tapers but never reaches zero.
+The `ltr-land-grants-N` sequential technology chain — the recurring income faucet. Ends in a terminal infinite tech with a **linear** cost formula, so late-game income tapers but never reaches zero.

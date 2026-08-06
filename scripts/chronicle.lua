@@ -44,9 +44,9 @@ local CHART_SCALE = 4.4
 local CHART_LINE_STEP = 3.6
 local COORD_GAP = 0.3
 
--- Every Freehold announcement carries the survey-tool mark: one symbol
+-- Every Land Title Registry announcement carries the survey-tool mark: one symbol
 -- across the portal thumbnail, shortcut bar, tool, technology, and chat.
-local BRAND = "[img=item/fh-survey-tool]"
+local BRAND = "[img=item/ltr-survey-tool]"
 
 -- compat/mts.lua installs this to return mts-v1's team label: the team's
 -- colored tag plus its current leader in brackets, e.g.
@@ -121,7 +121,7 @@ function chronicle.purge_non_competitors()
       end
     end
   end
-  if removed > 0 then log("FH-CHRON purge: removed " .. removed .. " non-competitor entries") end
+  if removed > 0 then log("LTR-CHRON purge: removed " .. removed .. " non-competitor entries") end
   return removed
 end
 
@@ -143,7 +143,7 @@ local function popup(force, text, preset)
   local audience = (preset == "global_milestone") and game.players or force.players
   for _, member in pairs(audience) do
     if member.valid and member.connected
-      and member.mod_settings["fh-show-celebrations"].value then
+      and member.mod_settings["ltr-show-celebrations"].value then
       rendering.draw_text({
         text = text,
         surface = member.surface,
@@ -238,7 +238,7 @@ function chronicle.regroup()
       storage.chronicle[fallback] = nil
     end
   end
-  if moved > 0 then log("FH-CHRON regroup: " .. moved .. " entries moved to planet groups") end
+  if moved > 0 then log("LTR-CHRON regroup: " .. moved .. " entries moved to planet groups") end
   return moved
 end
 
@@ -291,7 +291,7 @@ function chronicle.refresh_cell(surface, cx, cy)
   for rank = 1, shown do
     local entry = entries[rank]
     objects[#objects + 1] = rendering.draw_text({
-      text = { "freehold.chronicle-line", rank,
+      text = { "land-title-registry.chronicle-line", rank,
         chronicle.team_label(entry.force_name), format_clock(entry.clock) },
       surface = surface,
       target = { x = center_x, y = first_y + (rank - 1) * LINE_STEP },
@@ -322,7 +322,7 @@ function chronicle.refresh_cell(surface, cx, cy)
   for rank = 1, shown do
     local entry = entries[rank]
     objects[#objects + 1] = rendering.draw_text({
-      text = { "freehold.chronicle-line", rank,
+      text = { "land-title-registry.chronicle-line", rank,
         chronicle.team_label(entry.force_name), format_clock(entry.clock) },
       surface = surface,
       target = { x = center_x, y = chart_top + rank * CHART_LINE_STEP },
@@ -352,11 +352,11 @@ function chronicle.on_cell_claimed(event)
   if event.new_state ~= "deed" then return end
   local surface = game.surfaces[event.surface_index]
   if not (surface and surface.valid) then
-    log("FH-CHRON skip: invalid surface " .. tostring(event.surface_index))
+    log("LTR-CHRON skip: invalid surface " .. tostring(event.surface_index))
     return
   end
   if not chronicle.is_competitor(event.force_name) then
-    log("FH-CHRON skip: " .. tostring(event.force_name) .. " is not a competing team")
+    log("LTR-CHRON skip: " .. tostring(event.force_name) .. " is not a competing team")
     return
   end
   local group = group_of(surface)
@@ -365,7 +365,7 @@ function chronicle.on_cell_claimed(event)
 
   for _, entry in pairs(entries) do
     if entry.force_name == event.force_name then
-      log(string.format("FH-CHRON skip: %s already recorded on %s (%d,%d)",
+      log(string.format("LTR-CHRON skip: %s already recorded on %s (%d,%d)",
         event.force_name, group, event.cell_pos.x, event.cell_pos.y))
       return
     end
@@ -384,7 +384,7 @@ function chronicle.on_cell_claimed(event)
     if entry.force_name == event.force_name then rank = i break end
   end
 
-  log(string.format("FH-CHRON record: %s rank %d/%d on %s cell (%d,%d) clock %d",
+  log(string.format("LTR-CHRON record: %s rank %d/%d on %s cell (%d,%d) clock %d",
     event.force_name, rank, #entries, group, event.cell_pos.x, event.cell_pos.y, clock))
   redraw_on_planet(group, event.cell_pos.x, event.cell_pos.y)
 
@@ -411,7 +411,7 @@ function chronicle.on_cell_claimed(event)
 
   -- Celebration text. Under MTS these go through MTS's own animated
   -- pop_text presets (elastic pop for a team achievement, rainbow pop
-  -- server-wide for a record), so Freehold's milestones look native.
+  -- server-wide for a record), so Land Title Registry's milestones look native.
   -- Without MTS a plain zoom-stable draw_text stands in — still no tick
   -- loop, so the no-idle-tick discipline holds either way.
   if notable.kind == "first" then
@@ -424,12 +424,12 @@ function chronicle.on_cell_claimed(event)
     -- Everyone else still sees the standings on the map.
     local text = BRAND .. " Fastest Deed " .. coords
     popup(force, text, "milestone")
-    force.print({ "freehold.record-taken", coords, format_clock(clock),
+    force.print({ "land-title-registry.record-taken", coords, format_clock(clock),
       chronicle.team_label(notable.beat_force), format_clock(notable.beat_clock) })
 
     local beaten = game.forces[notable.beat_force]
     if beaten and beaten.valid then
-      beaten.print({ "freehold.record-lost", coords,
+      beaten.print({ "land-title-registry.record-lost", coords,
         chronicle.team_label(event.force_name), format_clock(clock),
         format_clock(notable.beat_clock) })
     end
@@ -513,7 +513,7 @@ function chronicle.backfill()
       end
     end
   end
-  log("FH-CHRON backfill: " .. added .. " entries added")
+  log("LTR-CHRON backfill: " .. added .. " entries added")
   return added
 end
 

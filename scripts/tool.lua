@@ -11,12 +11,12 @@ local chronicle = require("scripts.chronicle")
 
 local tool = {}
 
-local TOOL_NAME = "fh-survey-tool"
+local TOOL_NAME = "ltr-survey-tool"
 local HOVER_TICK_INTERVAL = 10
 
-local SOUND_CLAIM = "fh-sound-claim"
-local SOUND_DENY = "fh-sound-deny"
-local SOUND_REFUND = "fh-sound-refund"
+local SOUND_CLAIM = "ltr-sound-claim"
+local SOUND_DENY = "ltr-sound-deny"
+local SOUND_REFUND = "ltr-sound-refund"
 
 local LABEL_OK = { r = 1, g = 1, b = 1 }
 local LABEL_SHORT = { r = 1, g = 0.35, b = 0.35 }
@@ -65,15 +65,15 @@ local function feedback(player, action, result)
     local text
     if result.denied == "points" then
       text = {
-        "freehold.insufficient-points",
+        "land-title-registry.insufficient-points",
         economy.format(result.need),
         economy.format(result.have),
         economy.format(result.need - result.have),
       }
     elseif result.denied == "anchor" then
-      text = { "freehold.no-adjacency" }
+      text = { "land-title-registry.no-adjacency" }
     else
-      text = { "freehold.surface-disabled" }
+      text = { "land-title-registry.surface-disabled" }
     end
     player.create_local_flying_text({ text = text, create_at_cursor = true })
     return
@@ -84,7 +84,7 @@ local function feedback(player, action, result)
     -- a quiet explanation when claims.lua supplied one.
     if result.hint then
       player.create_local_flying_text({
-        text = { "freehold.hint-" .. result.hint },
+        text = { "land-title-registry.hint-" .. result.hint },
         create_at_cursor = true,
       })
     end
@@ -94,20 +94,20 @@ local function feedback(player, action, result)
   if action == "downgrade" then
     player.play_sound({ path = SOUND_REFUND })
     player.create_local_flying_text({
-      text = { "freehold.batch-refunded", economy.format(result.refund) },
+      text = { "land-title-registry.batch-refunded", economy.format(result.refund) },
       create_at_cursor = true,
     })
   else
     player.play_sound({ path = SOUND_CLAIM })
     player.create_local_flying_text({
-      text = { "freehold.batch-claimed", economy.format(result.cost) },
+      text = { "land-title-registry.batch-claimed", economy.format(result.cost) },
       create_at_cursor = true,
     })
   end
   update_label(player)
 end
 
--- Force-chat claim announcements (fh-print-claims, default on): the acting
+-- Force-chat claim announcements (ltr-print-claims, default on): the acting
 -- player, the action, cell count, cost or refund, and a clickable GPS tag at
 -- the batch center. force.print lands in the MTS team channel automatically
 -- when MTS is present, and ODB does not relay it — both by construction.
@@ -121,7 +121,7 @@ end
 -- where, and the cost — plus a record clause only when the batch actually
 -- set a record. Placing 2nd or 3rd says nothing.
 local function announce(player, surface, rect, action, result)
-  if not settings.global["fh-print-claims"].value then return end
+  if not settings.global["ltr-print-claims"].value then return end
   -- Denied results carry no `applied` at all — {denied = "anchor"} — so the
   -- nil must be handled explicitly, not just the zero.
   if result.denied or not result.applied or result.applied == 0 then return end
@@ -136,13 +136,13 @@ local function announce(player, surface, rect, action, result)
   if notable then
     local coords = string.format("(%d,%d)", notable.cell_pos.x, notable.cell_pos.y)
     record = notable.kind == "first"
-      and { "freehold.record-first", coords }
-      or { "freehold.record-fastest", coords,
+      and { "land-title-registry.record-first", coords }
+      or { "land-title-registry.record-fastest", coords,
            chronicle.team_label(notable.beat_force) }
   end
 
   player.force.print({
-    action == "downgrade" and "freehold.announce-lower" or "freehold.announce-raise",
+    action == "downgrade" and "land-title-registry.announce-lower" or "land-title-registry.announce-raise",
     chronicle.team_tag(player.force.name),
     colored_name(player),
     result.applied,
@@ -187,11 +187,11 @@ local function show_hover(player, surface, cx, cy)
   local text
   if rec and rec.force_index ~= player.force.index then
     local owner = game.forces[rec.force_index]
-    text = { "freehold.hover-other-force",
+    text = { "land-title-registry.hover-other-force",
       owner and chronicle.team_label(owner.name) or "?" }
   else
     local state = rec and rec.state or "wilderness"
-    text = { "freehold.hover-" .. state }
+    text = { "land-title-registry.hover-" .. state }
   end
   player.create_local_flying_text({
     text = text,

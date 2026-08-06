@@ -137,7 +137,7 @@ function blockers.reconcile(surface, cx, cy)
     end
   end
 
-  -- Renders are derived state exactly like blockers: /fh-rebuild, surface
+  -- Renders are derived state exactly like blockers: /ltr-rebuild, surface
   -- sweeps, and re-enables refresh them through the same reconcile.
   render.refresh_cell(surface, cx, cy)
   chronicle.refresh_cell(surface, cx, cy)
@@ -204,7 +204,7 @@ local function drain_rebuild_queue()
   if n == 0 then
     script.on_nth_tick(REBUILD_TICK_INTERVAL, nil)
     for _, player in pairs(game.players) do
-      player.print({ "freehold.rebuild-done" })
+      player.print({ "land-title-registry.rebuild-done" })
     end
   end
 end

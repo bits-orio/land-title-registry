@@ -4,7 +4,7 @@ status: accepted — supersedes the "configurable cell size — rejected" entrie
 
 # Cell size is a startup setting: 16, 24, or 32 tiles, default 24
 
-`fh-cell-size` (startup, string, allowed `"16"` / `"24"` / `"32"`, default `"24"`) sets the cell edge length. ADR-0001 rejected configurability to keep conditions identical on every server; the designer overturned that deliberately, accepting the cross-server variance.
+`ltr-cell-size` (startup, string, allowed `"16"` / `"24"` / `"32"`, default `"24"`) sets the cell edge length. ADR-0001 rejected configurability to keep conditions identical on every server; the designer overturned that deliberately, accepting the cross-server variance.
 
 **24 is the size ADR-0001 was written against** — it straddles a chunk boundary every third cell — and it works because of an engine fact the original decision assumed away: a headless probe (2026-08-05) established that entities can be created on ungenerated chunks, survive later generation, and enforce collision afterwards. A straddling cell therefore receives its **full-size blocker the moment the first chunk touching it generates** (`on_chunk_generated` ensures every overlapping cell, idempotently), with no enforcement gap and no sliver management — the frontier dilemma ADR-0001 described simply does not arise. The mapping helpers are general overlap ranges (`const.cell_range_of_chunk` / `const.chunk_range_of_cell`); the claim/heal gate is "the cell touches a generated chunk". This shipped after the divisor-only first version, when the designer asked for 24 back as the default.
 

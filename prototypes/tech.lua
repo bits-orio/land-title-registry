@@ -1,5 +1,5 @@
--- The fh-land-grants technology ladder, DERIVED from the technology DAG
--- actually present in the running mod set (ADR-0008). Freehold never names a
+-- The ltr-land-grants technology ladder, DERIVED from the technology DAG
+-- actually present in the running mod set (ADR-0008). Land Title Registry never names a
 -- science pack as a constant: hardcoded pack lists sit at the wrong depths
 -- under Krastorio2, misorder under Periodic Madness, and reference
 -- nonexistent prototypes under Ultracube — a data-stage crash or a dead
@@ -25,14 +25,14 @@
 --      pack, max_level = "infinite", with a LINEAR count_formula so land
 --      income tapers but never stops.
 --
--- Host override: fh-tech-tiers (startup string) pins the ladder — semicolon-
+-- Host override: ltr-tech-tiers (startup string) pins the ladder — semicolon-
 -- separated tiers, each a comma-separated list of the packs ADDED at that
 -- tier. Empty means derive.
 
 local BAND_SPAN = 4
 local LEVELS_PER_TIER = 10 -- launch ballpark; M5 tunes
 
-local multiplier = settings.startup["fh-tech-cost-multiplier"].value
+local multiplier = settings.startup["ltr-tech-cost-multiplier"].value
 
 -- ---------------------------------------------------------------------------
 -- DAG helpers (memoized; cycle-guarded)
@@ -207,7 +207,7 @@ local function parse_override(value)
       local trimmed = entry:match("^%s*(.-)%s*$")
       if trimmed ~= "" then
         if not data.raw.tool[trimmed] then
-          error("Freehold: fh-tech-tiers names unknown science pack '" .. trimmed .. "'")
+          error("Land Title Registry: ltr-tech-tiers names unknown science pack '" .. trimmed .. "'")
         end
         packs[#packs + 1] = { name = trimmed }
       end
@@ -220,8 +220,8 @@ end
 -- ---------------------------------------------------------------------------
 -- Prototype generation. Tier i covers LEVELS_PER_TIER levels; the engine
 -- reads the trailing -<number> as the family's starting level, so tier
--- prototypes are named by start level ("fh-land-grants-1", "-11", "-21", …)
--- and one locale key (technology-name.fh-land-grants) covers the family.
+-- prototypes are named by start level ("ltr-land-grants-1", "-11", "-21", …)
+-- and one locale key (technology-name.ltr-land-grants) covers the family.
 
 local function build_ladder(bands)
   if #bands == 0 then return end
@@ -236,12 +236,12 @@ local function build_ladder(bands)
     local ingredients = table.deepcopy(cumulative)
     local terminal = (i == #bands)
     local start_level = (i - 1) * LEVELS_PER_TIER + 1
-    local name = "fh-land-grants-" .. start_level
+    local name = "ltr-land-grants-" .. start_level
 
     techs[#techs + 1] = {
       type = "technology",
       name = name,
-      icon = "__freehold__/graphics/survey-tool.png",
+      icon = "__land-title-registry__/graphics/survey-tool.png",
       icon_size = 64,
       upgrade = true,
       max_level = terminal and "infinite" or (i * LEVELS_PER_TIER),
@@ -253,7 +253,7 @@ local function build_ladder(bands)
         ingredients = ingredients,
         time = terminal and 60 or 30,
       },
-      order = string.format("z-fh-%03d", i),
+      order = string.format("z-ltr-%03d", i),
     }
     previous_name = name
   end
@@ -261,7 +261,7 @@ local function build_ladder(bands)
   data:extend(techs)
 end
 
-local override = settings.startup["fh-tech-tiers"].value
+local override = settings.startup["ltr-tech-tiers"].value
 if override ~= "" then
   build_ladder(parse_override(override))
 else

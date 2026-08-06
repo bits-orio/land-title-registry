@@ -27,7 +27,7 @@ function registry.init_storage()
   -- [surface_index][cell_key] -> registration id (reverse map, so an
   -- intentional destroy can retire its registration first)
   storage.blocker_regids = storage.blocker_regids or {}
-  -- pending /fh-rebuild work items, drained by a temporary on_nth_tick
+  -- pending /ltr-rebuild work items, drained by a temporary on_nth_tick
   storage.rebuild_queue = storage.rebuild_queue or {}
   -- [surface_index][cell_key] -> array of LuaRenderObject owned by the cell
   storage.renders = storage.renders or {}

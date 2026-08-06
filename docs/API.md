@@ -1,10 +1,10 @@
-# The `freehold` remote interface
+# The `land-title-registry` remote interface
 
-Stable from v1: these signatures and payloads are a compatibility contract. Declare `"? freehold"` in your `info.json` so Freehold loads first, and resolve event ids from `on_init` **and** `on_load` — Factorio 2.0 rejects `remote.call` at `control.lua` root scope, and allows it in `on_load`.
+Stable from v1: these signatures and payloads are a compatibility contract. Declare `"? land-title-registry"` in your `info.json` so Land Title Registry loads first, and resolve event ids from `on_init` **and** `on_load` — Factorio 2.0 rejects `remote.call` at `control.lua` root scope, and allows it in `on_load`.
 
 ## Conventions
 
-- `cell_pos` is `{x, y}` in **cell coordinates**: cell `(x, y)` covers tiles `[s·x, s·x+s−1] × [s·y, s·y+s−1]` where `s = get_cell_size()` (startup `fh-cell-size`: 16, 24, or 32). Cell coordinates equal chunk coordinates only at size 32.
+- `cell_pos` is `{x, y}` in **cell coordinates**: cell `(x, y)` covers tiles `[s·x, s·x+s−1] × [s·y, s·y+s−1]` where `s = get_cell_size()` (startup `ltr-cell-size`: 16, 24, or 32). Cell coordinates equal chunk coordinates only at size 32.
 - `surface` and `force` take runtime objects (`LuaSurface`, `LuaForce`); the points functions take a plain `force_index`.
 - State strings are exactly `"trail"`, `"rampart"`, `"deed"`. `nil` from `get_cell` means Wilderness.
 - Functions documented as `ok, reason` return `true, nil` on success, or `false` plus a short refusal string: `"surface-disabled"`, `"no-anchor"`, `"insufficient-points"`, `"ineligible"`, `"invalid-surface"`, `"invalid-force"`, `"invalid-cell-pos"`, `"invalid-target-state"`.
@@ -16,15 +16,15 @@ Stable from v1: these signatures and payloads are a compatibility contract. Decl
 | `get_points(force_index)` | `number` | Current Land-points balance. A plain number, not an integer — refunds are fractional (balances are quantized to hundredths). |
 | `set_points(force_index, points)` | — | Sets the balance outright. Raises `on_points_changed` (reason `"remote"`). |
 | `add_points(force_index, delta)` | — | Adjusts the balance by `delta` (may be negative). Raises `on_points_changed` (reason `"remote"`). |
-| `reset_force(force_index)` | — | Resets the balance to the starting grant (`fh-starting-points`) and refreshes every member's balance display. For integrators recycling force slots (MTS team lifecycle). Raises `on_points_changed` (reason `"reset"`). |
+| `reset_force(force_index)` | — | Resets the balance to the starting grant (`ltr-starting-points`) and refreshes every member's balance display. For integrators recycling force slots (MTS team lifecycle). Raises `on_points_changed` (reason `"reset"`). |
 | `claim(surface, cell_pos, force, target_state, opts)` | `ok, reason` | Claim/upgrade one cell to `target_state`. Exactly the survey tool's rules: flat prices with full credit, adjacency for new Wilderness claims, Trail prerequisite for Rampart, disabled-surface check. `opts.ignore_adjacency = true` is the single sanctioned adjacency bypass, for scenario/quest mods seeding territory. |
-| `downgrade(surface, cell_pos, force, opts)` | `ok, reason` | Downgrade one cell one step, refunding step price × `fh-refund-percent` / 100, subject to the downgrade validity check (the cell must contain none of the force's entities using the revoked right). |
+| `downgrade(surface, cell_pos, force, opts)` | `ok, reason` | Downgrade one cell one step, refunding step price × `ltr-refund-percent` / 100, subject to the downgrade validity check (the cell must contain none of the force's entities using the revoked right). |
 | `get_cell(surface, cell_pos)` | `nil` or table | `{state, force_index, claimed_tick, invested_points, claimant}`. `nil` means Wilderness. |
 | `get_territory_stats(force_index, opts)` | table | `{trails, ramparts, deeds}` across all surfaces. With `opts = {by_surface = true}`, adds `by_surface = {[surface_index] = {trails, ramparts, deeds}}`. |
 | `set_surface_enabled(surface, enabled)` | — | A disabled surface gets no blockers and no grid. Disabling sweeps existing blockers via the batched rebuild queue; re-enabling reconciles them back from the registry. Claims are refused with `"surface-disabled"` while disabled; the registry itself survives. |
-| `get_surface_enabled(surface)` | `boolean` | Whether Freehold's grid is active on the surface. |
+| `get_surface_enabled(surface)` | `boolean` | Whether Land Title Registry's grid is active on the surface. |
 | `get_cell_chronicle(surface, cell_pos)` | array | The cell's chronicle: `{force_name, clock}` entries, ranked fastest-first on each team's own clock (`clock` in ticks). Empty when nobody has deeded it. Every team's copy of a planet shares one chronicle, so a scoreboard can rank a cell across all teams. |
-| `get_cell_size()` | `uint` | Cell edge length in tiles (startup `fh-cell-size`). |
+| `get_cell_size()` | `uint` | Cell edge length in tiles (startup `ltr-cell-size`). |
 | `get_event_id(name)` | `uint` or `nil` | Resolves a custom-event name to this session's event id. |
 
 ## Custom events
@@ -40,17 +40,17 @@ Resolve ids via `get_event_id` from `on_init` **and** `on_load` every session �
 ## Consumer snippet
 
 ```lua
--- control.lua of an integrating mod (declare "? freehold" for load order)
-local function resolve_freehold_events()
-  if not remote.interfaces["freehold"] then return end
-  local on_cell_claimed = remote.call("freehold", "get_event_id", "on_cell_claimed")
+-- control.lua of an integrating mod (declare "? land-title-registry" for load order)
+local function resolve_ltr_events()
+  if not remote.interfaces["land-title-registry"] then return end
+  local on_cell_claimed = remote.call("land-title-registry", "get_event_id", "on_cell_claimed")
   script.on_event(on_cell_claimed, function(e)
     if e.new_state == "deed" then
       game.forces[e.force_name].print({ "my-mod.deed-message", e.cell_pos.x, e.cell_pos.y })
     end
   end)
 end
-script.on_init(resolve_freehold_events)
-script.on_load(resolve_freehold_events)
+script.on_init(resolve_ltr_events)
+script.on_load(resolve_ltr_events)
 -- Never write the event id to storage: ids are regenerated every session.
 ```

@@ -1,9 +1,9 @@
 -- Layer assignment: every player-creation prototype ends up in exactly one of
--- fh-land / fh-transit / fh-rampart — except the exempt class, which carries
+-- ltr-land / ltr-transit / ltr-rampart — except the exempt class, which carries
 -- no layer and can exist anywhere.
 --
 -- Membership is capability/type-based, never a name blacklist, with two
--- override channels: mod-data declarations (data_type = "freehold-layers")
+-- override channels: mod-data declarations (data_type = "land-title-registry-layers")
 -- and host startup settings. Precedence: defaults < mod-data < host.
 
 local mask_util = require("collision-mask-util")
@@ -93,15 +93,15 @@ local EXEMPT_NAMES = {
 -- Override channels (precedence: defaults < mod-data declarations < host
 -- settings; within each channel, an entity-name entry beats a type: entry).
 
--- Mod channel: any mod-data prototype tagged data_type = "freehold-layers"
+-- Mod channel: any mod-data prototype tagged data_type = "land-title-registry-layers"
 -- declares { transit = {...}, rampart = {...}, land = {...} } of entity
 -- names / "type:<type>" entries. Sorted by prototype name for determinism.
 local moddata_by_name, moddata_by_type = {}, {}
-local LAYER_OF_KEY = { transit = "fh-transit", rampart = "fh-rampart", land = "fh-land" }
+local LAYER_OF_KEY = { transit = "ltr-transit", rampart = "ltr-rampart", land = "ltr-land" }
 if data.raw["mod-data"] then
   local declarations = {}
   for proto_name, proto in pairs(data.raw["mod-data"]) do
-    if proto.data_type == "freehold-layers" then
+    if proto.data_type == "land-title-registry-layers" then
       declarations[#declarations + 1] = proto_name
     end
   end
@@ -126,10 +126,10 @@ end
 -- Host channel: startup string settings. Removals always send back to land.
 local host_by_name, host_by_type = {}, {}
 local HOST_SETTINGS = {
-  ["fh-transit-additions"] = "fh-transit",
-  ["fh-transit-removals"] = "fh-land",
-  ["fh-rampart-additions"] = "fh-rampart",
-  ["fh-rampart-removals"] = "fh-land",
+  ["ltr-transit-additions"] = "ltr-transit",
+  ["ltr-transit-removals"] = "ltr-land",
+  ["ltr-rampart-additions"] = "ltr-rampart",
+  ["ltr-rampart-removals"] = "ltr-land",
 }
 for setting_name, layer in pairs(HOST_SETTINGS) do
   for entry in string.gmatch(settings.startup[setting_name].value, "[^,]+") do
@@ -155,11 +155,11 @@ local function resolve_layer(proto)
   if EXEMPT_TYPES[proto.type] then return nil end
   if EXEMPT_NAMES[proto.name] then return nil end
   if proto.name:sub(1, 11) == "crash-site-" then return nil end
-  if TRANSIT_TYPES[proto.type] then return "fh-transit" end
-  if RAMPART_TYPES[proto.type] then return "fh-rampart" end
+  if TRANSIT_TYPES[proto.type] then return "ltr-transit" end
+  if RAMPART_TYPES[proto.type] then return "ltr-rampart" end
   -- Everything else with the player-creation flag — explicitly including
   -- artillery-turret, assembling machines, miners, roboports, and labs.
-  return "fh-land"
+  return "ltr-land"
 end
 
 local function has_flag(proto, wanted)
@@ -186,6 +186,6 @@ for _, group in pairs(data.raw) do
   end
 end
 
--- The fh-land-grants ladder is derived here so every mod's technologies and
+-- The ltr-land-grants ladder is derived here so every mod's technologies and
 -- recipes exist (ADR-0008).
 require("prototypes.tech")

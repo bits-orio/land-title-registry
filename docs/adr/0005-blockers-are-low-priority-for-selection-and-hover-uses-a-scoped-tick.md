@@ -4,7 +4,7 @@ Blocker entities are given `selection_priority = 5` — deliberately near the bo
 
 This is the opposite of what a reader might assume, so it is worth stating why.
 
-Gridlocked also sets a low priority (5) on its blocker, but its situation is different in a way that matters: Gridlocked's claim model is binary, so a blocker only ever exists on an *unclaimed* chunk, where nothing is built and there is nothing to steal selection from. Freehold keeps a blocker on Trail and Rampart cells, which are full of the owner's belts, rails, turrets, and poles. A high-priority full-cell selection box over those would hijack hover, tooltips, and pipette from every one of them, permanently, whether or not the survey tool is in hand.
+Under a binary claimed/unclaimed model, blocker priority barely matters: a blocker exists only on unclaimed land, where nothing is built and there is nothing to steal selection from. The tiered ladder changes that. Land Title Registry keeps a blocker on Trail and Rampart cells, which are full of the owner's belts, rails, turrets, and poles. A high-priority full-cell selection box over those would hijack hover, tooltips, and pipette from every one of them, permanently, whether or not the survey tool is in hand.
 
 The high-priority idea originally came from wanting `on_selected_entity_changed` to drive hover feedback. It buys nothing for the drag path — `selection_priority` governs cursor selection, not area selection, and the selection handlers derive their cells from `event.area` and ignore `event.entities` entirely. And it could never have covered Deed cells, which have no blocker to hover.
 

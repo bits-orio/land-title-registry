@@ -1,5 +1,5 @@
 -- Thin event dispatcher: wires events to the modules under scripts/ and
--- contains no logic itself. Freehold registers no unconditional on_tick;
+-- contains no logic itself. Land Title Registry registers no unconditional on_tick;
 -- the two temporary on_nth_tick handlers (rebuild queue, hover) are managed
 -- by their modules and re-registered from on_load iff their storage says so.
 
@@ -42,7 +42,7 @@ script.on_init(function()
   storage.meta.cell_size = const.CELL
   if mts_compat.active then mts_compat.resolve_events() end
   if odb_compat.active then odb_compat.register() end
-  -- Blanket any chunks that existed before Freehold did (mid-game install,
+  -- Blanket any chunks that existed before Land Title Registry did (mid-game install,
   -- scenario-pregenerated maps). Fresh maps enqueue little or nothing.
   blockers.enqueue_full_rebuild()
 end)
@@ -65,7 +65,7 @@ script.on_configuration_changed(function()
   end
 
   -- One-shot self-heal for saves bitten by the above: a disabled,
-  -- non-platform surface that holds claims is legitimate Freehold ground —
+  -- non-platform surface that holds claims is legitimate Land Title Registry ground —
   -- re-enable and reconcile it back. Flagged so it never fights a
   -- DELIBERATE set_surface_enabled(false) by an integrator later.
   if not storage.disable_healed then
@@ -77,7 +77,7 @@ script.on_configuration_changed(function()
         if cells and next(cells) then
           storage.disabled_surfaces[surface_index] = nil
           blockers.enqueue_surface_rebuild(surface)
-          game.print({ "freehold.surface-healed", surface.name })
+          game.print({ "land-title-registry.surface-healed", surface.name })
         end
       end
     end
@@ -105,7 +105,7 @@ script.on_configuration_changed(function()
       render.drop_surface(surface_index)
       registry.init_surface(surface_index)
     end
-    game.print({ "freehold.cell-size-reset" })
+    game.print({ "land-title-registry.cell-size-reset" })
     blockers.enqueue_full_rebuild()
   end
   storage.meta.cell_size = cell_size
@@ -219,7 +219,7 @@ script.on_event(defines.events.on_player_joined_game, function(event)
         if cells and next(cells) then
           storage.disabled_surfaces[surface_index] = nil
           blockers.enqueue_surface_rebuild(surface)
-          game.print({ "freehold.surface-healed", surface.name })
+          game.print({ "land-title-registry.surface-healed", surface.name })
         end
       end
     end
@@ -238,12 +238,12 @@ script.on_event(defines.events.on_player_removed, tool.on_player_gone)
 -- everything through the batched rebuild queue, never in one tick.
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
   hud.on_setting_changed(event)
-  if string.find(event.setting, "^fh%-color%-") then
+  if string.find(event.setting, "^ltr%-color%-") then
     blockers.enqueue_full_rebuild()
   end
 end)
 
--- Freehold's own custom events double as internal refresh triggers.
+-- Land Title Registry's own custom events double as internal refresh triggers.
 script.on_event(custom_events.on_points_changed, function(event)
   tool.on_points_changed(event)
   hud.on_points_changed(event)

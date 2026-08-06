@@ -1,6 +1,6 @@
--- Multi-Team Support consumer (optional dependency). Freehold is the
+-- Multi-Team Support consumer (optional dependency). Land Title Registry is the
 -- reference consumer of MTS's COMPAT.md patterns; MTS ships zero
--- Freehold-specific code — integration flows one way, through mts-v1.
+-- Land Title Registry-specific code — integration flows one way, through mts-v1.
 --
 -- Everything here no-ops when MTS is absent: the module returns
 -- { active = false } and control.lua's composition points check the flag.
@@ -56,7 +56,7 @@ chronicle.team_tag_provider = function(force_name)
   return remote.call("mts-v1", "get_team_tag", force_name)
 end
 
--- Freehold's celebrations ride MTS's own animated pop_text presets, so
+-- Land Title Registry's celebrations ride MTS's own animated pop_text presets, so
 -- they look native next to MTS's milestones instead of reinventing them.
 chronicle.popup_provider = function(preset, text, force_name)
   if not remote.interfaces["mts-v1"] then return false end
@@ -73,7 +73,7 @@ end
 
 -- Grid only on team surfaces — but ONLY once MTS's team flow is actually
 -- running (at least one team exists). MTS merely being installed must not
--- kill Freehold on plain nauvis freeplay: is_team_surface("nauvis") is
+-- kill Land Title Registry on plain nauvis freeplay: is_team_surface("nauvis") is
 -- false there too, and pre-gating on it swept legitimate grids (found in
 -- playtest, reproduced headless). No surface names are enumerated: the
 -- signal is MTS's own team list and team lifecycle events.
@@ -140,16 +140,16 @@ function mts.resolve_events()
     script.on_event(on_team_created, sweep_non_team_surfaces)
   end
 
-  -- Recycled team slots must not inherit the previous occupant's balance —
-  -- the founding grievance behind reset_force (MTS's Gridlocked shim calls
-  -- a reset_force that Gridlocked never implemented).
+  -- Recycled team slots must not inherit the previous occupant's balance.
+  -- This is what reset_force exists for, and why it is implemented and
+  -- exercised from day one rather than left as a stub in the interface.
   local on_team_released =
     remote.call("mts-v1", "get_event_id", "on_team_released")
   if on_team_released then
     script.on_event(on_team_released, function(event)
       local force = game.forces[event.force_name]
       if force and force.valid then
-        economy.set(force, settings.global["fh-starting-points"].value, "reset")
+        economy.set(force, settings.global["ltr-starting-points"].value, "reset")
       end
     end)
   end

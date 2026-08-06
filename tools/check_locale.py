@@ -5,10 +5,10 @@ Catches the two failure modes that have actually bitten this repo:
   1. A key referenced in Lua but never defined (renders as "Unknown key").
   2. A key defined in the WRONG section — blind `cat >>` appends land at the
      end of the file, which is some other [section], so the runtime lookup
-     under [freehold] misses even though the text is present.
+     under [land-title-registry] misses even though the text is present.
 
-Dynamic keys built by concatenation ("freehold.hover-" .. state) are checked
-by prefix: at least one key with that prefix must exist in [freehold].
+Dynamic keys built by concatenation ("land-title-registry.hover-" .. state) are checked
+by prefix: at least one key with that prefix must exist in [land-title-registry].
 
 Run from the repo root:  python3 tools/check_locale.py
 Exit status is non-zero when something is missing, so it can gate a release.
@@ -19,8 +19,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CFG = ROOT / "locale/en/freehold.cfg"
-RUNTIME_SECTION = "freehold"
+CFG = ROOT / "locale/en/land-title-registry.cfg"
+RUNTIME_SECTION = "land-title-registry"
 
 
 def parse_sections(text):
@@ -50,9 +50,9 @@ def main():
     for path in lua_sources():
         text = path.read_text()
         # Dynamic first, so its prefix is not also counted as an exact key.
-        for prefix in re.findall(r'"freehold\.([a-z0-9-]*-)"\s*\.\.', text):
+        for prefix in re.findall(r'"land-title-registry\.([a-z0-9-]*-)"\s*\.\.', text):
             prefixes.add(prefix)
-        for key in re.findall(r'"freehold\.([a-z0-9-]+)"', text):
+        for key in re.findall(r'"land-title-registry\.([a-z0-9-]+)"', text):
             if not key.endswith("-"):
                 exact.add(key)
 

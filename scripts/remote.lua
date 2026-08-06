@@ -1,9 +1,9 @@
--- The `freehold` remote interface: documented and stable from v1 (see
+-- The `land-title-registry` remote interface: documented and stable from v1 (see
 -- docs/API.md). Registered at control.lua root scope, so mods declaring
--- "? freehold" can resolve it from their own root scope.
+-- "? land-title-registry" can resolve it from their own root scope.
 --
 -- Conventions: `cell_pos` is {x, y} in cell coordinates (cell (x, y) covers
--- tiles [size*x, size*x+size-1] per axis, size from fh-cell-size; equal to
+-- tiles [size*x, size*x+size-1] per axis, size from ltr-cell-size; equal to
 -- chunk coordinates only at size 32); `surface`/`force` take runtime
 -- objects; the points functions
 -- take a plain force_index. Functions returning ok, reason return true, nil
@@ -32,7 +32,7 @@ local function to_ok(result)
   return true, nil
 end
 
-remote.add_interface("freehold", {
+remote.add_interface("land-title-registry", {
   get_points = function(force_index)
     return economy.get(force_index)
   end,
@@ -46,10 +46,10 @@ remote.add_interface("freehold", {
   end,
 
   -- Reset to the starting grant. Exists for integrators recycling force
-  -- slots (MTS team lifecycle): balance back to fh-starting-points, every
+  -- slots (MTS team lifecycle): balance back to ltr-starting-points, every
   -- member's balance display refreshed via the on_points_changed path.
   reset_force = function(force_index)
-    economy.set(game.forces[force_index], settings.global["fh-starting-points"].value, "reset")
+    economy.set(game.forces[force_index], settings.global["ltr-starting-points"].value, "reset")
   end,
 
   claim = function(surface, cell_pos, force, target_state, opts)
@@ -107,7 +107,7 @@ remote.add_interface("freehold", {
 
   -- A disabled surface gets no blockers and no grid at all. Disabling
   -- sweeps existing blockers away through the rebuild queue; re-enabling
-  -- reconciles blockers back from the registry, /fh-rebuild-style.
+  -- reconciles blockers back from the registry, /ltr-rebuild-style.
   set_surface_enabled = function(surface, enabled)
     if enabled then
       storage.disabled_surfaces[surface.index] = nil
@@ -135,7 +135,7 @@ remote.add_interface("freehold", {
     return out
   end,
 
-  -- Cell edge length in tiles (startup fh-cell-size). Cell coordinates
+  -- Cell edge length in tiles (startup ltr-cell-size). Cell coordinates
   -- equal chunk coordinates only when this is 32.
   get_cell_size = function()
     return const.CELL

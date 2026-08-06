@@ -1,6 +1,6 @@
 # The cell registry is the single source of truth; blockers and renders are derived
 
-`storage.cells[surface_index][cell_key]` is the authoritative record of every claimed cell. Blocker entities and render objects are derived state: they must always be reconstructible from the registry alone, and no code path may treat their presence or absence as authoritative. When registry and world disagree, the registry wins and the world is rebuilt to match — that is what `/fh-rebuild` is for.
+`storage.cells[surface_index][cell_key]` is the authoritative record of every claimed cell. Blocker entities and render objects are derived state: they must always be reconstructible from the registry alone, and no code path may treat their presence or absence as authoritative. When registry and world disagree, the registry wins and the world is rebuilt to match — that is what `/ltr-rebuild` is for.
 
 Supporting choices:
 

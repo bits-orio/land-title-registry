@@ -65,12 +65,12 @@ render.team_color_provider = nil
 local function planet_color(surface)
   local planet = surface.planet
   if planet then
-    local setting = "fh-color-" .. planet.name
+    local setting = "ltr-color-" .. planet.name
     if prototypes.mod_setting[setting] then
       return settings.global[setting].value
     end
   end
-  return settings.global["fh-color-default"].value
+  return settings.global["ltr-color-default"].value
 end
 
 local function resolve_color(surface, force_index)
@@ -217,7 +217,7 @@ function render.refresh_cell(surface, cx, cy)
     if force and force.valid then
       objects[#objects + 1] = rendering.draw_sprite({
         surface = surface,
-        sprite = "fh-survey-stake",
+        sprite = "ltr-survey-stake",
         target = { x = x0, y = y0 },
         tint = resolve_color(surface, force_index),
         x_scale = 0.5,

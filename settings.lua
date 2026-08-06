@@ -1,13 +1,13 @@
 -- Layer-membership override channels (host has the final word; precedence
--- Freehold defaults < mod-data declarations < these settings). Entries are
+-- Land Title Registry defaults < mod-data declarations < these settings). Entries are
 -- comma-separated: an entity prototype name, or a prototype type with the
 -- "type:" prefix (e.g. "heat-pipe, type:storage-tank"). Removals send an
 -- entity back to land — the universal default.
 local layer_overrides = {
-  { name = "fh-transit-additions", order = "e[layers]-a" },
-  { name = "fh-transit-removals", order = "e[layers]-b" },
-  { name = "fh-rampart-additions", order = "e[layers]-c" },
-  { name = "fh-rampart-removals", order = "e[layers]-d" },
+  { name = "ltr-transit-additions", order = "e[layers]-a" },
+  { name = "ltr-transit-removals", order = "e[layers]-b" },
+  { name = "ltr-rampart-additions", order = "e[layers]-c" },
+  { name = "ltr-rampart-removals", order = "e[layers]-d" },
 }
 local override_settings = {}
 for _, entry in ipairs(layer_overrides) do
@@ -25,7 +25,7 @@ data:extend(override_settings)
 data:extend({
   {
     type = "string-setting",
-    name = "fh-cell-size",
+    name = "ltr-cell-size",
     setting_type = "startup",
     default_value = "24",
     allowed_values = { "16", "24", "32" },
@@ -37,17 +37,17 @@ data:extend({
 -- Per-planet border colors (used when MTS team colors are absent). The
 -- settings stage cannot enumerate planet prototypes (they are data-stage),
 -- so the known base/Space Age planets get named settings and every other
--- planet falls back to fh-color-default at runtime.
+-- planet falls back to ltr-color-default at runtime.
 local color_settings = {
-  { name = "fh-color-default", color = { r = 0.85, g = 0.80, b = 0.62 } },
-  { name = "fh-color-nauvis", color = { r = 0.36, g = 0.68, b = 0.38 } },
+  { name = "ltr-color-default", color = { r = 0.85, g = 0.80, b = 0.62 } },
+  { name = "ltr-color-nauvis", color = { r = 0.36, g = 0.68, b = 0.38 } },
 }
 if mods["space-age"] then
   local sa = {
-    { name = "fh-color-vulcanus", color = { r = 0.85, g = 0.48, b = 0.24 } },
-    { name = "fh-color-fulgora", color = { r = 0.68, g = 0.50, b = 0.82 } },
-    { name = "fh-color-gleba", color = { r = 0.55, g = 0.72, b = 0.25 } },
-    { name = "fh-color-aquilo", color = { r = 0.42, g = 0.67, b = 0.82 } },
+    { name = "ltr-color-vulcanus", color = { r = 0.85, g = 0.48, b = 0.24 } },
+    { name = "ltr-color-fulgora", color = { r = 0.68, g = 0.50, b = 0.82 } },
+    { name = "ltr-color-gleba", color = { r = 0.55, g = 0.72, b = 0.25 } },
+    { name = "ltr-color-aquilo", color = { r = 0.42, g = 0.67, b = 0.82 } },
   }
   for _, entry in ipairs(sa) do color_settings[#color_settings + 1] = entry end
 end
@@ -66,21 +66,21 @@ data:extend(extended)
 data:extend({
   {
     type = "bool-setting",
-    name = "fh-show-points",
+    name = "ltr-show-points",
     setting_type = "runtime-per-user",
     default_value = true,
     order = "c[ux]-b[show-points]",
   },
   {
     type = "bool-setting",
-    name = "fh-show-celebrations",
+    name = "ltr-show-celebrations",
     setting_type = "runtime-per-user",
     default_value = true,
     order = "c[ux]-c[show-celebrations]",
   },
   {
     type = "int-setting",
-    name = "fh-points-per-level",
+    name = "ltr-points-per-level",
     setting_type = "startup",
     default_value = 5,
     minimum_value = 0,
@@ -88,7 +88,7 @@ data:extend({
   },
   {
     type = "double-setting",
-    name = "fh-tech-cost-multiplier",
+    name = "ltr-tech-cost-multiplier",
     setting_type = "startup",
     default_value = 1,
     minimum_value = 0.1,
@@ -96,7 +96,7 @@ data:extend({
   },
   {
     type = "string-setting",
-    name = "fh-tech-tiers",
+    name = "ltr-tech-tiers",
     setting_type = "startup",
     default_value = "",
     allow_blank = true,
@@ -104,7 +104,7 @@ data:extend({
   },
   {
     type = "int-setting",
-    name = "fh-settlement-charter",
+    name = "ltr-settlement-charter",
     setting_type = "runtime-global",
     default_value = 30,
     minimum_value = 0,
@@ -115,14 +115,14 @@ data:extend({
     -- largest source of chat volume, and it narrates what the acting
     -- player just did. Records still announce; standings live on the map.
     type = "bool-setting",
-    name = "fh-print-claims",
+    name = "ltr-print-claims",
     setting_type = "runtime-global",
     default_value = false,
     order = "c[ux]-a[print-claims]",
   },
   {
     type = "int-setting",
-    name = "fh-starting-points",
+    name = "ltr-starting-points",
     setting_type = "runtime-global",
     default_value = 75,
     minimum_value = 0,
@@ -130,7 +130,7 @@ data:extend({
   },
   {
     type = "int-setting",
-    name = "fh-refund-percent",
+    name = "ltr-refund-percent",
     setting_type = "runtime-global",
     default_value = 25,
     minimum_value = 0,

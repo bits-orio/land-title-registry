@@ -10,7 +10,7 @@ local const = {}
 -- blocker is created (full-size) the moment the FIRST chunk touching its
 -- cell generates: the engine handles entities on ungenerated chunks (probed
 -- and recorded in ADR-0010).
-const.CELL = tonumber(settings.startup["fh-cell-size"].value)
+const.CELL = tonumber(settings.startup["ltr-cell-size"].value)
 
 -- Inclusive cell-coordinate range overlapping chunk coordinate k (1-D).
 function const.cell_range_of_chunk(k)
@@ -43,20 +43,20 @@ const.PREV = {
 -- Blocker entity per state; Deed has none (absence of a blocker means full
 -- rights).
 const.BLOCKER = {
-  wilderness = "fh-cell-wilderness",
-  trail = "fh-cell-trail",
-  rampart = "fh-cell-rampart",
+  wilderness = "ltr-cell-wilderness",
+  trail = "ltr-cell-trail",
+  rampart = "ltr-cell-rampart",
 }
 
-const.BLOCKER_NAMES = { "fh-cell-wilderness", "fh-cell-trail", "fh-cell-rampart" }
+const.BLOCKER_NAMES = { "ltr-cell-wilderness", "ltr-cell-trail", "ltr-cell-rampart" }
 
 -- Downgrade validity: a cell may only shed a right nothing in it is using.
 -- Keyed by the state being downgraded FROM; the cell must contain no entity
 -- of the acting force carrying any of these layers.
 const.VALIDITY_LAYERS = {
-  deed = { "fh-land" },
-  rampart = { "fh-rampart" },
-  trail = { "fh-land", "fh-transit", "fh-rampart" },
+  deed = { "ltr-land" },
+  rampart = { "ltr-rampart" },
+  trail = { "ltr-land", "ltr-transit", "ltr-rampart" },
 }
 
 -- The rung above each state, for the advance action (drag = raise one rung).

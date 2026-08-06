@@ -15,7 +15,7 @@ Date: 2026-08-06
 Version: 0.1.5
 Date: 2026-08-06
   Features:
-    - Celebrations now use Multi-Team Support's own animated pop-up text when it is installed, so Freehold milestones look native alongside MTS's.
+    - Celebrations now use Multi-Team Support's own animated pop-up text when it is installed, so Land Title Registry milestones look native alongside MTS's.
     - Breaking a cell's fastest Deed record is announced to every team, naming who took it from whom and both times.
   Changes:
     - Cell chronicle text is back to its original crisp size, with the coordinates right-aligned against the standings and the pair centred on the cell.
@@ -29,7 +29,7 @@ Date: 2026-08-06
   Changes:
     - One chat line per survey-tool action instead of two, carrying team, player, cell count, cost, and a record clause only when a record was actually set.
     - Placing 2nd or 3rd is no longer announced; it appears in the standings only.
-    - The survey tool's mark is now the mod thumbnail, the Land grants technology icon, and the prefix of every Freehold chat line.
+    - The survey tool's mark is now the mod thumbnail, the Land grants technology icon, and the prefix of every Land Title Registry chat line.
     - Chronicle standings use a smaller, lighter font.
 ---------------------------------------------------------------------------------------------------
 Version: 0.1.3
@@ -51,7 +51,7 @@ Date: 2026-08-05
   Features:
     - Two-gesture interaction: drag raises every covered cell one rung, right-drag lowers one (Shift variants jump, unadvertised).
     - Cell chronicle: per-cell speedrun leaderboard of fastest Deed times on team clocks, drawn under each cell's top edge; celebrations on contested cells.
-    - Free starter Deed at a force's first presence on each planet, with in-world gesture hints; welcome panel and Tips-and-tricks onboarding; /fh-welcome.
+    - Free starter Deed at a force's first presence on each planet, with in-world gesture hints; welcome panel and Tips-and-tricks onboarding; /ltr-welcome.
     - Configurable cell size (16/24/32, default 24); planner-style survey tool icon; per-state ground overlays and border colors from one shared palette; inset per-side borders.
   Changes:
     - Claim announcements, per-planet border colors, MTS team colors on survey stakes, ODB milestone events, layer-override channels.

@@ -1,12 +1,12 @@
 -- Research income and settlement charters.
 --
--- Grants: each finished fh-land-grants level credits the RESEARCHING force
--- fh-points-per-level; each reversed level debits the same amount — finish
--- then reverse is exactly net zero, including infinite-tech levels
--- (Gridlocked's known TODO bug; a hard requirement here).
+-- Grants: each finished ltr-land-grants level credits the RESEARCHING force
+-- ltr-points-per-level; each reversed level debits the same amount — finish
+-- then reverse is exactly net zero, including infinite-tech levels. The
+-- infinite-level case is the easy one to miss and a hard requirement here.
 --
 -- Charters: the first time a force establishes presence on each planet it
--- receives fh-settlement-charter points, strictly once per (force, planet) —
+-- receives ltr-settlement-charter points, strictly once per (force, planet) —
 -- keyed by surface.planet.name, never surface names or indices. The force's
 -- FIRST-ever planet is recorded silently without a grant: that is the home
 -- planet, and the starting grant already covers its cold start.
@@ -19,10 +19,10 @@ local chronicle = require("scripts.chronicle")
 
 local tech = {}
 
-local GRANT_PATTERN = "^fh%-land%-grants%-%d+$"
+local GRANT_PATTERN = "^ltr%-land%-grants%-%d+$"
 
 local function points_per_level()
-  return settings.startup["fh-points-per-level"].value
+  return settings.startup["ltr-points-per-level"].value
 end
 
 function tech.on_research_finished(event)
@@ -88,7 +88,7 @@ local function maybe_grant_starter(force, surface, player, draw_hints)
   local cx = math.floor(player.physical_position.x / const.CELL)
   local cy = math.floor(player.physical_position.y / const.CELL)
   if claims.grant_free(surface, force, player, cx, cy, "deed") then
-    force.print({ "freehold.starter-cell",
+    force.print({ "land-title-registry.starter-cell",
       string.format("[gps=%d,%d,%s]",
         cx * const.CELL + const.CELL / 2,
         cy * const.CELL + const.CELL / 2, surface.name) })
@@ -115,10 +115,10 @@ local function establish_presence(force, surface, player)
 
   if is_first_planet then return end -- home planet: starting grant covers it
 
-  local amount = settings.global["fh-settlement-charter"].value
+  local amount = settings.global["ltr-settlement-charter"].value
   if amount > 0 then
     economy.change(force, amount, "settlement-charter")
-    force.print({ "freehold.settlement-charter", planet.prototype.localised_name or planet.name, amount })
+    force.print({ "land-title-registry.settlement-charter", planet.prototype.localised_name or planet.name, amount })
   end
 end
 

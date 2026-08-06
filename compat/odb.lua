@@ -7,7 +7,7 @@
 -- per-claim emission path exists, not even behind a setting.
 --
 -- The module exposes hooks; control.lua composes them into its handlers for
--- Freehold's own custom events (script.on_event replaces handlers, so this
+-- Land Title Registry's own custom events (script.on_event replaces handlers, so this
 -- module must never subscribe to shared events itself).
 
 local registry = require("scripts.registry")
@@ -34,11 +34,11 @@ end
 function odb.register()
   if remote.interfaces[INTERFACE] then
     remote.call(INTERFACE, "register_source", {
-      namespace = "freehold",
+      namespace = "land-title-registry",
       events = {
-        "freehold.settlement_charter",
-        "freehold.first_deed",
-        "freehold.territory_milestone",
+        "land-title-registry.settlement_charter",
+        "land-title-registry.first_deed",
+        "land-title-registry.territory_milestone",
       },
     })
   end
@@ -46,7 +46,7 @@ end
 
 function odb.on_points_changed(event)
   if event.reason ~= "settlement-charter" then return end
-  emit("freehold.settlement_charter", {
+  emit("land-title-registry.settlement_charter", {
     force = event.force_name,
     points = event.delta,
   })
@@ -74,9 +74,9 @@ function odb.on_cell_claimed(event)
   end
 
   if deeds == 1 then
-    emit("freehold.first_deed", { force = event.force_name, planet = planet_name }, surface.name)
+    emit("land-title-registry.first_deed", { force = event.force_name, planet = planet_name }, surface.name)
   elseif deeds % MILESTONE_DEEDS == 0 then
-    emit("freehold.territory_milestone",
+    emit("land-title-registry.territory_milestone",
       { force = event.force_name, planet = planet_name, deeds = deeds }, surface.name)
   end
 end

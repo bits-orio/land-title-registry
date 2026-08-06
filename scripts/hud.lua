@@ -1,19 +1,19 @@
 -- Per-player Land-points readout, built with the mod-gui library — never a
 -- raw screen frame positioned by resolution arithmetic. Refresh triggers
 -- (all mandatory, see *Player Experience*): every points change for the
--- force, on_player_changed_force (MTS moves players between forces — a
--- stale HUD here is a known Gridlocked failure), player create/join, and
--- the fh-show-points per-user setting.
+-- force, on_player_changed_force (MTS moves players between forces, and the
+-- readout must rebind to the new force rather than go stale), player
+-- create/join, and the ltr-show-points per-user setting.
 
 local mod_gui = require("mod-gui")
 local economy = require("scripts.economy")
 
 local hud = {}
 
-local FRAME_NAME = "fh_points"
+local FRAME_NAME = "ltr_points"
 
 local function visible_for(player)
-  return player.mod_settings["fh-show-points"].value
+  return player.mod_settings["ltr-show-points"].value
 end
 
 local function frame_of(player)
@@ -35,7 +35,7 @@ function hud.update(player)
     })
     frame.add({ type = "label", name = "points" })
   end
-  frame.points.caption = { "freehold.hud-points", economy.format(economy.get(player.force.index)) }
+  frame.points.caption = { "land-title-registry.hud-points", economy.format(economy.get(player.force.index)) }
 end
 
 function hud.on_player_created(event)
@@ -61,7 +61,7 @@ function hud.on_points_changed(event)
 end
 
 function hud.on_setting_changed(event)
-  if event.setting ~= "fh-show-points" or not event.player_index then return end
+  if event.setting ~= "ltr-show-points" or not event.player_index then return end
   hud.update(game.get_player(event.player_index))
 end
 

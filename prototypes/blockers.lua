@@ -13,14 +13,14 @@
 -- Cell size is a startup setting (ADR-0010): 16, 24, or 32 tiles. 24-tile
 -- cells straddle chunk boundaries; the engine handles entities whose boxes
 -- reach into ungenerated chunks, so the blocker is always full-size.
-local SIZE = tonumber(settings.startup["fh-cell-size"].value)
+local SIZE = tonumber(settings.startup["ltr-cell-size"].value)
 local HALF = SIZE / 2
 
 local function blocker(name, layers, picture)
   return {
     type = "simple-entity-with-owner",
     name = name,
-    icon = "__freehold__/graphics/survey-tool.png",
+    icon = "__land-title-registry__/graphics/survey-tool.png",
     icon_size = 64,
     flags = {
       "placeable-off-grid",
@@ -53,7 +53,7 @@ end
 -- no blocker and no overlay.
 local function overlay(name)
   return {
-    filename = "__freehold__/graphics/" .. name .. ".png",
+    filename = "__land-title-registry__/graphics/" .. name .. ".png",
     width = 1024,
     height = 1024,
     scale = SIZE * 32 / 1024,
@@ -61,11 +61,11 @@ local function overlay(name)
 end
 
 data:extend({
-  blocker("fh-cell-wilderness",
-    { ["fh-land"] = true, ["fh-transit"] = true, ["fh-rampart"] = true },
+  blocker("ltr-cell-wilderness",
+    { ["ltr-land"] = true, ["ltr-transit"] = true, ["ltr-rampart"] = true },
     overlay("wilderness-overlay")),
-  blocker("fh-cell-trail", { ["fh-land"] = true, ["fh-rampart"] = true },
+  blocker("ltr-cell-trail", { ["ltr-land"] = true, ["ltr-rampart"] = true },
     overlay("trail-overlay")),
-  blocker("fh-cell-rampart", { ["fh-land"] = true },
+  blocker("ltr-cell-rampart", { ["ltr-land"] = true },
     overlay("rampart-overlay")),
 })

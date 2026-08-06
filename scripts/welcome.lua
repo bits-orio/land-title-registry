@@ -1,12 +1,12 @@
 -- Onboarding: the first-join welcome panel and the surface-drawn gesture
 -- hints at the starter cell. Every player-facing key reference uses the
--- __CONTROL__fh-get-survey-tool__ locale macro, so rebinds show correctly.
+-- __CONTROL__ltr-get-survey-tool__ locale macro, so rebinds show correctly.
 
 local const = require("scripts.const")
 
 local welcome = {}
 
-local FRAME_NAME = "fh_welcome"
+local FRAME_NAME = "ltr_welcome"
 
 function welcome.show(player)
   if not (player and player.valid) then return end
@@ -15,15 +15,15 @@ function welcome.show(player)
     type = "frame",
     name = FRAME_NAME,
     direction = "vertical",
-    caption = { "freehold.welcome-title" },
+    caption = { "land-title-registry.welcome-title" },
   })
-  frame.add({ type = "label", name = "l1", caption = { "freehold.welcome-line-1" } })
-  frame.add({ type = "label", name = "l2", caption = { "freehold.welcome-line-2" } })
-  frame.add({ type = "label", name = "l3", caption = { "freehold.welcome-line-3" } })
-  frame.add({ type = "label", name = "l4", caption = { "freehold.welcome-line-4" } })
+  frame.add({ type = "label", name = "l1", caption = { "land-title-registry.welcome-line-1" } })
+  frame.add({ type = "label", name = "l2", caption = { "land-title-registry.welcome-line-2" } })
+  frame.add({ type = "label", name = "l3", caption = { "land-title-registry.welcome-line-3" } })
+  frame.add({ type = "label", name = "l4", caption = { "land-title-registry.welcome-line-4" } })
   local buttons = frame.add({ type = "flow", name = "buttons", direction = "horizontal" })
-  buttons.add({ type = "button", name = "fh_welcome_grab", style = "confirm_button", caption = { "freehold.welcome-grab" } })
-  buttons.add({ type = "button", name = "fh_welcome_close", caption = { "freehold.welcome-close" } })
+  buttons.add({ type = "button", name = "ltr_welcome_grab", style = "confirm_button", caption = { "land-title-registry.welcome-grab" } })
+  buttons.add({ type = "button", name = "ltr_welcome_close", caption = { "land-title-registry.welcome-close" } })
   frame.force_auto_center()
 end
 
@@ -48,12 +48,12 @@ end
 function welcome.on_gui_click(event)
   local element = event.element
   if not (element and element.valid) then return end
-  if element.name ~= "fh_welcome_grab" and element.name ~= "fh_welcome_close" then return end
+  if element.name ~= "ltr_welcome_grab" and element.name ~= "ltr_welcome_close" then return end
   local player = game.get_player(event.player_index)
   if not (player and player.valid) then return end
-  if element.name == "fh_welcome_grab" and player.cursor_stack then
+  if element.name == "ltr_welcome_grab" and player.cursor_stack then
     player.clear_cursor()
-    player.cursor_stack.set_stack("fh-survey-tool")
+    player.cursor_stack.set_stack("ltr-survey-tool")
   end
   local frame = player.gui.screen[FRAME_NAME]
   if frame then frame.destroy() end
@@ -66,10 +66,10 @@ function welcome.draw_origin_hints(force, surface, cx, cy)
   local x = cx * const.CELL + const.CELL / 2
   local y = cy * const.CELL + const.CELL / 2
   local lines = {
-    { text = { "freehold.origin-hint-1" }, dy = -3.2, scale = 2.2 },
-    { text = { "freehold.origin-hint-2" }, dy = -0.8, scale = 1.3 },
-    { text = { "freehold.origin-hint-3" }, dy = 0.6, scale = 1.3 },
-    { text = { "freehold.origin-hint-4" }, dy = 2.0, scale = 1.3 },
+    { text = { "land-title-registry.origin-hint-1" }, dy = -3.2, scale = 2.2 },
+    { text = { "land-title-registry.origin-hint-2" }, dy = -0.8, scale = 1.3 },
+    { text = { "land-title-registry.origin-hint-3" }, dy = 0.6, scale = 1.3 },
+    { text = { "land-title-registry.origin-hint-4" }, dy = 2.0, scale = 1.3 },
   }
   local objects = {}
   for _, line in ipairs(lines) do

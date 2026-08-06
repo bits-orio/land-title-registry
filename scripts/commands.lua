@@ -1,4 +1,4 @@
--- Console commands. /fh-rebuild reconciles the world with the registry — the
+-- Console commands. /ltr-rebuild reconciles the world with the registry — the
 -- recovery path for any drift (ADR-0003). Large rebuilds drain through the
 -- batched on_nth_tick queue, never in a single tick.
 
@@ -8,9 +8,9 @@ local blockers = require("scripts.blockers")
 local welcome = require("scripts.welcome")
 local chronicle = require("scripts.chronicle")
 
-commands.add_command("fh-rebuild", { "freehold.cmd-rebuild-help" }, function(event)
+commands.add_command("ltr-rebuild", { "land-title-registry.cmd-rebuild-help" }, function(event)
   local count = blockers.enqueue_full_rebuild()
-  local message = { "freehold.rebuild-started", count }
+  local message = { "land-title-registry.rebuild-started", count }
   if event.player_index then
     local player = game.get_player(event.player_index)
     if player and player.valid then player.print(message) end
@@ -19,14 +19,14 @@ commands.add_command("fh-rebuild", { "freehold.cmd-rebuild-help" }, function(eve
   end
 end)
 
-commands.add_command("fh-welcome", { "freehold.cmd-welcome-help" }, function(event)
+commands.add_command("ltr-welcome", { "land-title-registry.cmd-welcome-help" }, function(event)
   if not event.player_index then return end
   local player = game.get_player(event.player_index)
   if player and player.valid then welcome.show(player) end
 end)
 
 -- Diagnosis dump: answers "why no celebration here?" directly.
-commands.add_command("fh-debug", { "freehold.cmd-debug-help" }, function(event)
+commands.add_command("ltr-debug", { "land-title-registry.cmd-debug-help" }, function(event)
   if not event.player_index then return end
   local player = game.get_player(event.player_index)
   if not (player and player.valid) then return end
@@ -36,7 +36,7 @@ commands.add_command("fh-debug", { "freehold.cmd-debug-help" }, function(event)
   local rec = registry.get(surface.index, registry.cell_key(cx, cy))
   local entries = chronicle.entries_for(surface, cx, cy)
 
-  player.print("── Freehold debug ──")
+  player.print("── Land Title Registry debug ──")
   player.print(string.format("surface %s (planet: %s)  enabled: %s",
     surface.name, tostring(surface.planet and surface.planet.name),
     tostring(not storage.disabled_surfaces[surface.index])))

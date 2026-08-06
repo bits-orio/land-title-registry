@@ -11,7 +11,7 @@ The replacement leans on an invariant the economy already guarantees: **full cre
 
 Onboarding ships with the same change (all engine-native surfaces):
 
-- A **first-join welcome panel** (screen GUI, once per player) with the ladder in two lines, the live keybind via the `__CONTROL__fh-get-survey-tool__` locale macro, and a give-me-the-tool button.
+- A **first-join welcome panel** (screen GUI, once per player) with the ladder in two lines, the live keybind via the `__CONTROL__ltr-get-survey-tool__` locale macro, and a give-me-the-tool button.
 - **Tips-and-tricks entries** (category + three items, time-triggered) in the built-in Tips window.
 - **A free starter cell**: at a force's first presence on each planet, the cell the player is standing on is granted as Trail (invested 0). This partially reverses ADR-0006's rejection of auto-granting the spawn cell — the objection there was that Space Age cargo pods land far from `get_spawn_position`, and granting at *presence position* dissolves it. The standing-cell anchor clause remains as the recovery path. The grant makes the cell grid visible immediately and shows exactly where growth begins; the known 0.25-point refund leak on downgrading a granted cell is accepted.
 - **Surface-drawn gesture hints** at the home starter cell (per-force render texts), destroyed on the force's first paid claim.

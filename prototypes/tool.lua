@@ -6,7 +6,7 @@
 -- derive the affected cells from event.area, so the entity filters below are
 -- a perf nicety (keep the entities array to blockers), not load-bearing.
 
-local BLOCKER_NAMES = { "fh-cell-wilderness", "fh-cell-trail", "fh-cell-rampart" }
+local BLOCKER_NAMES = { "ltr-cell-wilderness", "ltr-cell-trail", "ltr-cell-rampart" }
 
 local function mode(border_color, cursor_box_type)
   return {
@@ -20,14 +20,14 @@ end
 data:extend({
   {
     type = "selection-tool",
-    name = "fh-survey-tool",
-    icon = "__freehold__/graphics/survey-tool.png",
+    name = "ltr-survey-tool",
+    icon = "__land-title-registry__/graphics/survey-tool.png",
     icon_size = 64,
     stack_size = 1,
     flags = { "not-stackable", "only-in-cursor", "spawnable" },
     draw_label_for_cursor_render = true,
     subgroup = "tool",
-    order = "z[freehold]-a[survey-tool]",
+    order = "z[land-title-registry]-a[survey-tool]",
     -- select: claim Trail (green)
     select = mode({ r = 0.35, g = 0.65, b = 0.32 }, "entity"),
     -- alt-select: claim/upgrade to Deed (gold)

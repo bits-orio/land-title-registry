@@ -152,7 +152,7 @@ jobs:
                    --exclude='.luarc.json' \
                    --exclude='build' \
                    --exclude='docs' \
-                   --exclude='FREEHOLD_DESIGN.md' \
+                   --exclude='DESIGN.md' \
                    --exclude='CONTEXT.md' \
                    --exclude='tools' \
                    --exclude='*.sh' \
@@ -239,7 +239,7 @@ jobs:
       # "Upload to Mod Portal" workflow (mod-portal-upload.yml).
       #
       # NOTE: the upload API adds a *release* to an *existing* mod page. The
-      # `freehold` page must be created once on mods.factorio.com by hand
+      # `land-title-registry` page must be created once on mods.factorio.com by hand
       # before the first portal upload can succeed.
       - name: Upload to Factorio mod portal
         id: upload

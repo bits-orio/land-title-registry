@@ -23,7 +23,7 @@ function economy.get(force_index)
 end
 
 function economy.refund_percent()
-  return settings.global["fh-refund-percent"].value
+  return settings.global["ltr-refund-percent"].value
 end
 
 -- Every balance mutation goes through here, so on_points_changed fires from
@@ -54,7 +54,7 @@ end
 -- Starting grant on force creation (and for all existing forces on init).
 function economy.init_force(force)
   if storage.points[force.index] == nil then
-    economy.set(force, settings.global["fh-starting-points"].value, "starting-grant")
+    economy.set(force, settings.global["ltr-starting-points"].value, "starting-grant")
   end
 end
 
