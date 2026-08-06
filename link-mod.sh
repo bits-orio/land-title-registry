@@ -8,6 +8,20 @@ NAME=$(grep -o '"name": *"[^"]*"' "$INFO" | head -1 | sed 's/.*"\([^"]*\)"/\1/')
 VERSION=$(grep -o '"version": *"[^"]*"' "$INFO" | head -1 | sed 's/.*"\([^"]*\)"/\1/')
 LINK_NAME="${NAME}_${VERSION}"
 
+# A running Factorio holds the mod directory by its versioned path. Renaming
+# it mid-session (which a version bump does) breaks every later file read:
+# sprites and locale vanish, and starting a NEW game inside that process
+# fails to load control.lua at all - the mod simply disappears. Warn loudly;
+# the fix is always "restart Factorio".
+if pgrep -x factorio >/dev/null 2>&1; then
+    echo "WARNING: Factorio is running." >&2
+    echo "         Relinking renames ${NAME}_<version>; the running process will" >&2
+    echo "         lose this mod's files (missing graphics/locale, and a new game" >&2
+    echo "         started in that process will not load the mod at all)." >&2
+    echo "         Restart Factorio after this finishes." >&2
+    echo "" >&2
+fi
+
 MOD_DIRS=(
     "$HOME/factorio/mods"
     "$HOME/.factorio/mods"

@@ -54,6 +54,8 @@ When the user asks to bump the version, release a new version, or after the vers
    ```
    This removes old `freehold_*` symlinks and creates new ones with the current version in every Factorio mods directory that exists on this machine.
 
+   **Tell the user to restart Factorio afterwards.** The rename breaks the mod directory path a running process holds: sprites and locale stop resolving mid-session, and starting a new game inside that same process fails to load `control.lua` entirely — the mod appears to vanish. `link-mod.sh` warns when it detects a running Factorio, but the warning is only useful if it is passed on.
+
 7. **Commit the version bump**: stage `info.json`, `changelog.txt`, any `migrations/` file, and any doc edits from step 2. Commit with message: `Bump version to <new_version>` (or `Release <new_version>: <one-line summary>` if substantial doc/feature work shipped — match the recent commit history's style).
 
 8. **Release** (when the user asks): push the bump commit, then run `./tools/release.sh`. The script verifies the changelog entry, creates and pushes `v<new_version>`, and the GitHub Actions workflow takes over (build zip → GitHub release → Discord → mod portal upload).
