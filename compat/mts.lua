@@ -41,6 +41,15 @@ chronicle.surface_planet_provider = function(surface)
   return remote.call("mts-v1", "get_surface_planet", surface.name)
 end
 
+-- Every mention of a team uses MTS's own label convention: colored team
+-- tag plus current leader in brackets. Live state, so never cached across
+-- ticks by the caller.
+chronicle.team_label_provider = function(force_name)
+  if not remote.interfaces["mts-v1"] then return nil end
+  if not remote.interfaces["mts-v1"]["get_team_label"] then return nil end
+  return remote.call("mts-v1", "get_team_label", force_name)
+end
+
 chronicle.team_info_provider = function(force_name)
   if not remote.interfaces["mts-v1"] then return nil end
   if not remote.interfaces["mts-v1"]["get_team_info"] then return nil end

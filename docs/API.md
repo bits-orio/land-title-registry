@@ -23,6 +23,7 @@ Stable from v1: these signatures and payloads are a compatibility contract. Decl
 | `get_territory_stats(force_index, opts)` | table | `{trails, ramparts, deeds}` across all surfaces. With `opts = {by_surface = true}`, adds `by_surface = {[surface_index] = {trails, ramparts, deeds}}`. |
 | `set_surface_enabled(surface, enabled)` | — | A disabled surface gets no blockers and no grid. Disabling sweeps existing blockers via the batched rebuild queue; re-enabling reconciles them back from the registry. Claims are refused with `"surface-disabled"` while disabled; the registry itself survives. |
 | `get_surface_enabled(surface)` | `boolean` | Whether Freehold's grid is active on the surface. |
+| `get_cell_chronicle(surface, cell_pos)` | array | The cell's chronicle: `{force_name, clock}` entries, ranked fastest-first on each team's own clock (`clock` in ticks). Empty when nobody has deeded it. Every team's copy of a planet shares one chronicle, so a scoreboard can rank a cell across all teams. |
 | `get_cell_size()` | `uint` | Cell edge length in tiles (startup `fh-cell-size`). |
 | `get_event_id(name)` | `uint` or `nil` | Resolves a custom-event name to this session's event id. |
 

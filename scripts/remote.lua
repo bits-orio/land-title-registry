@@ -14,6 +14,7 @@ local registry = require("scripts.registry")
 local blockers = require("scripts.blockers")
 local economy = require("scripts.economy")
 local claims = require("scripts.claims")
+local chronicle = require("scripts.chronicle")
 local custom_events = require("scripts.custom_events")
 
 local VALID_TARGET = { trail = true, rampart = true, deed = true }
@@ -118,6 +119,20 @@ remote.add_interface("freehold", {
 
   get_surface_enabled = function(surface)
     return not storage.disabled_surfaces[surface.index]
+  end,
+
+  -- The cell's chronicle: teams that have deeded these coordinates on this
+  -- planet, ranked fastest-first on their own team clocks. Array of
+  -- { force_name, clock } (clock in ticks). Empty when nobody has deeded
+  -- it. Cross-team comparable: every team's copy of a planet shares one
+  -- chronicle, so scoreboards can rank a cell across all teams.
+  get_cell_chronicle = function(surface, cell_pos)
+    if not (surface and surface.valid) then return {} end
+    local out = {}
+    for _, entry in ipairs(chronicle.entries_for(surface, cell_pos.x, cell_pos.y)) do
+      out[#out + 1] = { force_name = entry.force_name, clock = entry.clock }
+    end
+    return out
   end,
 
   -- Cell edge length in tiles (startup fh-cell-size). Cell coordinates

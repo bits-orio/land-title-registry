@@ -7,6 +7,7 @@ local const = require("scripts.const")
 local registry = require("scripts.registry")
 local economy = require("scripts.economy")
 local claims = require("scripts.claims")
+local chronicle = require("scripts.chronicle")
 
 local tool = {}
 
@@ -169,7 +170,8 @@ local function show_hover(player, surface, cx, cy)
   local text
   if rec and rec.force_index ~= player.force.index then
     local owner = game.forces[rec.force_index]
-    text = { "freehold.hover-other-force", owner and owner.name or "?" }
+    text = { "freehold.hover-other-force",
+      owner and chronicle.team_label(owner.name) or "?" }
   else
     local state = rec and rec.state or "wilderness"
     text = { "freehold.hover-" .. state }

@@ -26,11 +26,45 @@ local chronicle = {}
 -- force names and clocks fall back to absolute game time.
 chronicle.team_info_provider = nil
 
-local RANK_COLORS = {
-  { r = 1.0, g = 0.85, b = 0.40 }, -- gold
-  { r = 0.80, g = 0.82, b = 0.88 }, -- silver
-  { r = 0.80, g = 0.60, b = 0.42 }, -- bronze
-}
+-- Standings text is drawn in a neutral tint; the TEAM's own color arrives
+-- inside the rich-text label (below), so rank never invents a palette of
+-- its own — a team reads the same color everywhere it is named.
+local TEXT_COLOR = { r = 0.92, g = 0.92, b = 0.92 }
+
+-- compat/mts.lua installs this to return mts-v1's team label: the team's
+-- colored tag plus its current leader in brackets, e.g.
+-- "[color=…]Team Pioneers[/color] [Alice]". Always prefer it over a bare
+-- name — every mention of a team carries its leader.
+chronicle.team_label_provider = nil
+
+-- Labels reflect live state (renames, leader changes, recolors), so they
+-- are re-fetched rather than stored — but a full rebuild redraws many
+-- cells in one tick, so memoize within a tick to keep the remote calls to
+-- one per force. game.tick is deterministic, so this is desync-safe.
+local label_cache, label_cache_tick = {}, -1
+
+function chronicle.team_label(force_name)
+  if game.tick ~= label_cache_tick then
+    label_cache, label_cache_tick = {}, game.tick
+  end
+  local hit = label_cache[force_name]
+  if hit then return hit end
+
+  local label
+  if chronicle.team_label_provider then
+    label = chronicle.team_label_provider(force_name)
+  end
+  if not label then
+    -- No MTS (or not a team force): the force's own color, no leader.
+    local force = game.forces[force_name]
+    local c = force and force.valid and force.color or nil
+    label = c
+      and string.format("[color=%.2f,%.2f,%.2f]%s[/color]", c.r, c.g, c.b, force_name)
+      or force_name
+  end
+  label_cache[force_name] = label
+  return label
+end
 
 local function team_info(force_name)
   if chronicle.team_info_provider then
@@ -112,6 +146,13 @@ function chronicle.regroup()
   return moved
 end
 
+-- Public read accessor (also the remote interface's get_cell_chronicle):
+-- the ranked entries for a cell, or an empty table.
+function chronicle.entries_for(surface, cx, cy)
+  local group = storage.chronicle[group_of(surface)]
+  return group and group[registry.cell_key(cx, cy)] or {}
+end
+
 -- Destroy and redraw the chronicle text of one cell on one surface.
 function chronicle.refresh_cell(surface, cx, cy)
   local surface_index = surface.index
@@ -138,10 +179,10 @@ function chronicle.refresh_cell(surface, cx, cy)
     local entry = entries[rank]
     objects[#objects + 1] = rendering.draw_text({
       text = { "freehold.chronicle-line", rank,
-        team_info(entry.force_name).display_name, format_clock(entry.clock) },
+        chronicle.team_label(entry.force_name), format_clock(entry.clock) },
       surface = surface,
       target = { x = x, y = y + (rank - 1) * 0.62 },
-      color = RANK_COLORS[rank],
+      color = TEXT_COLOR,
       scale = 0.7,
       alignment = "center",
       use_rich_text = true,
@@ -203,8 +244,12 @@ function chronicle.on_cell_claimed(event)
   local gps = string.format("[gps=%d,%d,%s]",
     event.cell_pos.x * const.CELL + const.CELL / 2,
     event.cell_pos.y * const.CELL + const.CELL / 2, surface.name)
-  force.print({ "freehold.chron-chat", { "freehold.chron-rank-" .. rank },
-    format_clock(clock), gps })
+  if rank == 1 then
+    force.print({ "freehold.chron-chat-lead", format_clock(clock), gps })
+  else
+    force.print({ "freehold.chron-chat-behind", { "freehold.chron-rank-" .. rank },
+      format_clock(clock), chronicle.team_label(entries[1].force_name), gps })
+  end
   if event.player_index then
     local player = game.get_player(event.player_index)
     if player and player.valid then
