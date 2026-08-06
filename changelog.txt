@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.6
+Date: 2026-08-06
+  Features:
+    - Cell chronicles now show in map view: the cell's coordinates and its record holder, at a scale that stays readable zoomed out.
+  Changes:
+    - Per-claim chat messages are off by default. With many teams they were the largest source of chat volume; the setting remains for hosts who want them.
+    - A broken record is now told only to the two teams involved - the one that took it and the one displaced - instead of the whole server.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.5
 Date: 2026-08-06
   Features:

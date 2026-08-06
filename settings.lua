@@ -111,10 +111,13 @@ data:extend({
     order = "a[economy]-c[settlement-charter]",
   },
   {
+    -- Off by default: with many teams the per-action line is the single
+    -- largest source of chat volume, and it narrates what the acting
+    -- player just did. Records still announce; standings live on the map.
     type = "bool-setting",
     name = "fh-print-claims",
     setting_type = "runtime-global",
-    default_value = true,
+    default_value = false,
     order = "c[ux]-a[print-claims]",
   },
   {

@@ -36,6 +36,8 @@ local LINE_STEP = 0.62          -- vertical spacing of standings lines
 -- aligned so it ends just left of them. Half the typical standings width,
 -- so the pair reads as one centered block.
 local STANDINGS_HALF_WIDTH = 3.9
+-- Map view is always zoomed out; chart text needs its own, larger scale.
+local CHART_SCALE = 2.2
 local COORD_GAP = 0.3
 
 -- Every Freehold announcement carries the survey-tool mark: one symbol
@@ -295,6 +297,27 @@ function chronicle.refresh_cell(surface, cx, cy)
       use_rich_text = true,
     })
   end
+
+  -- Map view: one line per cell — the coordinate (map view is where
+  -- orientation is hard) plus the current record holder — at a scale that
+  -- survives being zoomed out. Deliberately ONE object per deeded cell:
+  -- chronicle text is O(developed area), unlike the frontier-only
+  -- borders, so the chart family stays as thin as it can while still
+  -- answering "where am I and who holds this?".
+  local leader = entries[1]
+  objects[#objects + 1] = rendering.draw_text({
+    text = { "freehold.chronicle-chart", string.format("(%d,%d)", cx, cy),
+      chronicle.team_label(leader.force_name), format_clock(leader.clock) },
+    surface = surface,
+    target = { x = center_x, y = cy * const.CELL + const.CELL / 2 },
+    color = TEXT_COLOR,
+    scale = CHART_SCALE,
+    alignment = "center",
+    vertical_alignment = "middle",
+    use_rich_text = true,
+    render_mode = "chart",
+  })
+
   refs[cell_key] = objects
 end
 
@@ -378,14 +401,21 @@ function chronicle.on_cell_claimed(event)
     local text = BRAND .. " First to Deed " .. coords
     popup(force, text, "milestone")
   else
-    -- A record changing hands is news for EVERY team, not just the one
-    -- that took it: the displaced team deserves to know, and the rest get
-    -- the standings drama. Broadcast + server-wide pop.
+    -- A record change is told to the two teams it happened to, not to the
+    -- whole server: with a dozen teams, every contested cell changes hands
+    -- ~H(n) times and a global broadcast turns the race into chat spam.
+    -- Everyone else still sees the standings on the map.
     local text = BRAND .. " Fastest Deed " .. coords
-    popup(force, text, "global_milestone")
-    game.print({ "freehold.broadcast-record", coords,
-      chronicle.team_label(event.force_name), format_clock(clock),
+    popup(force, text, "milestone")
+    force.print({ "freehold.record-taken", coords, format_clock(clock),
       chronicle.team_label(notable.beat_force), format_clock(notable.beat_clock) })
+
+    local beaten = game.forces[notable.beat_force]
+    if beaten and beaten.valid then
+      beaten.print({ "freehold.record-lost", coords,
+        chronicle.team_label(event.force_name), format_clock(clock),
+        format_clock(notable.beat_clock) })
+    end
   end
 end
 
