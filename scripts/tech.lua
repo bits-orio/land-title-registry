@@ -15,6 +15,7 @@ local const = require("scripts.const")
 local economy = require("scripts.economy")
 local claims = require("scripts.claims")
 local welcome = require("scripts.welcome")
+local chronicle = require("scripts.chronicle")
 
 local tech = {}
 
@@ -77,6 +78,11 @@ local function maybe_grant_starter(force, surface, player, draw_hints)
   if not (player and player.valid and player.physical_surface_index == surface.index) then return end
   local planet = surface.planet
   if not planet then return end
+  -- Never gift land to a non-competing force: under MTS players sit on
+  -- `player` before joining a team and on `spectator` while watching, and
+  -- granting there produced the bogus "Team player"/"Team spectator"
+  -- chronicle entries seen in play.
+  if not chronicle.is_competitor(force.name) then return end
   if force_owns_on_planet(force, planet) then return end
 
   local cx = math.floor(player.physical_position.x / const.CELL)

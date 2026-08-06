@@ -66,6 +66,39 @@ function chronicle.team_label(force_name)
   return label
 end
 
+-- Only real competitors are ranked. Under MTS that means actual team
+-- forces: players sit on `player` before joining and on `spectator` while
+-- watching, and neither is a contender — get_team_info returns nil for
+-- them, which is exactly the signal. Without MTS every player force
+-- competes. (Screenshots showed "Team player" and "Team spectator"
+-- ranked at 0:00; this is the fix.)
+local NEVER_COMPETES = { neutral = true, enemy = true }
+
+function chronicle.is_competitor(force_name)
+  if not force_name or NEVER_COMPETES[force_name] then return false end
+  if chronicle.team_info_provider then
+    return chronicle.team_info_provider(force_name) ~= nil
+  end
+  return true
+end
+
+-- One-shot purge of entries recorded before the predicate existed.
+function chronicle.purge_non_competitors()
+  local removed = 0
+  for _, cells in pairs(storage.chronicle) do
+    for _, entries in pairs(cells) do
+      for i = #entries, 1, -1 do
+        if not chronicle.is_competitor(entries[i].force_name) then
+          table.remove(entries, i)
+          removed = removed + 1
+        end
+      end
+    end
+  end
+  if removed > 0 then log("FH-CHRON purge: removed " .. removed .. " non-competitor entries") end
+  return removed
+end
+
 local function team_info(force_name)
   if chronicle.team_info_provider then
     local info = chronicle.team_info_provider(force_name)
@@ -208,6 +241,10 @@ function chronicle.on_cell_claimed(event)
     log("FH-CHRON skip: invalid surface " .. tostring(event.surface_index))
     return
   end
+  if not chronicle.is_competitor(event.force_name) then
+    log("FH-CHRON skip: " .. tostring(event.force_name) .. " is not a competing team")
+    return
+  end
   local group = group_of(surface)
   local cell_key = registry.cell_key(event.cell_pos.x, event.cell_pos.y)
   local entries = entries_of(group, cell_key)
@@ -241,22 +278,35 @@ function chronicle.on_cell_claimed(event)
   if #entries < 2 or rank > 3 then return end
   local force = game.forces[event.force_name]
   if not (force and force.valid) then return end
-  local gps = string.format("[gps=%d,%d,%s]",
-    event.cell_pos.x * const.CELL + const.CELL / 2,
-    event.cell_pos.y * const.CELL + const.CELL / 2, surface.name)
+  local center_x = event.cell_pos.x * const.CELL + const.CELL / 2
+  local center_y = event.cell_pos.y * const.CELL + const.CELL / 2
+  local gps = string.format("[gps=%d,%d,%s]", center_x, center_y, surface.name)
+  local coords = string.format("{x:%d, y:%d}", event.cell_pos.x, event.cell_pos.y)
   if rank == 1 then
-    force.print({ "freehold.chron-chat-lead", format_clock(clock), gps })
+    force.print({ "freehold.chron-chat-lead", coords, format_clock(clock), gps })
   else
     force.print({ "freehold.chron-chat-behind", { "freehold.chron-rank-" .. rank },
-      format_clock(clock), chronicle.team_label(entries[1].force_name), gps })
+      coords, format_clock(clock), chronicle.team_label(entries[1].force_name), gps })
+  end
+
+  -- Flying text is anchored to the CELL, not the cursor: claims are made
+  -- from map view as often as in world, and create_at_cursor produces
+  -- nothing when the cursor is in chart space (the reported "no flying
+  -- text" while chat worked). Every member of the force sees it, and the
+  -- acting player gets the achievement sting.
+  for _, member in pairs(force.players) do
+    if member.valid and member.surface == surface then
+      member.create_local_flying_text({
+        text = { "freehold.chron-fly-" .. rank, coords },
+        position = { x = center_x, y = center_y },
+        time_to_live = 240,
+      })
+    end
   end
   if event.player_index then
     local player = game.get_player(event.player_index)
     if player and player.valid then
-      player.create_local_flying_text({
-        text = { "freehold.chron-fly-" .. rank },
-        create_at_cursor = true,
-      })
+      player.play_sound({ path = "utility/achievement_unlocked" })
     end
   end
 end
@@ -299,7 +349,7 @@ function chronicle.backfill()
       for cell_key, rec in pairs(cells) do
         if rec.state == "deed" then
           local force = game.forces[rec.force_index]
-          if force and force.valid then
+          if force and force.valid and chronicle.is_competitor(force.name) then
             local entries = entries_of(planet_name, cell_key)
             local present = false
             for _, entry in pairs(entries) do

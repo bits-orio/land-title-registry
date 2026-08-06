@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.3
+Date: 2026-08-06
+  Changes:
+    - Cell chronicle standings use each team's own color with its leader in brackets, instead of rank-specific colors.
+    - Celebration messages name the contested cell's coordinates.
+  Bugfixes:
+    - Non-team forces (the player and spectator forces under Multi-Team Support) no longer receive starter Deeds or appear in cell chronicles; existing bogus entries are purged on load.
+    - Celebration flying text now appears at the contested cell, so it shows for claims made from map view.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.2
 Date: 2026-08-05
   Bugfixes:
