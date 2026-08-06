@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.7
+Date: 2026-08-06
+  Changes:
+    - Map-view cell chronicles are twice as large and now show the full top-three standings under the cell's coordinates.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.6
 Date: 2026-08-06
   Features:

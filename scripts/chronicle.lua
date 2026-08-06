@@ -36,8 +36,12 @@ local LINE_STEP = 0.62          -- vertical spacing of standings lines
 -- aligned so it ends just left of them. Half the typical standings width,
 -- so the pair reads as one centered block.
 local STANDINGS_HALF_WIDTH = 3.9
--- Map view is always zoomed out; chart text needs its own, larger scale.
-local CHART_SCALE = 2.2
+-- Map view is always zoomed out; chart text needs its own, much larger
+-- scale. Chart text is world-anchored (it shrinks as you zoom out), so a
+-- full standings block fits inside the cell instead of colliding with its
+-- neighbours — which is why map view shows all three ranks.
+local CHART_SCALE = 4.4
+local CHART_LINE_STEP = 3.6
 local COORD_GAP = 0.3
 
 -- Every Freehold announcement carries the survey-tool mark: one symbol
@@ -298,25 +302,38 @@ function chronicle.refresh_cell(surface, cx, cy)
     })
   end
 
-  -- Map view: one line per cell — the coordinate (map view is where
-  -- orientation is hard) plus the current record holder — at a scale that
-  -- survives being zoomed out. Deliberately ONE object per deeded cell:
-  -- chronicle text is O(developed area), unlike the frontier-only
-  -- borders, so the chart family stays as thin as it can while still
-  -- answering "where am I and who holds this?".
-  local leader = entries[1]
+  -- Map view: the coordinate stacked over the full standings, centred in
+  -- the cell. Chart text is world-anchored, so the block scales with the
+  -- cell and cannot bleed into neighbours no matter how far out you zoom.
+  local chart_lines = shown + 1
+  local chart_top = cy * const.CELL + const.CELL / 2
+    - (chart_lines - 1) * CHART_LINE_STEP / 2
+
   objects[#objects + 1] = rendering.draw_text({
-    text = { "freehold.chronicle-chart", string.format("(%d,%d)", cx, cy),
-      chronicle.team_label(leader.force_name), format_clock(leader.clock) },
+    text = string.format("(%d,%d)", cx, cy),
     surface = surface,
-    target = { x = center_x, y = cy * const.CELL + const.CELL / 2 },
-    color = TEXT_COLOR,
+    target = { x = center_x, y = chart_top },
+    color = COORD_COLOR,
     scale = CHART_SCALE,
     alignment = "center",
     vertical_alignment = "middle",
-    use_rich_text = true,
     render_mode = "chart",
   })
+  for rank = 1, shown do
+    local entry = entries[rank]
+    objects[#objects + 1] = rendering.draw_text({
+      text = { "freehold.chronicle-line", rank,
+        chronicle.team_label(entry.force_name), format_clock(entry.clock) },
+      surface = surface,
+      target = { x = center_x, y = chart_top + rank * CHART_LINE_STEP },
+      color = TEXT_COLOR,
+      scale = CHART_SCALE,
+      alignment = "center",
+      vertical_alignment = "middle",
+      use_rich_text = true,
+      render_mode = "chart",
+    })
+  end
 
   refs[cell_key] = objects
 end
