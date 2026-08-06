@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.5
+Date: 2026-08-06
+  Features:
+    - Celebrations now use Multi-Team Support's own animated pop-up text when it is installed, so Freehold milestones look native alongside MTS's.
+    - Breaking a cell's fastest Deed record is announced to every team, naming who took it from whom and both times.
+  Changes:
+    - Cell chronicle text is back to its original crisp size, with the coordinates right-aligned against the standings and the pair centred on the cell.
+    - Chat lines are shorter: the survey-tool mark is icon-only, and the team name no longer repeats its leader.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.4
 Date: 2026-08-06
   Features:

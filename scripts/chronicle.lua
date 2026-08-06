@@ -31,18 +31,30 @@ chronicle.team_info_provider = nil
 -- its own — a team reads the same color everywhere it is named.
 local TEXT_COLOR = { r = 0.92, g = 0.92, b = 0.92 }
 local COORD_COLOR = { r = 0.78, g = 0.78, b = 0.72 }
-local LINE_STEP = 0.52          -- vertical spacing of standings lines
-local COORD_WIDTH = 3.1         -- space reserved for the coordinate label
+local LINE_STEP = 0.62          -- vertical spacing of standings lines
+-- Standings are centered on the cell; the coordinate label is right-
+-- aligned so it ends just left of them. Half the typical standings width,
+-- so the pair reads as one centered block.
+local STANDINGS_HALF_WIDTH = 3.9
+local COORD_GAP = 0.3
 
 -- Every Freehold announcement carries the survey-tool mark: one symbol
 -- across the portal thumbnail, shortcut bar, tool, technology, and chat.
-local BRAND = "[item=fh-survey-tool]"
+local BRAND = "[img=item/fh-survey-tool]"
 
 -- compat/mts.lua installs this to return mts-v1's team label: the team's
 -- colored tag plus its current leader in brackets, e.g.
 -- "[color=…]Team Pioneers[/color] [Alice]". Always prefer it over a bare
 -- name — every mention of a team carries its leader.
 chronicle.team_label_provider = nil
+
+-- Team name WITHOUT the leader suffix, for compact chat lines.
+chronicle.team_tag_provider = nil
+
+-- MTS's animated pop-up presets, when MTS is present: a companion mod's
+-- celebrations then look native instead of reinventing the animation.
+-- Signature: (preset, text, force_name) -> boolean handled.
+chronicle.popup_provider = nil
 
 -- Labels reflect live state (renames, leader changes, recolors), so they
 -- are re-fetched rather than stored — but a full rebuild redraws many
@@ -105,6 +117,43 @@ function chronicle.purge_non_competitors()
   end
   if removed > 0 then log("FH-CHRON purge: removed " .. removed .. " non-competitor entries") end
   return removed
+end
+
+function chronicle.team_tag(force_name)
+  if chronicle.team_tag_provider then
+    local tag = chronicle.team_tag_provider(force_name)
+    if tag then return tag end
+  end
+  return chronicle.team_label(force_name)
+end
+
+-- Show a celebration. Prefers MTS's animated presets; falls back to a
+-- self-expiring zoom-stable text above each recipient.
+local function popup(force, text, preset)
+  if chronicle.popup_provider
+    and chronicle.popup_provider(preset, text, force and force.name) then
+    return
+  end
+  local audience = (preset == "global_milestone") and game.players or force.players
+  for _, member in pairs(audience) do
+    if member.valid and member.connected
+      and member.mod_settings["fh-show-celebrations"].value then
+      rendering.draw_text({
+        text = text,
+        surface = member.surface,
+        target = { x = member.position.x, y = member.position.y - 7 },
+        color = { r = 1, g = 0.92, b = 0.55 },
+        scale = 0.1,
+        font = "default-game",
+        alignment = "center",
+        use_rich_text = true,
+        scale_with_zoom = true,
+        players = { member.index },
+        time_to_live = 240,
+      })
+      member.play_sound({ path = "utility/achievement_unlocked" })
+    end
+  end
 end
 
 local function team_info(force_name)
@@ -215,21 +264,22 @@ function chronicle.refresh_cell(surface, cx, cy)
 
   local objects = {}
   local shown = math.min(3, #entries)
-  local x0 = cx * const.CELL
-  local y0 = cy * const.CELL
-  local rank_x = x0 + COORD_WIDTH
-  local first_y = y0 + 0.5
+  local center_x = cx * const.CELL + const.CELL / 2
+  local first_y = cy * const.CELL + 0.5
 
-  -- Cell coordinates, left of the standings block and a little larger:
-  -- the standings are fine print, the coordinate is the label.
+  -- Cell coordinates, hugging the left of the standings block. No `font`
+  -- override anywhere here: the small bitmap fonts render blurry when
+  -- scaled, so the default font at a modest scale is what stays crisp.
   objects[#objects + 1] = rendering.draw_text({
     text = string.format("(%d,%d)", cx, cy),
     surface = surface,
-    target = { x = x0 + 0.5, y = first_y + (shown - 1) * LINE_STEP / 2 },
+    target = {
+      x = center_x - STANDINGS_HALF_WIDTH - COORD_GAP,
+      y = first_y + (shown - 1) * LINE_STEP / 2,
+    },
     color = COORD_COLOR,
     scale = 0.8,
-    font = "default-small",
-    alignment = "left",
+    alignment = "right",
   })
 
   for rank = 1, shown do
@@ -238,11 +288,10 @@ function chronicle.refresh_cell(surface, cx, cy)
       text = { "freehold.chronicle-line", rank,
         chronicle.team_label(entry.force_name), format_clock(entry.clock) },
       surface = surface,
-      target = { x = rank_x, y = first_y + (rank - 1) * LINE_STEP },
+      target = { x = center_x, y = first_y + (rank - 1) * LINE_STEP },
       color = TEXT_COLOR,
-      scale = 0.55,
-      font = "default-small",
-      alignment = "left",
+      scale = 0.7,
+      alignment = "center",
       use_rich_text = true,
     })
   end
@@ -316,33 +365,27 @@ function chronicle.on_cell_claimed(event)
   if not notable then return end
   pending[#pending + 1] = notable
 
-  -- MTS-style on-screen milestone: drawn above each member of the force,
-  -- zoom-stable, expiring on its own (no tick loop, so the no-idle-tick
-  -- discipline holds).
   local force = game.forces[event.force_name]
   if not (force and force.valid) then return end
   local coords = string.format("(%d,%d)", event.cell_pos.x, event.cell_pos.y)
-  local banner = notable.kind == "first"
-    and { "freehold.pop-first", BRAND, coords }
-    or { "freehold.pop-fastest", BRAND, coords, format_clock(clock),
-         chronicle.team_label(notable.beat_force), format_clock(notable.beat_clock) }
-  for _, member in pairs(force.players) do
-    if member.valid and member.connected and member.mod_settings["fh-show-celebrations"].value then
-      rendering.draw_text({
-        text = banner,
-        surface = member.surface,
-        target = { x = member.position.x, y = member.position.y - 6 },
-        color = { r = 1, g = 0.92, b = 0.55 },
-        scale = 0.1,
-        font = "default-large-semibold",
-        alignment = "center",
-        use_rich_text = true,
-        scale_with_zoom = true,
-        players = { member.index },
-        time_to_live = 300,
-      })
-      member.play_sound({ path = "utility/achievement_unlocked" })
-    end
+
+  -- Celebration text. Under MTS these go through MTS's own animated
+  -- pop_text presets (elastic pop for a team achievement, rainbow pop
+  -- server-wide for a record), so Freehold's milestones look native.
+  -- Without MTS a plain zoom-stable draw_text stands in — still no tick
+  -- loop, so the no-idle-tick discipline holds either way.
+  if notable.kind == "first" then
+    local text = BRAND .. " First to Deed " .. coords
+    popup(force, text, "milestone")
+  else
+    -- A record changing hands is news for EVERY team, not just the one
+    -- that took it: the displaced team deserves to know, and the rest get
+    -- the standings drama. Broadcast + server-wide pop.
+    local text = BRAND .. " Fastest Deed " .. coords
+    popup(force, text, "global_milestone")
+    game.print({ "freehold.broadcast-record", coords,
+      chronicle.team_label(event.force_name), format_clock(clock),
+      chronicle.team_label(notable.beat_force), format_clock(notable.beat_clock) })
   end
 end
 

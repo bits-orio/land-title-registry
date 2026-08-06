@@ -50,6 +50,21 @@ chronicle.team_label_provider = function(force_name)
   return remote.call("mts-v1", "get_team_label", force_name)
 end
 
+chronicle.team_tag_provider = function(force_name)
+  if not remote.interfaces["mts-v1"] then return nil end
+  if not remote.interfaces["mts-v1"]["get_team_tag"] then return nil end
+  return remote.call("mts-v1", "get_team_tag", force_name)
+end
+
+-- Freehold's celebrations ride MTS's own animated pop_text presets, so
+-- they look native next to MTS's milestones instead of reinventing them.
+chronicle.popup_provider = function(preset, text, force_name)
+  if not remote.interfaces["mts-v1"] then return false end
+  if not remote.interfaces["mts-v1"]["popup_text"] then return false end
+  return remote.call("mts-v1", "popup_text",
+    { preset = preset, text = text, force_name = force_name }) and true or false
+end
+
 chronicle.team_info_provider = function(force_name)
   if not remote.interfaces["mts-v1"] then return nil end
   if not remote.interfaces["mts-v1"]["get_team_info"] then return nil end

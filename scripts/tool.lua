@@ -143,7 +143,7 @@ local function announce(player, surface, rect, action, result)
 
   player.force.print({
     action == "downgrade" and "freehold.announce-lower" or "freehold.announce-raise",
-    chronicle.team_label(player.force.name),
+    chronicle.team_tag(player.force.name),
     colored_name(player),
     result.applied,
     amount,
