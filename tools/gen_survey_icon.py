@@ -51,11 +51,9 @@ def main():
     icon = build(64)
     icon.save(root + "/graphics/survey-tool.png", optimize=True)
     print(f"wrote {root}/graphics/survey-tool.png")
-    # Mod-portal thumbnail: the same mark, so the portal card, the shortcut
-    # bar, the tool in hand, the tech, and every chat line share one symbol.
-    thumb = build(64).resize((256, 256), Image.NEAREST)
-    thumb.save(root + "/thumbnail.png", optimize=True)
-    print(f"wrote {root}/thumbnail.png")
+    # The mod-portal thumbnail is NOT built from this mark. It follows the
+    # house style shared with Multi-Team Support and Open Discord Bridge —
+    # see tools/gen_thumbnail.py, which owns thumbnail.png.
 
 
 if __name__ == "__main__":
