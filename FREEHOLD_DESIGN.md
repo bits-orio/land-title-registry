@@ -500,7 +500,7 @@ Three distinct `sound` prototypes, played via `player.play_sound`:
 | Denial | `fh-sound-deny` | Batch rejected for insufficient points |
 | Refund | `fh-sound-refund` | A downgrade batch applies |
 
-**Claim announcements** (runtime-global `fh-print-claims`, default `true`): on each applied batch, print a summary to force chat via `force.print`, including the acting player's name (when player-initiated), the action and cell count, the cost or refund, and a `[gps=x,y,surface-name]` rich-text tag at the batch's location so teammates can click through. Using `force.print` means the message lands in the MTS team channel automatically when MTS is present, with zero MTS-specific code; it also means ODB does not relay it to Discord (by construction — see *Interfaces*).
+**Claim announcements** (runtime-global `fh-print-claims`, default `true`): on each applied batch, print **one** line to force chat via `force.print` — the survey-tool mark, the team label (team color, leader in brackets), the acting player in their chat color, the cell count, the cost or refund, a record clause when the batch set a cell's first or fastest Deed, and a `[gps=x,y,surface-name]` tag so teammates can click through. One line per action is a hard rule: an earlier two-line form (claim summary plus a separate chronicle line) was rejected in playtesting as noise. Using `force.print` means the message lands in the MTS team channel automatically when MTS is present, with zero MTS-specific code; it also means ODB does not relay it to Discord (by construction — see *Interfaces*).
 
 ### Remote and Map View
 

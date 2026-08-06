@@ -30,6 +30,13 @@ chronicle.team_info_provider = nil
 -- inside the rich-text label (below), so rank never invents a palette of
 -- its own — a team reads the same color everywhere it is named.
 local TEXT_COLOR = { r = 0.92, g = 0.92, b = 0.92 }
+local COORD_COLOR = { r = 0.78, g = 0.78, b = 0.72 }
+local LINE_STEP = 0.52          -- vertical spacing of standings lines
+local COORD_WIDTH = 3.1         -- space reserved for the coordinate label
+
+-- Every Freehold announcement carries the survey-tool mark: one symbol
+-- across the portal thumbnail, shortcut bar, tool, technology, and chat.
+local BRAND = "[item=fh-survey-tool]"
 
 -- compat/mts.lua installs this to return mts-v1's team label: the team's
 -- colored tag plus its current leader in brackets, e.g.
@@ -42,6 +49,7 @@ chronicle.team_label_provider = nil
 -- cells in one tick, so memoize within a tick to keep the remote calls to
 -- one per force. game.tick is deterministic, so this is desync-safe.
 local label_cache, label_cache_tick = {}, -1
+local pending = {}
 
 function chronicle.team_label(force_name)
   if game.tick ~= label_cache_tick then
@@ -206,18 +214,35 @@ function chronicle.refresh_cell(surface, cx, cy)
   if not entries or #entries == 0 then return end
 
   local objects = {}
-  local x = cx * const.CELL + const.CELL / 2
-  local y = cy * const.CELL + 0.45
-  for rank = 1, math.min(3, #entries) do
+  local shown = math.min(3, #entries)
+  local x0 = cx * const.CELL
+  local y0 = cy * const.CELL
+  local rank_x = x0 + COORD_WIDTH
+  local first_y = y0 + 0.5
+
+  -- Cell coordinates, left of the standings block and a little larger:
+  -- the standings are fine print, the coordinate is the label.
+  objects[#objects + 1] = rendering.draw_text({
+    text = string.format("(%d,%d)", cx, cy),
+    surface = surface,
+    target = { x = x0 + 0.5, y = first_y + (shown - 1) * LINE_STEP / 2 },
+    color = COORD_COLOR,
+    scale = 0.8,
+    font = "default-small",
+    alignment = "left",
+  })
+
+  for rank = 1, shown do
     local entry = entries[rank]
     objects[#objects + 1] = rendering.draw_text({
       text = { "freehold.chronicle-line", rank,
         chronicle.team_label(entry.force_name), format_clock(entry.clock) },
       surface = surface,
-      target = { x = x, y = y + (rank - 1) * 0.62 },
+      target = { x = rank_x, y = first_y + (rank - 1) * LINE_STEP },
       color = TEXT_COLOR,
-      scale = 0.7,
-      alignment = "center",
+      scale = 0.55,
+      font = "default-small",
+      alignment = "left",
       use_rich_text = true,
     })
   end
@@ -274,42 +299,70 @@ function chronicle.on_cell_claimed(event)
     event.force_name, rank, #entries, group, event.cell_pos.x, event.cell_pos.y, clock))
   redraw_on_planet(group, event.cell_pos.x, event.cell_pos.y)
 
-  -- Recognition only when there is actual competition on this cell.
-  if #entries < 2 or rank > 3 then return end
+  -- Only two things are worth celebrating: being FIRST to deed a cell, and
+  -- TAKING the fastest record from someone. Placing 2nd or 3rd is not an
+  -- achievement (playtest call) — it lands in the standings and nowhere
+  -- else.
+  local notable
+  if #entries == 1 then
+    notable = { kind = "first", cell_pos = event.cell_pos, clock = clock }
+  elseif rank == 1 then
+    local beaten = entries[2]
+    notable = {
+      kind = "fastest", cell_pos = event.cell_pos, clock = clock,
+      beat_force = beaten.force_name, beat_clock = beaten.clock,
+    }
+  end
+  if not notable then return end
+  pending[#pending + 1] = notable
+
+  -- MTS-style on-screen milestone: drawn above each member of the force,
+  -- zoom-stable, expiring on its own (no tick loop, so the no-idle-tick
+  -- discipline holds).
   local force = game.forces[event.force_name]
   if not (force and force.valid) then return end
-  local center_x = event.cell_pos.x * const.CELL + const.CELL / 2
-  local center_y = event.cell_pos.y * const.CELL + const.CELL / 2
-  local gps = string.format("[gps=%d,%d,%s]", center_x, center_y, surface.name)
-  local coords = string.format("{x:%d, y:%d}", event.cell_pos.x, event.cell_pos.y)
-  if rank == 1 then
-    force.print({ "freehold.chron-chat-lead", coords, format_clock(clock), gps })
-  else
-    force.print({ "freehold.chron-chat-behind", { "freehold.chron-rank-" .. rank },
-      coords, format_clock(clock), chronicle.team_label(entries[1].force_name), gps })
-  end
-
-  -- Flying text is anchored to the CELL, not the cursor: claims are made
-  -- from map view as often as in world, and create_at_cursor produces
-  -- nothing when the cursor is in chart space (the reported "no flying
-  -- text" while chat worked). Every member of the force sees it, and the
-  -- acting player gets the achievement sting.
+  local coords = string.format("(%d,%d)", event.cell_pos.x, event.cell_pos.y)
+  local banner = notable.kind == "first"
+    and { "freehold.pop-first", BRAND, coords }
+    or { "freehold.pop-fastest", BRAND, coords, format_clock(clock),
+         chronicle.team_label(notable.beat_force), format_clock(notable.beat_clock) }
   for _, member in pairs(force.players) do
-    if member.valid and member.surface == surface then
-      member.create_local_flying_text({
-        text = { "freehold.chron-fly-" .. rank, coords },
-        position = { x = center_x, y = center_y },
-        time_to_live = 240,
+    if member.valid and member.connected and member.mod_settings["fh-show-celebrations"].value then
+      rendering.draw_text({
+        text = banner,
+        surface = member.surface,
+        target = { x = member.position.x, y = member.position.y - 6 },
+        color = { r = 1, g = 0.92, b = 0.55 },
+        scale = 0.1,
+        font = "default-large-semibold",
+        alignment = "center",
+        use_rich_text = true,
+        scale_with_zoom = true,
+        players = { member.index },
+        time_to_live = 300,
       })
-    end
-  end
-  if event.player_index then
-    local player = game.get_player(event.player_index)
-    if player and player.valid then
-      player.play_sound({ path = "utility/achievement_unlocked" })
+      member.play_sound({ path = "utility/achievement_unlocked" })
     end
   end
 end
+
+-- Batch plumbing: the survey tool prints ONE chat line per drag, enriched
+-- with the batch's most notable chronicle outcome. Transient per-batch
+-- state (never persisted, written and read inside one tick).
+function chronicle.begin_batch()
+  pending = {}
+end
+
+-- The batch's headline: a record taken outranks a first claim.
+function chronicle.take_notable()
+  local best
+  for _, item in ipairs(pending) do
+    if item.kind == "fastest" then return item end
+    best = best or item
+  end
+  return best
+end
+
 
 -- Merged forces: keep each cell's best time under the surviving name.
 function chronicle.on_forces_merged(event)

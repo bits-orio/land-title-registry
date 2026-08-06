@@ -20,7 +20,8 @@ local function blocker(name, layers, picture)
   return {
     type = "simple-entity-with-owner",
     name = name,
-    icon = "__base__/graphics/icons/landfill.png",
+    icon = "__freehold__/graphics/survey-tool.png",
+    icon_size = 64,
     flags = {
       "placeable-off-grid",
       "not-repairable",

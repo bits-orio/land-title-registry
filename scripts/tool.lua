@@ -111,29 +111,45 @@ end
 -- player, the action, cell count, cost or refund, and a clickable GPS tag at
 -- the batch center. force.print lands in the MTS team channel automatically
 -- when MTS is present, and ODB does not relay it — both by construction.
-local ACTION_LOCALE = {
-  advance = "freehold.announce-advance",
-  trail = "freehold.announce-trail",
-  rampart = "freehold.announce-rampart",
-  deed = "freehold.announce-deed",
-  downgrade = "freehold.announce-downgrade",
-}
-
 local function colored_name(player)
   local c = player.chat_color
   return string.format("[color=%.3f,%.3f,%.3f]%s[/color]", c.r, c.g, c.b, player.name)
 end
 
+-- ONE chat line per drag (playtest call: two lines per unlock was noise).
+-- Carries team (in team color, with leader), who acted, what changed,
+-- where, and the cost — plus a record clause only when the batch actually
+-- set a record. Placing 2nd or 3rd says nothing.
 local function announce(player, surface, rect, action, result)
   if not settings.global["fh-print-claims"].value then return end
   -- Denied results carry no `applied` at all — {denied = "anchor"} — so the
   -- nil must be handled explicitly, not just the zero.
   if result.denied or not result.applied or result.applied == 0 then return end
-  local cx = (rect.x1 + rect.x2 + 1) / 2 * const.CELL
-  local cy = (rect.y1 + rect.y2 + 1) / 2 * const.CELL
-  local gps = string.format("[gps=%d,%d,%s]", cx, cy, surface.name)
+
+  local gps = string.format("[gps=%d,%d,%s]",
+    (rect.x1 + rect.x2 + 1) / 2 * const.CELL,
+    (rect.y1 + rect.y2 + 1) / 2 * const.CELL, surface.name)
   local amount = economy.format(action == "downgrade" and result.refund or result.cost)
-  player.force.print({ ACTION_LOCALE[action], colored_name(player), result.applied, amount, gps })
+
+  local notable = chronicle.take_notable()
+  local record = ""
+  if notable then
+    local coords = string.format("(%d,%d)", notable.cell_pos.x, notable.cell_pos.y)
+    record = notable.kind == "first"
+      and { "freehold.record-first", coords }
+      or { "freehold.record-fastest", coords,
+           chronicle.team_label(notable.beat_force) }
+  end
+
+  player.force.print({
+    action == "downgrade" and "freehold.announce-lower" or "freehold.announce-raise",
+    chronicle.team_label(player.force.name),
+    colored_name(player),
+    result.applied,
+    amount,
+    record,
+    gps,
+  })
 end
 
 local function handle_selection(action, event)
@@ -144,6 +160,7 @@ local function handle_selection(action, event)
   if not (surface and surface.valid) then return end
 
   local rect = rect_from_area(event.area)
+  chronicle.begin_batch()
   local result = claims.apply_batch(surface, player.force, player, rect, action)
   feedback(player, action, result)
   announce(player, surface, rect, action, result)

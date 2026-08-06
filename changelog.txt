@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.4
+Date: 2026-08-06
+  Features:
+    - On-screen celebration banner when your team takes a cell's first Deed or seizes its fastest record, with the displaced team and their previous time. Toggle with the new per-player setting.
+    - Cell chronicles now show the cell's coordinates beside the standings.
+  Changes:
+    - One chat line per survey-tool action instead of two, carrying team, player, cell count, cost, and a record clause only when a record was actually set.
+    - Placing 2nd or 3rd is no longer announced; it appears in the standings only.
+    - The survey tool's mark is now the mod thumbnail, the Land grants technology icon, and the prefix of every Freehold chat line.
+    - Chronicle standings use a smaller, lighter font.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.3
 Date: 2026-08-06
   Changes:

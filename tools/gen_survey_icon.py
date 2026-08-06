@@ -8,14 +8,14 @@ Run from the repo root:  python3 tools/gen_survey_icon.py
 
 from PIL import Image, ImageDraw
 
-S = 64
+S = 64  # base art size; build(S) renders at any square size
 
 
 def rounded_rect(d, box, r, **kw):
     d.rounded_rectangle(box, radius=r, **kw)
 
 
-def main():
+def build(S=64):
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
 
@@ -43,9 +43,19 @@ def main():
     # Stake dot at the grid's center vertex.
     d.ellipse([mx - 4, my - 4, mx + 4, my + 4], fill=(190, 52, 40, 255), outline=(52, 46, 36, 255))
 
-    out = __file__.rsplit("/", 2)[0] + "/graphics/survey-tool.png"
-    img.save(out, optimize=True)
-    print(f"wrote {out}")
+    return img
+
+
+def main():
+    root = __file__.rsplit("/", 2)[0]
+    icon = build(64)
+    icon.save(root + "/graphics/survey-tool.png", optimize=True)
+    print(f"wrote {root}/graphics/survey-tool.png")
+    # Mod-portal thumbnail: the same mark, so the portal card, the shortcut
+    # bar, the tool in hand, the tech, and every chat line share one symbol.
+    thumb = build(64).resize((256, 256), Image.NEAREST)
+    thumb.save(root + "/thumbnail.png", optimize=True)
+    print(f"wrote {root}/thumbnail.png")
 
 
 if __name__ == "__main__":

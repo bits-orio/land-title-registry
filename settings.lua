@@ -72,6 +72,13 @@ data:extend({
     order = "c[ux]-b[show-points]",
   },
   {
+    type = "bool-setting",
+    name = "fh-show-celebrations",
+    setting_type = "runtime-per-user",
+    default_value = true,
+    order = "c[ux]-c[show-celebrations]",
+  },
+  {
     type = "int-setting",
     name = "fh-points-per-level",
     setting_type = "startup",

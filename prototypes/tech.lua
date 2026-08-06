@@ -241,8 +241,8 @@ local function build_ladder(bands)
     techs[#techs + 1] = {
       type = "technology",
       name = name,
-      icon = "__base__/graphics/technology/landfill.png",
-      icon_size = 256,
+      icon = "__freehold__/graphics/survey-tool.png",
+      icon_size = 64,
       upgrade = true,
       max_level = terminal and "infinite" or (i * LEVELS_PER_TIER),
       prerequisites = previous_name and { previous_name } or nil,

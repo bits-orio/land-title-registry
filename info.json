@@ -1,6 +1,6 @@
 {
   "name": "freehold",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "title": "Freehold",
   "author": "bits-orio",
   "description": "Land rights, earned cell by cell. Every cell climbs a ladder - Wilderness to Trail to Rampart to Deed - and the engine itself enforces what you may build where. Inspired by Gridlocked by _CodeGreen - reimagined from scratch with tiered land rights, a land economy, and first-class Multi-Team Support integration.",
