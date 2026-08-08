@@ -133,36 +133,12 @@ jobs:
           echo "--- End preview ---"
 
       - name: Build zip
-        run: |
-          FOLDER="${{ steps.info.outputs.folder }}"
-          mkdir -p "build/${FOLDER}"
-          # The Factorio mod portal rejects any zip containing files with
-          # extensions exe / bat / ps1 / sh / py. Strip those at packaging
-          # time so the workflow doesn't depend on every script living under
-          # tools/ (link-mod.sh sits at the repo root for ergonomic reasons
-          # and would otherwise leak into the zip).
-          #
-          # docs/ and the design document are repo-only: they are large and of
-          # no use inside the shipped mod.
-          rsync -a --exclude='.git' \
-                   --exclude='.github' \
-                   --exclude='.gitignore' \
-                   --exclude='.claude' \
-                   --exclude='.vscode' \
-                   --exclude='.luarc.json' \
-                   --exclude='build' \
-                   --exclude='docs' \
-                   --exclude='DESIGN.md' \
-                   --exclude='CONTEXT.md' \
-                   --exclude='tools' \
-                   --exclude='*.sh' \
-                   --exclude='*.py' \
-                   --exclude='*.bat' \
-                   --exclude='*.ps1' \
-                   --exclude='*.exe' \
-                   ./ "build/${FOLDER}/"
-          cd build
-          zip -r "../${FOLDER}.zip" "${FOLDER}"
+        # tools/pack.sh owns the exclusion list and the zip layout, so a zip
+        # built by hand for playtesting matches the one published here. It
+        # also asserts the zip root and that no portal-rejected file types
+        # slipped in, failing the build before the upload step rather than
+        # after the tag is already pushed.
+        run: bash tools/pack.sh
 
       - name: Create GitHub Release
         id: release
