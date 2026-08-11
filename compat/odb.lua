@@ -11,6 +11,7 @@
 -- module must never subscribe to shared events itself).
 
 local registry = require("scripts.registry")
+local tech = require("scripts.tech")
 
 local odb = { active = false }
 
@@ -54,17 +55,20 @@ end
 
 -- Deed milestones are per force per PLANET (all surfaces of the planet),
 -- computed on the rare deed-claim event — no counters to keep consistent.
+-- Planet resolution goes through tech.planet_name_of: an MTS cloned team
+-- surface has no engine .planet but still represents one.
 function odb.on_cell_claimed(event)
   if event.new_state ~= "deed" then return end
   local surface = game.surfaces[event.surface_index]
-  if not (surface and surface.valid and surface.planet) then return end
+  if not (surface and surface.valid) then return end
   local force = game.forces[event.force_name]
   if not (force and force.valid) then return end
 
-  local planet_name = surface.planet.name
+  local planet_name = tech.planet_name_of(surface)
+  if not planet_name then return end
   local deeds = 0
   for _, candidate in pairs(game.surfaces) do
-    if candidate.planet and candidate.planet.name == planet_name then
+    if tech.planet_name_of(candidate) == planet_name then
       for _, rec in pairs(storage.cells[candidate.index] or {}) do
         if rec.state == "deed" and rec.force_index == force.index then
           deeds = deeds + 1

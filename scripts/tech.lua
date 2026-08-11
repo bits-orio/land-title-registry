@@ -52,18 +52,33 @@ local function charters_of(force_index)
   return storage.charters[force_index]
 end
 
+-- Optional provider: compat/mts.lua resolves the planet a surface
+-- REPRESENTS. An MTS cloned team surface ("team-1-nauvis", the
+-- non-Space-Age seeding path) is a plain script surface with NO engine
+-- .planet — playtest smoking gun: "presence on planet-less team-1-nauvis"
+-- killed the starter grant — but mts-v1's get_surface_planet still maps
+-- it to "nauvis". Same resolution the chronicle already uses.
+tech.surface_planet_provider = nil
+
+-- Public: compat/odb.lua keys Discord milestones by the same resolution.
+function tech.planet_name_of(surface)
+  if surface.planet then return surface.planet.name end
+  if tech.surface_planet_provider then return tech.surface_planet_provider(surface) end
+  return nil
+end
+local planet_name_of = tech.planet_name_of
+
 -- Record presence of `force` on `surface`'s planet; grant when it is a new
 -- planet and not the force's first (home) one.
--- Starter cell (ADR-0011): a free DEED on the cell the player is actually
--- standing on — the visible anchor showing the cell grid, where growth
--- begins, and the transparent end state of the ladder. The condition is
--- "the force owns nothing on this planet", NOT first-presence bookkeeping:
--- that retrofits saves that recorded presence before the grant existed,
--- and doubles as recovery if a force downgrades away everything. Granting
--- at PRESENCE position is what makes Space Age cargo pods work too.
-local function force_owns_on_planet(force, planet)
+-- Starter cell (ADR-0011): a free DEED as the visible anchor showing the
+-- cell grid, where growth begins, and the transparent end state of the
+-- ladder. The condition is "the force owns nothing on this planet", NOT
+-- first-presence bookkeeping: that retrofits saves that recorded presence
+-- before the grant existed, and doubles as recovery if a force downgrades
+-- away everything.
+local function force_owns_on_planet(force, planet_name)
   for _, candidate in pairs(game.surfaces) do
-    if candidate.planet and candidate.planet.name == planet.name then
+    if planet_name_of(candidate) == planet_name then
       if storage.cells[candidate.index] then
         for _, rec in pairs(storage.cells[candidate.index]) do
           if rec.force_index == force.index then return true end
@@ -95,14 +110,9 @@ end
 
 -- Every refusal logs its gate (LTR-GRANT): a missing starter Deed was a
 -- silent mystery once (playtest report), never again.
-local function maybe_grant_starter(force, surface, player, is_home)
+local function maybe_grant_starter(force, surface, player, is_home, planet_name)
   if not (player and player.valid and player.physical_surface_index == surface.index) then
     log("LTR-GRANT skip: player not physically on " .. surface.name)
-    return
-  end
-  local planet = surface.planet
-  if not planet then
-    log("LTR-GRANT skip: " .. surface.name .. " has no planet")
     return
   end
   -- Never gift land to a non-competing force: under MTS players sit on
@@ -113,7 +123,7 @@ local function maybe_grant_starter(force, surface, player, is_home)
     log("LTR-GRANT skip: " .. force.name .. " is not a competing force")
     return
   end
-  if force_owns_on_planet(force, planet) then return end
+  if force_owns_on_planet(force, planet_name) then return end
 
   -- Home planet: the deterministic spawn cell. Later planets: the cell
   -- the player actually stands on — a cargo pod lands wherever it lands,
@@ -143,32 +153,36 @@ end
 
 local function establish_presence(force, surface, player)
   if not (force and force.valid and surface and surface.valid) then return end
-  local planet = surface.planet
-  if not planet then
-    -- Space platforms and planet-less surfaces (the MTS pen); logged so a
-    -- starter-grant hunt can see presence events that never qualify.
+  local planet_name = planet_name_of(surface)
+  if not planet_name then
+    -- Space platforms and surfaces representing no planet at all (the MTS
+    -- pen); logged so a starter-grant hunt can see presence events that
+    -- never qualify.
     log("LTR-GRANT skip: presence on planet-less " .. surface.name)
     return
   end
 
   local charters = charters_of(force.index)
   local is_first_planet = next(charters) == nil
-  log(string.format("LTR-GRANT presence: %s on %s (first_planet=%s)",
-    force.name, surface.name, tostring(is_first_planet)))
+  log(string.format("LTR-GRANT presence: %s on %s (planet=%s, first_planet=%s)",
+    force.name, surface.name, planet_name, tostring(is_first_planet)))
 
   -- The starter grant runs before the charter early-return so it can
   -- retrofit saves whose presence was recorded before the grant existed.
-  maybe_grant_starter(force, surface, player, is_first_planet)
+  maybe_grant_starter(force, surface, player, is_first_planet, planet_name)
 
-  if charters[planet.name] then return end
-  charters[planet.name] = true
+  if charters[planet_name] then return end
+  charters[planet_name] = true
 
   if is_first_planet then return end -- home planet: starting grant covers it
 
   local amount = settings.global["ltr-settlement-charter"].value
   if amount > 0 then
     economy.change(force, amount, "settlement-charter")
-    force.print({ "land-title-registry.settlement-charter", planet.prototype.localised_name or planet.name, amount })
+    -- The engine's localised planet name when the surface carries a real
+    -- planet; the resolved name string for cloned team surfaces.
+    local display = (surface.planet and surface.planet.prototype.localised_name) or planet_name
+    force.print({ "land-title-registry.settlement-charter", display, amount })
   end
 end
 

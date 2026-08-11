@@ -34,6 +34,17 @@ render.team_color_provider = function(force_index)
   end
 end
 
+-- The planet a surface represents, for charters and starter grants: an
+-- MTS CLONED team surface ("team-1-nauvis", the non-Space-Age seeding
+-- path) has no engine .planet — the playtest smoking gun that silently
+-- killed the starter grant — but mts-v1 still resolves it to "nauvis".
+-- Same lookup the chronicle's grouping already uses.
+tech.surface_planet_provider = function(surface)
+  if not remote.interfaces["mts-v1"] then return nil end
+  if not remote.interfaces["mts-v1"]["get_surface_planet"] then return nil end
+  return remote.call("mts-v1", "get_surface_planet", surface.name)
+end
+
 -- Home starter cell: MTS team surfaces spawn at their origin, so the free
 -- starter Deed is cell (0,0) EXACTLY — identical for every team, which
 -- keeps cross-team chronicle times on the origin cell comparable. Non-team
