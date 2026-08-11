@@ -210,6 +210,16 @@ local function drain_rebuild_queue()
     for _, player in pairs(game.players) do
       player.print({ "land-title-registry.rebuild-done" })
     end
+    -- An epoch rechart waits here, at the END of the drain: chart tiles
+    -- re-render with whatever render objects exist at that moment, so
+    -- recharting before the rebuild materialized its sprites would bake
+    -- the old look into everything outside live radar/vision.
+    if storage.rechart_pending then
+      storage.rechart_pending = nil
+      for _, force in pairs(game.forces) do
+        force.rechart()
+      end
+    end
   end
 end
 

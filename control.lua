@@ -30,17 +30,27 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 2: the tint experiments removed; striped chart sprites on every
--- blocker cell, wilderness included.
-local CHART_EPOCH = 2
+-- Epoch 3: the tint experiments removed; striped chart sprites on every
+-- blocker cell, wilderness included. (2 recharted BEFORE the rebuild had
+-- created the sprites — see below — so 3 re-runs the whole sequence.)
+local CHART_EPOCH = 3
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
   storage.chart_epoch = CHART_EPOCH
-  for _, force in pairs(game.forces) do
-    force.rechart()
+  -- Rechart AFTER the rebuild has materialized the chart sprites, not
+  -- before: the engine re-renders chart tiles with whatever render
+  -- objects exist at that moment, so an immediate rechart bakes the OLD
+  -- look everywhere outside live radar/vision (playtest finding: the
+  -- wilderness stripes existed — census confirmed — but never showed).
+  -- The drain's completion consumes this flag.
+  storage.rechart_pending = true
+  if blockers.enqueue_full_rebuild() == 0 then
+    storage.rechart_pending = nil
+    for _, force in pairs(game.forces) do
+      force.rechart()
+    end
   end
-  blockers.enqueue_full_rebuild()
 end
 
 local function init_surface(surface)
