@@ -64,12 +64,12 @@ function blockers.set(surface, cx, cy, state)
 
   registry.init_surface(surface_index)
 
-  local found = false
+  local kept
   for _, name in ipairs(const.BLOCKER_NAMES) do
     local entity = surface.find_entity(name, center)
     if entity then
-      if name == expected and not found then
-        found = true
+      if name == expected and not kept then
+        kept = entity
       else
         unregister(surface_index, cell_key)
         entity.destroy()
@@ -77,7 +77,16 @@ function blockers.set(surface, cx, cy, state)
     end
   end
 
-  if expected and not found then
+  if kept then
+    -- A matching blocker can pre-exist WITHOUT bookkeeping: surface
+    -- cloning copies entities but not storage (MTS team-surface seeding
+    -- clones per chunk, and its handler runs before ours). Adopt it, or
+    -- the regid-gated map sprite never appears for the cell.
+    if not storage.blocker_regids[surface_index][cell_key] then
+      kept.destructible = false
+      register(kept, surface_index, cell_key)
+    end
+  elseif expected then
     local entity = surface.create_entity({
       name = expected,
       position = center,

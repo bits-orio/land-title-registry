@@ -27,23 +27,10 @@ function welcome.show(player)
   frame.force_auto_center()
 end
 
--- Existing saves: players created before the panel existed get it once on
--- their next join.
-function welcome.on_player_joined(event)
-  local player = game.get_player(event.player_index)
-  if not (player and player.valid) then return end
-  if storage.welcomed[player.index] then return end
-  storage.welcomed[player.index] = true
-  welcome.show(player)
-end
-
-function welcome.on_player_created(event)
-  local player = game.get_player(event.player_index)
-  if not (player and player.valid) then return end
-  if storage.welcomed[player.index] then return end
-  storage.welcomed[player.index] = true
-  welcome.show(player)
-end
+-- The panel no longer auto-opens (playtest call: it was one dialog too
+-- many on top of MTS's own join flow). It remains reachable on demand via
+-- /ltr-welcome; the in-world origin hints and the tips-and-tricks entries
+-- carry the onboarding.
 
 function welcome.on_gui_click(event)
   local element = event.element

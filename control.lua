@@ -30,12 +30,14 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 5: wilderness map sprites follow the create-hidden /
+-- Epoch 6: wilderness map sprites follow the create-hidden /
 -- reveal-on-chart pattern (a creation-time charted gate proved fragile:
--- it silently produced zero visible sprites in play). Epochs 2-4 were
--- consumed by saves mid-iteration; 5 re-runs the sequence, and its
--- drain-end rechart doubles as the reveal sweep for every charted chunk.
-local CHART_EPOCH = 5
+-- it silently produced zero visible sprites in play), and the migration
+-- also sweeps MTS non-play surfaces (pen overlays) and adopts cloned
+-- blockers. Epochs 2-5 were consumed by saves mid-iteration; 6 re-runs
+-- the sequence, and its drain-end rechart doubles as the reveal sweep
+-- for every charted chunk.
+local CHART_EPOCH = 6
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
@@ -64,6 +66,9 @@ end
 -- the same storage.
 local function migrate_chart_epoch()
   script.on_event(defines.events.on_tick, nil)
+  -- Existing saves shed overlays from MTS non-play surfaces (the pen)
+  -- before the rebuild re-derives everything else.
+  if mts_compat.active then mts_compat.sweep_non_team_surfaces() end
   ensure_recharted()
 end
 
@@ -94,8 +99,14 @@ script.on_init(function()
   -- saves migrate through the epoch.
   storage.chart_epoch = CHART_EPOCH
   -- Blanket any chunks that existed before Land Title Registry did (mid-game install,
-  -- scenario-pregenerated maps). Fresh maps enqueue little or nothing.
-  blockers.enqueue_full_rebuild()
+  -- scenario-pregenerated maps). Fresh maps enqueue little or nothing —
+  -- but what they DO enqueue includes the spawn area, whose charting
+  -- happens before the drain creates the hidden map sprites, so the
+  -- drain-end rechart volley reveals them.
+  storage.rechart_pending = true
+  if blockers.enqueue_full_rebuild() == 0 then
+    storage.rechart_pending = nil
+  end
 end)
 
 script.on_load(function()
@@ -277,7 +288,6 @@ script.on_event(defines.events.on_player_cursor_stack_changed, tool.on_cursor_ch
 script.on_event(defines.events.on_player_created, function(event)
   tech.on_player_created(event)
   hud.on_player_created(event)
-  welcome.on_player_created(event)
 end)
 script.on_event(defines.events.on_gui_click, function(event)
   welcome.on_gui_click(event)
@@ -287,7 +297,6 @@ script.on_event(defines.events.on_gui_closed, outposts.on_gui_closed)
 script.on_event(defines.events.on_player_joined_game, function(event)
   hud.on_player_joined(event)
   tech.on_player_joined(event)
-  welcome.on_player_joined(event)
   -- Border lines are per player (per-user style settings); a joining
   -- player's set is derived fresh from the registry.
   local joined = game.get_player(event.player_index)

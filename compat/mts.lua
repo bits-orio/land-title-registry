@@ -94,14 +94,22 @@ end
 
 function mts.should_disable(surface)
   if not remote.interfaces["mts-v1"] then return false end
+  local non_team = not remote.call("mts-v1", "is_team_surface", surface.name)
+  -- Script-made, planet-less, non-team surfaces (the landing pen, lobbies)
+  -- are never play surfaces: gate them immediately, no waiting (playtest
+  -- report: wilderness overlays in the pen). The occupied-team wait below
+  -- exists only to protect PLANET surfaces — plain-nauvis freeplay with
+  -- MTS installed but unused — and every planet surface has a planet.
+  if non_team and not surface.planet then return true end
   if not teams_active() then return false end
-  return not remote.call("mts-v1", "is_team_surface", surface.name)
+  return non_team
 end
 
 -- When the first team appears, the flow is real: gate the non-team,
 -- claim-less surfaces (the pen and lobbies; a surface holding claims is
--- legitimate ground and is left alone).
-local function sweep_non_team_surfaces()
+-- legitimate ground and is left alone). Public: also invoked from the
+-- chart-epoch migration so existing saves shed pen overlays.
+function mts.sweep_non_team_surfaces()
   for _, surface in pairs(game.surfaces) do
     if not surface.platform
       and not storage.disabled_surfaces[surface.index]
@@ -114,6 +122,7 @@ local function sweep_non_team_surfaces()
     end
   end
 end
+local sweep_non_team_surfaces = mts.sweep_non_team_surfaces
 
 -- Resolve MTS's custom-event ids and subscribe. Ids regenerate every
 -- session and remote.call is not allowed at control.lua root scope in 2.0,
@@ -132,6 +141,11 @@ function mts.resolve_events()
       local surface = game.surfaces[event.surface_name]
       if surface and surface.valid and not surface.platform then
         storage.disabled_surfaces[surface.index] = nil
+        -- The team's spawn area was charted DURING surface creation —
+        -- before this rebuild creates the hidden map sprites — and
+        -- on_chunk_charted never re-fires for chunks under constant
+        -- vision. The drain-end rechart volley is the reveal.
+        storage.rechart_pending = true
         blockers.enqueue_surface_rebuild(surface)
       end
     end)
