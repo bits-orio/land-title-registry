@@ -30,11 +30,15 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 7: 6 plus the print-claims default flip below. Wilderness map
--- sprites follow the create-hidden / reveal-on-chart pattern,
--- the migration sweeps MTS non-play surfaces (pen overlays), and its
--- drain-end rechart doubles as the reveal sweep for every charted chunk.
-local CHART_EPOCH = 7
+-- Epoch 8: 7 plus re-running the print-claims flip — fresh maps created
+-- under 7 copied the stale FALSE from mod-settings.dat (new maps take
+-- runtime-global values from the dat, not from default_value, so a
+-- changed default never reaches machines that ran older builds).
+-- Wilderness map sprites follow the create-hidden /
+-- reveal-on-chart pattern, the migration sweeps MTS non-play surfaces
+-- (pen overlays), and its drain-end rechart doubles as the reveal sweep
+-- for every charted chunk.
+local CHART_EPOCH = 8
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
@@ -69,7 +73,7 @@ local function migrate_chart_epoch()
   -- The print-claims default flipped to ON (team-chat audit trail,
   -- playtest call) and runtime-global settings keep their stored value on
   -- existing saves — apply the new default once; hosts can switch back.
-  if (storage.chart_epoch or 1) < 7 then
+  if (storage.chart_epoch or 1) < 8 then
     settings.global["ltr-print-claims"] = { value = true }
   end
   ensure_recharted()
@@ -101,6 +105,12 @@ script.on_init(function()
   -- A fresh map is already on the current map-view scheme; only loaded
   -- saves migrate through the epoch.
   storage.chart_epoch = CHART_EPOCH
+  -- Pre-release shim: new maps copy runtime-global settings from
+  -- mod-settings.dat, NOT from default_value, so machines that ran older
+  -- dev builds seed fresh games with the retired print-claims default
+  -- (false). Apply the current default once at map start; the host's
+  -- in-save changes stick afterwards. Drop a release after 0.1.8.
+  settings.global["ltr-print-claims"] = { value = true }
   -- Blanket any chunks that existed before Land Title Registry did (mid-game install,
   -- scenario-pregenerated maps). Fresh maps enqueue little or nothing —
   -- but what they DO enqueue includes the spawn area, whose charting
