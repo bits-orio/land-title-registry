@@ -76,9 +76,14 @@ data:extend({
   blocker("ltr-cell-wilderness",
     { ["ltr-land"] = true, ["ltr-transit"] = true, ["ltr-rampart"] = true },
     overlay("wilderness-overlay"),
-    -- The overlay's red at ~1/3 strength: present without fully burying
-    -- resource patches. Blockers are neutral, so every force sees it.
-    { r = 0.29, g = 0.07, b = 0.05, a = 0.35 }),
+    -- Hue-NEUTRAL darkening, deliberately not red (playtest round two): a
+    -- colored tint recolors the whole explored map, which made untinted
+    -- claimed cells read as "green tinted" by contrast - the chart's
+    -- natural grass, suddenly conspicuous. Neutral black at ~40% keeps
+    -- the claimed/unclaimed boundary as brightness, not hue, and leaves
+    -- resource patches readable. Blockers are neutral-force, so every
+    -- force sees the same map.
+    { r = 0, g = 0, b = 0, a = 0.4 }),
   blocker("ltr-cell-trail", { ["ltr-land"] = true, ["ltr-rampart"] = true },
     overlay("trail-overlay")),
   blocker("ltr-cell-rampart", { ["ltr-land"] = true },

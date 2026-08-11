@@ -1,6 +1,6 @@
 # The wilderness overlay is the blocker's own sprite
 
-> **Amended for map view (0.1.8).** Chart display arrived in two engine-appropriate halves: claimed cells draw their real striped artwork as one chart-mode script sprite per cell (territory-bounded, the chronicle's cost model), while wilderness — O(explored area), far too many cells for script objects — dropped `not-on-map` in favour of a translucent red `map_color`, engine-drawn for every force. Deed stays clean on the map as on the ground.
+> **Amended for map view (0.1.8).** Chart display arrived in two engine-appropriate halves: claimed cells draw their real striped artwork as one chart-mode script sprite per cell (territory-bounded, the chronicle's cost model), while wilderness — O(explored area), far too many cells for script objects — dropped `not-on-map` in favour of a hue-neutral darkening `map_color`, engine-drawn for every force (a red tint recolored the whole explored map and made the untinted territory read as green by contrast — the boundary is brightness, not hue). Deed stays clean on the map as on the ground.
 
 Wilderness cells render a translucent red-ribbon overlay (diagonal ribbons, a faint wash, and a cell-edge border). It is implemented with **zero render objects and zero rendering code**: the pattern is simply the `ltr-cell-wilderness` blocker's `picture`, a 1024×1024 sprite drawn at scale 1 on the `floor` render layer — exactly one 32-tile cell.
 
