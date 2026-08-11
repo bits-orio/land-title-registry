@@ -48,9 +48,11 @@ local function blocker(name, layers, picture)
 end
 
 -- Each 1024-px overlay is scaled to cover exactly one cell (SIZE tiles at
--- 32 px/tile). Wilderness is the loud one; trail and rampart are subtle
--- tints so claimed land still reads as normal ground at a glance. Deed has
--- no blocker and no overlay.
+-- 32 px/tile). Wilderness is the loud one — fully opaque red stripes, a
+-- hard no at any zoom. Rampart wears the original softer red pattern
+-- (playtest call: one rung from Deed should still read as "not fully
+-- yours"), trail stays a subtle orange tint, and Deed has no blocker and
+-- no overlay.
 local function overlay(name)
   return {
     filename = "__land-title-registry__/graphics/" .. name .. ".png",

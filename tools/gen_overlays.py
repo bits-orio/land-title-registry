@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Generate the per-state cell overlays drawn by the blocker entities
-(ADR-0009). One shared ribbon pattern; the states differ only in color and
-transparency, forming a busy-to-calm gradient that matches raising land one
-rung at a time:
+(ADR-0009). One shared ribbon pattern; the states differ in color and
+stripe strength (playtest call, 0.1.8: the original full-strength red
+pattern reads as "fortified, not yet fully yours" and now marks RAMPART;
+wilderness escalates the same artwork to fully opaque red stripes,
+unmistakable at any zoom):
 
-    wilderness  red     (full strength)
-    trail       orange  (more transparent)
-    rampart     yellow  (more transparent still)
-    deed        —       (no blocker, fully clear)
+    wilderness  red, stripes 100% opaque   (hard no)
+    trail       orange, calmer             (transit corridor)
+    rampart     red, the original pattern  (one rung from Deed)
+    deed        —                          (no blocker, fully clear)
 
 Each sprite is 1024x1024 px; the data stage scales it to the configured cell
 size. The stripe period divides 1024, so patterns continue seamlessly across
@@ -56,20 +58,23 @@ def darken(c, f=0.66):
     return tuple(round(v * f) for v in c)
 
 
-ALPHA_SCALE = {
-    "wilderness": 1.00,
-    "trail": 0.90,
-    "rampart": 0.80,
-}
-
+# Per-state look. Rampart deliberately wears the WILDERNESS palette entry —
+# if that line looks wrong, read the module docstring: the red pattern
+# moved down a rung, it was not left behind by accident. Only wilderness
+# sets opaque_ribbon, which lifts the two stripe elements (edge + core) to
+# alpha 255 while border, inner line, and wash keep their usual strengths.
+RED = COLORS["wilderness"]
 STATES = {
-    name: (COLORS[name], darken(COLORS[name]), scale)
-    for name, scale in ALPHA_SCALE.items()
+    "wilderness": (RED, darken(RED), 1.00, True),
+    "trail": (COLORS["trail"], darken(COLORS["trail"]), 0.90, False),
+    "rampart": (RED, darken(RED), 1.00, False),
 }
 
 
-def make(name, color, dark, alpha_scale):
+def make(name, color, dark, alpha_scale, opaque_ribbon):
     def a(key):
+        if opaque_ribbon and key in ("ribbon_edge", "ribbon_core"):
+            return 255
         return max(1, round(A[key] * alpha_scale))
 
     img = Image.new("RGBA", (SIZE, SIZE))
@@ -96,8 +101,8 @@ def make(name, color, dark, alpha_scale):
 
 
 def main():
-    for name, (color, dark, scale) in STATES.items():
-        make(name, color, dark, scale)
+    for name, (color, dark, scale, opaque_ribbon) in STATES.items():
+        make(name, color, dark, scale, opaque_ribbon)
 
 
 if __name__ == "__main__":
