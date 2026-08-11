@@ -14,6 +14,7 @@ local render = require("scripts.render")
 local chronicle = require("scripts.chronicle")
 local tech = require("scripts.tech")
 local outposts = require("scripts.outposts")
+local welcome = require("scripts.welcome")
 
 local mts = { active = false }
 
@@ -201,6 +202,7 @@ function mts.resolve_events()
         chronicle.on_team_released(force.name)
         tech.reset_charters(force.index)
         outposts.reset_force(force.index)
+        welcome.reset_force(force.index)
       end
     end)
   end

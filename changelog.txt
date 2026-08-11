@@ -2,12 +2,15 @@
 Version: 0.1.8
 Date: 2026-08-11
   Features:
+    - First-claim tutorials: a force's first paid Trail, Rampart, and Deed each draw a short explainer on that cell - what the rung means and what the next one adds - retiring the moment something is built inside the cell or its state changes. Shown once per force; recycled team slots see them again.
+    - The starter-cell hints render their rich text properly (the keybind tags showed raw) and carry the survey-tool icon.
     - Outpost grants: a new research chain (one tech per science tier, 1000 science per level over that tier's cumulative packs) permits concurrent Deeds founded anywhere in the wilderness, no adjacency required. Founding asks for confirmation - slots are hard-earned - and a slot is returned once the outpost's territory grows to connect with your mainland. HUD shows used/cap once the first level is researched.
     - The survey tool's right-gestures now mirror the left exactly: drag raises one rung, right-drag lowers one; Shift-drag jumps to Deed, Shift-right-drag sells everything back to Wilderness with the usual refund. Raising gestures select in green, lowering in red.
     - Jump straight to Rampart: Ctrl+Shift-drag on Factorio 2.1, and on 2.0 a Rampart variant survey tool on its own rebindable hotkey (default ALT+W) whose plain drag claims or upgrades straight to Rampart.
     - Every gesture's action is remappable per player in mod settings.
     - Per-player border styling: line width and per-state colors including alpha, applied to your own view only.
   Changes:
+    - Every cell description and hover line now states what the rung means and allows, consistently with the actual layer rules: Wilderness says elevated rails are welcome, Trail names signals and stops, Rampart names gates and landmines, and hovering a Deed says it outright - fully yours.
     - Starter grants, settlement charters, and Discord deed milestones now work on MTS's cloned team surfaces: those are plain script surfaces with no engine planet, so every planet-keyed feature silently skipped them. Planet identity now resolves through mts-v1's get_surface_planet (team-1-nauvis represents nauvis), the same lookup the cell chronicle already used.
     - The starter grant retries when a team surface becomes enabled: MTS can land the team (deferred teleport) before the surface-enabled event, and the landing-time grant then found a disabled surface and silently refused. Every starter-grant gate now logs its decision (LTR-GRANT in the log), so a missing starter Deed is diagnosable from a log paste.
     - The free starter Deed is now deterministic (playtest call): on MTS team surfaces it is always cell (0,0) - every team races the same origin cell, so cross-team chronicle times compare fairly - and elsewhere it is the cell containing the force's spawn point. Previously it was whichever cell the player happened to be standing on. Later planets keep the standing-cell rule: a cargo pod lands where it lands.

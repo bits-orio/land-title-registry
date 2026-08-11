@@ -40,6 +40,9 @@ function registry.init_storage()
   -- force_index -> render objects of the origin gesture hints, destroyed on
   -- the force's first paid claim
   storage.tutorial_renders = storage.tutorial_renders or {}
+  -- [force_index][state] -> per-state first-claim tutorial: an active
+  -- render entry {surface_index, cx, cy, objects}, or true once retired
+  storage.state_tutorials = storage.state_tutorials or {}
   -- [planet_name][cell_key] -> sorted {force_name, clock} speedrun entries
   storage.chronicle = storage.chronicle or {}
   -- [surface_index][cell_key] -> the drawn chronicle text objects

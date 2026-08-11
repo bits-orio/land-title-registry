@@ -10,7 +10,7 @@ Built from the ground up, and designed first for **[Multi-Team Support](https://
 
 | State | What you may build | Cumulative price |
 |---|---|---|
-| **Wilderness** | Nothing buildable. (Vehicles remain deployable anywhere.) | 0 |
+| **Wilderness** | Elevated rails and their supports only — viaducts fly over unowned land. (Vehicles remain deployable anywhere.) | 0 |
 | **Trail** | Belts, rails, pipes | 1 |
 | **Rampart** | Everything Trail permits, plus turrets, walls, gates, radar, poles, solar, accumulators | 3 |
 | **Deed** | Everything, including artillery turrets | 5 |

@@ -406,4 +406,15 @@ script.on_event(custom_events.on_cell_downgraded, function(event)
   -- A released cell passes its outpost record / mainland origin to a
   -- neighbouring owned cell.
   outposts.on_cell_downgraded(event)
+  welcome.on_cell_downgraded(event)
 end)
+
+-- Building inside a state-tutorial cell retires its text (the lesson
+-- landed). UX only — rights enforcement never watches build events
+-- (ADR-0002); this is the same class of listener as the chronicle's.
+local function on_entity_built(event)
+  local entity = event.entity
+  if entity and entity.valid then welcome.on_entity_built(entity) end
+end
+script.on_event(defines.events.on_built_entity, on_entity_built)
+script.on_event(defines.events.on_robot_built_entity, on_entity_built)
