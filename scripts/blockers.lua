@@ -155,6 +155,10 @@ function blockers.on_chunk_generated(event)
   for cy = y0, y1 do
     for cx = x0, x1 do
       blockers.set(surface, cx, cy, registry.state_of(surface.index, registry.cell_key(cx, cy)))
+      -- Fresh blockers need their map-view chart sprite. Claims and
+      -- downgrades refresh through their events; chunk generation is the
+      -- third way a blocker appears, and it refreshes here.
+      render.refresh_cell(surface, cx, cy)
     end
   end
 end

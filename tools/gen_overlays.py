@@ -105,15 +105,16 @@ def make(name, color, dark, alpha_scale, opaque_ribbon, suffix="", wash=True):
 def main():
     for name, (color, dark, scale, opaque_ribbon) in STATES.items():
         make(name, color, dark, scale, opaque_ribbon)
-    # Chart variants for the claimed states (drawn by scripts/render.lua in
-    # map view): identical translucent stripes and cell border, but the
+    # Chart variants for every blocker state (drawn by scripts/render.lua
+    # in map view): identical stripes and cell border, but the
     # between-stripes wash is fully transparent — on the chart the wash
-    # reads as a solid background block over the terrain (playtest report),
-    # while in the world it sits invisibly on actual ground. An opaque-
-    # stripe experiment was reverted by the same playtester: the "green
-    # tint" it chased turned out to be the wilderness map tint recoloring
-    # everything EXCEPT the territory (see prototypes/blockers.lua).
-    for name in ("trail", "rampart"):
+    # reads as a solid background block over the terrain (playtest
+    # report), while in the world it sits invisibly on actual ground.
+    # Terrain keeps its natural chart colors everywhere; the map carries
+    # stripes, never tints (two tint experiments were reverted by
+    # playtest: any area recoloring makes the OTHER side of the boundary
+    # read as tinted by contrast).
+    for name in ("wilderness", "trail", "rampart"):
         color, dark, scale, opaque_ribbon = STATES[name]
         make(name, color, dark, scale, opaque_ribbon, suffix="-chart", wash=False)
 

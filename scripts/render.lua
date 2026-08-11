@@ -277,11 +277,15 @@ function render.refresh_cell(surface, cx, cy)
     end
   end
 
-  -- Map-view overlay: the cell's own striped artwork as one chart sprite,
-  -- visible to the owning force (matching the border lines). Bounded by
-  -- claimed area — the chronicle's accepted cost model. Wilderness is
-  -- engine-drawn via the blocker's map_color; Deed stays clean (absence =
-  -- fully yours, on the map as on the ground).
+  -- Map-view overlay: the cell's own striped -chart artwork as one chart
+  -- sprite per BLOCKER (playtest-final design — stripes, never tints;
+  -- terrain keeps its natural chart colors everywhere). One sprite per
+  -- already-paid blocker entity, so the cost class is the blocker's own.
+  -- Wilderness sprites are gated on the blocker actually standing there
+  -- (generated chunks), so ungenerated void stays clean, and are visible
+  -- to everyone like the world overlay. Claimed-state sprites carry the
+  -- owner's forces filter, matching the border lines. Deed draws nothing:
+  -- absence = fully yours, on the map as on the ground.
   if sc == "trail" or sc == "rampart" then
     local own = owner_at(surface_index, cx, cy)
     local force = own and game.forces[own]
@@ -296,6 +300,17 @@ function render.refresh_cell(surface, cx, cy)
         forces = { force },
       })
     end
+  elseif sc == "wilderness"
+    and storage.blocker_regids[surface_index]
+    and storage.blocker_regids[surface_index][cell_key] then
+    objects[#objects + 1] = rendering.draw_sprite({
+      surface = surface,
+      sprite = "ltr-wilderness-overlay",
+      target = { x = x0 + const.CELL / 2, y = y0 + const.CELL / 2 },
+      x_scale = const.CELL / 32,
+      y_scale = const.CELL / 32,
+      render_mode = "chart",
+    })
   end
 
   -- NW survey stake: drawn when at least one touching edge is a frontier.
@@ -338,25 +353,36 @@ function render.drop_player(player_index)
   storage.player_renders[player_index] = nil
 end
 
--- Rebuild one player's lines from the registry. Every cell owning a
--- frontier edge also has a stake entry in storage.renders (its own edges
--- are among its stake vertex's touching edges), so the shared bookkeeping
--- is a complete index of candidate cells.
+-- Rebuild one player's lines from the registry. The force's lines live
+-- only on cells it owns and their east/south neighbours (a cell owns its
+-- west and north edges), so candidates come straight from the force's own
+-- territory — O(owned cells), NOT the shared render bookkeeping, which
+-- since map overlays covers every generated cell.
 function render.rebuild_player(player)
   render.drop_player(player.index)
   if not (player.valid and player.connected) then return end
   local style = style_of(player)
+  local force_index = player.force.index
   local per_surface = {}
   storage.player_renders[player.index] = per_surface
 
-  for surface_index, refs in pairs(storage.renders) do
+  for surface_index, cells in pairs(storage.cells) do
     local surface = game.surfaces[surface_index]
     if surface and surface.valid and not storage.disabled_surfaces[surface_index] then
       local bucket = {}
-      for cell_key in pairs(refs) do
-        local pos = registry.cell_key_to_pos(cell_key)
-        local lines = build_player_lines(surface, pos.x, pos.y, player, style)
-        if #lines > 0 then bucket[cell_key] = lines end
+      local function build(cx, cy)
+        local key = registry.cell_key(cx, cy)
+        if bucket[key] then return end
+        local lines = build_player_lines(surface, cx, cy, player, style)
+        if #lines > 0 then bucket[key] = lines end
+      end
+      for cell_key, rec in pairs(cells) do
+        if rec.force_index == force_index then
+          local pos = registry.cell_key_to_pos(cell_key)
+          build(pos.x, pos.y)
+          build(pos.x + 1, pos.y)
+          build(pos.x, pos.y + 1)
+        end
       end
       if next(bucket) then per_surface[surface_index] = bucket end
     end

@@ -21,13 +21,18 @@ require("scripts.commands")
 require("scripts.remote")
 
 -- The engine CACHES chart tiles: charted chunks keep their last-rendered
--- look until recharted, so a change to engine-drawn map visuals (the
--- wilderness blocker's map_color) never shows on an existing save's map —
--- playtest finding: the tint simply wasn't there. Bump CHART_EPOCH
--- whenever those visuals change; the mismatch triggers one force.rechart()
--- per force, from both config-changed and the join anchor (a control-only
--- update at the same mod version never fires config-changed).
-local CHART_EPOCH = 1
+-- look until recharted, so a change to engine-drawn map visuals never
+-- shows on an existing save's map (playtest finding: a map_color tint
+-- simply wasn't there). Bump CHART_EPOCH whenever the map-view scheme
+-- changes; the mismatch triggers one force.rechart() per force — flushing
+-- stale engine-drawn looks — plus a full rebuild so per-cell chart
+-- sprites match the current scheme. Runs from both config-changed and the
+-- join anchor (a control-only update at the same mod version never fires
+-- config-changed).
+--
+-- Epoch 2: the tint experiments removed; striped chart sprites on every
+-- blocker cell, wilderness included.
+local CHART_EPOCH = 2
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
@@ -35,6 +40,7 @@ local function ensure_recharted()
   for _, force in pairs(game.forces) do
     force.rechart()
   end
+  blockers.enqueue_full_rebuild()
 end
 
 local function init_surface(surface)
