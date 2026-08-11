@@ -30,15 +30,14 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 8: 7 plus re-running the print-claims flip — fresh maps created
--- under 7 copied the stale FALSE from mod-settings.dat (new maps take
--- runtime-global values from the dat, not from default_value, so a
--- changed default never reaches machines that ran older builds).
--- Wilderness map sprites follow the create-hidden /
--- reveal-on-chart pattern, the migration sweeps MTS non-play surfaces
--- (pen overlays), and its drain-end rechart doubles as the reveal sweep
--- for every charted chunk.
-local CHART_EPOCH = 8
+-- Epoch 9: 8 plus redrawing chronicle text — non-competitive games
+-- (single force, no MTS) stopped drawing standings, and existing cells
+-- keep their stale rosters until reconciled. Wilderness map sprites
+-- follow the create-hidden / reveal-on-chart pattern, the migration
+-- sweeps MTS non-play surfaces, applies the print-claims default, and
+-- its drain-end rechart doubles as the reveal sweep for every charted
+-- chunk.
+local CHART_EPOCH = 9
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end

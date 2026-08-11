@@ -249,6 +249,25 @@ function chronicle.entries_for(surface, cx, cy)
   return group and group[registry.cell_key(cx, cy)] or {}
 end
 
+-- Standings are competition UI. With a single competing force — vanilla
+-- freeplay without MTS — the per-cell roster is noise (playtest call:
+-- "no need for player information in these cells"), so cells keep only
+-- their map-view coordinates. MTS present means competitive; without it,
+-- competitive means at least two player-bearing competitor forces (PvP
+-- scenarios keep their standings). A game BECOMING competitive redraws
+-- cells lazily, on their next record or rebuild.
+function chronicle.competitive()
+  if chronicle.team_info_provider then return true end
+  local count = 0
+  for _, force in pairs(game.forces) do
+    if #force.players > 0 and chronicle.is_competitor(force.name) then
+      count = count + 1
+      if count > 1 then return true end
+    end
+  end
+  return false
+end
+
 -- Destroy and redraw the chronicle text of one cell on one surface.
 function chronicle.refresh_cell(surface, cx, cy)
   local surface_index = surface.index
@@ -269,10 +288,13 @@ function chronicle.refresh_cell(surface, cx, cy)
   if not entries or #entries == 0 then return end
 
   local objects = {}
-  local shown = math.min(3, #entries)
+  -- Non-competitive games draw no standings rows anywhere and no world
+  -- text at all — the map keeps the coordinates.
+  local shown = chronicle.competitive() and math.min(3, #entries) or 0
   local center_x = cx * const.CELL + const.CELL / 2
   local first_y = cy * const.CELL + 0.5
 
+  if shown > 0 then
   -- Cell coordinates, hugging the left of the standings block. No `font`
   -- override anywhere here: the small bitmap fonts render blurry when
   -- scaled, so the default font at a modest scale is what stays crisp.
@@ -287,6 +309,7 @@ function chronicle.refresh_cell(surface, cx, cy)
     scale = 0.8,
     alignment = "right",
   })
+  end
 
   for rank = 1, shown do
     local entry = entries[rank]
