@@ -224,26 +224,37 @@ end
 
 -- Chart-mode render objects draw even over uncharted void (playtest
 -- screenshot: wilderness stripes floating on black), so the wilderness
--- map sprite is created WITH the blocker but hidden, and revealed
--- when the chunk charts. This helper only
--- sets the INITIAL visibility; render.on_chunk_charted does the flips —
--- and because an epoch rechart fires on_chunk_charted for every charted
--- chunk, the reveal self-heals even where this initial check disagrees
--- with the engine. Enemy/neutral never chart, so querying every force is
--- both cheap and player-independent. A straddling cell (24-tile cells
--- cross chunk lines) follows its centre chunk — an 8-tile sliver of
--- stripe on black at the frontier of vision is accepted.
-local function charted_by_someone(surface, cx, cy)
-  local chunk = {
-    x = math.floor((cx * const.CELL + const.CELL / 2) / 32),
-    y = math.floor((cy * const.CELL + const.CELL / 2) / 32),
-  }
-  for _, force in pairs(game.forces) do
-    if force.is_chunk_charted(surface, chunk) then
-      return true
+-- map sprite is created WITH the blocker but hidden, and revealed as
+-- charting progresses. This helper sets the INITIAL visibility;
+-- render.on_chunk_charted does the later flips — and because an epoch
+-- rechart fires on_chunk_charted for every charted chunk, the reveal
+-- self-heals even where this initial check disagrees with the engine.
+--
+-- STRICT gating: every chunk the cell overlaps must be charted, not just
+-- the centre one. Cells straddle chunk lines (24-tile cells, 32-tile
+-- chunks — ADR-0010), and any looser rule lets edge cells hang up to a
+-- cell of stripe over unexplored black, which at map zoom reads as the
+-- whole overlay being offset from the terrain (playtest report). The
+-- cost is the mirror sliver — a charted fringe up to a cell wide stays
+-- unstriped until its neighbouring chunks chart — which reads as
+-- caution, not breakage. Enemy/neutral never chart, so querying every
+-- force is cheap and player-independent.
+local function cell_fully_charted(surface, cx, cy)
+  local x0, x1 = const.chunk_range_of_cell(cx)
+  local y0, y1 = const.chunk_range_of_cell(cy)
+  for chunk_y = y0, y1 do
+    for chunk_x = x0, x1 do
+      local charted = false
+      for _, force in pairs(game.forces) do
+        if force.is_chunk_charted(surface, { x = chunk_x, y = chunk_y }) then
+          charted = true
+          break
+        end
+      end
+      if not charted then return false end
     end
   end
-  return false
+  return true
 end
 
 -- Rebuild the render objects OWNED by cell (cx, cy): west edge, north edge,
@@ -333,7 +344,7 @@ function render.refresh_cell(surface, cx, cy)
     and storage.blocker_regids[surface_index]
     and storage.blocker_regids[surface_index][cell_key] then
     -- Created unconditionally with the blocker, HIDDEN until the chunk is
-    -- charted (see charted_by_someone above).
+    -- charted (see cell_fully_charted above).
     storage.chart_sprites[surface_index] = storage.chart_sprites[surface_index] or {}
     storage.chart_sprites[surface_index][cell_key] = rendering.draw_sprite({
       surface = surface,
@@ -342,7 +353,7 @@ function render.refresh_cell(surface, cx, cy)
       x_scale = const.CELL / 32,
       y_scale = const.CELL / 32,
       render_mode = "chart",
-      visible = charted_by_someone(surface, cx, cy),
+      visible = cell_fully_charted(surface, cx, cy),
     })
   end
 
@@ -374,23 +385,27 @@ function render.refresh_cell(surface, cx, cy)
   if #objects > 0 then refs[cell_key] = objects end
 end
 
--- A chunk becoming charted reveals its wilderness cells' hidden map
--- sprites — one flag flip per cell, no destroy/recreate. The epoch
--- rechart re-fires this for every charted chunk, so
--- any sprite created with the wrong initial visibility self-heals. Cheap
--- on radar re-charts: an already-visible sprite is one lookup and one
--- boolean read.
+-- A chunk becoming charted reveals hidden wilderness map sprites — one
+-- flag flip per cell, no destroy/recreate — under the same STRICT rule
+-- as creation: a straddling cell lights up only once the LAST of its
+-- overlapped chunks charts, never while part of it hangs over black.
+-- The epoch rechart re-fires this for every charted chunk, so any sprite
+-- created with the wrong initial visibility self-heals. Cheap on radar
+-- re-charts: an already-visible sprite is one lookup and one boolean.
 function render.on_chunk_charted(event)
   local surface_index = event.surface_index
   if storage.disabled_surfaces[surface_index] then return end
   local chart_sprites = storage.chart_sprites[surface_index]
   if not chart_sprites then return end
+  local surface = game.surfaces[surface_index]
+  if not (surface and surface.valid) then return end
   local x0, x1 = const.cell_range_of_chunk(event.position.x)
   local y0, y1 = const.cell_range_of_chunk(event.position.y)
   for cy = y0, y1 do
     for cx = x0, x1 do
       local sprite = chart_sprites[registry.cell_key(cx, cy)]
-      if sprite and sprite.valid and not sprite.visible then
+      if sprite and sprite.valid and not sprite.visible
+        and cell_fully_charted(surface, cx, cy) then
         sprite.visible = true
       end
     end

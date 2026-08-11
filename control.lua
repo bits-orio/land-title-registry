@@ -30,14 +30,15 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 9: 8 plus redrawing chronicle text — non-competitive games
--- (single force, no MTS) stopped drawing standings, and existing cells
--- keep their stale rosters until reconciled. Wilderness map sprites
+-- Epoch 10: 9 plus strict wilderness-sprite gating — a straddling cell
+-- shows only when EVERY chunk it overlaps is charted, and previously
+-- over-revealed edge sprites need re-deriving. 9 redrew chronicle text —
+-- non-competitive games stopped drawing standings. Wilderness map sprites
 -- follow the create-hidden / reveal-on-chart pattern, the migration
 -- sweeps MTS non-play surfaces, applies the print-claims default, and
 -- its drain-end rechart doubles as the reveal sweep for every charted
 -- chunk.
-local CHART_EPOCH = 9
+local CHART_EPOCH = 10
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
