@@ -20,6 +20,23 @@ local odb_compat = require("compat.odb")
 require("scripts.commands")
 require("scripts.remote")
 
+-- The engine CACHES chart tiles: charted chunks keep their last-rendered
+-- look until recharted, so a change to engine-drawn map visuals (the
+-- wilderness blocker's map_color) never shows on an existing save's map —
+-- playtest finding: the tint simply wasn't there. Bump CHART_EPOCH
+-- whenever those visuals change; the mismatch triggers one force.rechart()
+-- per force, from both config-changed and the join anchor (a control-only
+-- update at the same mod version never fires config-changed).
+local CHART_EPOCH = 1
+
+local function ensure_recharted()
+  if storage.chart_epoch == CHART_EPOCH then return end
+  storage.chart_epoch = CHART_EPOCH
+  for _, force in pairs(game.forces) do
+    force.rechart()
+  end
+end
+
 local function init_surface(surface)
   registry.init_surface(surface.index)
   -- Space platforms are exempt from the grid entirely: platform tiles
@@ -149,6 +166,7 @@ script.on_configuration_changed(function()
     end
     blockers.enqueue_full_rebuild()
   end
+  ensure_recharted()
 end)
 
 -- World lifecycle
@@ -269,6 +287,7 @@ script.on_event(defines.events.on_player_joined_game, function(event)
     storage.chart_overlays_backfilled = true
     blockers.enqueue_full_rebuild()
   end
+  ensure_recharted()
   -- Same join anchor for the disabled-surface heal (see config-changed).
   if not storage.disable_healed then
     storage.disable_healed = true
