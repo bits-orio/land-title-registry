@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Sync the mod-portal page description from the repo README (rendered
-# portal-ready by tools/portal_description.py — absolute links instead of
-# GitHub-relative ones). Idempotent: the portal stores whatever is sent.
+# Sync the mod-portal page description and license from the repo: the
+# README rendered portal-ready by tools/portal_description.py (absolute
+# links instead of GitHub-relative ones), and the license enum. Idempotent:
+# the portal stores whatever is sent.
 #
 # Usage: tools/sync_portal_description.sh
 # Env:   FACTORIO_API_KEY (required) — token with "ModPortal: Edit Mods" scope
@@ -20,6 +21,7 @@ RESPONSE=$(curl -sS \
     -H "Authorization: Bearer ${FACTORIO_API_KEY}" \
     --form-string "mod=${MOD}" \
     --form-string "description=${DESCRIPTION}" \
+    --form-string "license=default_mit" \
     "https://mods.factorio.com/api/v2/mods/edit_details")
 
 HTTP=$(echo "$RESPONSE" | tail -n1 | cut -d: -f2)

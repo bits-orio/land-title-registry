@@ -3,7 +3,7 @@
 # Idempotent: skips upload (exit 0) if the version is already published.
 # First release: when the mod has no portal page yet, the PUBLISH flow is
 # used instead — it creates the page and the first release in one pass,
-# seeded with the repo README as the page description, GPLv3, and the
+# seeded with the repo README as the page description, MIT, and the
 # source link.
 #
 # Usage: tools/upload_mod_portal.sh <mod_name> <version> <zip_path>
@@ -85,7 +85,7 @@ echo "::group::Step 2 — upload zip"
 # when the script runs from a checkout that has one.
 PUBLISH_FIELDS=()
 if [[ "$MOD_EXISTS" -eq 0 ]]; then
-    PUBLISH_FIELDS+=(-F "license=default_gnugplv3" -F "category=content")
+    PUBLISH_FIELDS+=(-F "license=default_mit" -F "category=content")
     if [[ -f info.json ]]; then
         HOMEPAGE=$(jq -r '.homepage // empty' info.json)
         [[ -n "$HOMEPAGE" ]] && PUBLISH_FIELDS+=(-F "source_url=${HOMEPAGE}")

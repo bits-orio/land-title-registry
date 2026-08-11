@@ -107,4 +107,4 @@ Everything else here is original. Land Title Registry is a ground-up build — n
 
 ## License
 
-GPL-3.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
