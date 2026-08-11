@@ -71,7 +71,7 @@ STATES = {
 }
 
 
-def make(name, color, dark, alpha_scale, opaque_ribbon):
+def make(name, color, dark, alpha_scale, opaque_ribbon, suffix="", wash=True):
     def a(key):
         if opaque_ribbon and key in ("ribbon_edge", "ribbon_core"):
             return 255
@@ -93,9 +93,11 @@ def make(name, color, dark, alpha_scale, opaque_ribbon):
                         px[x, y] = (*dark, a("ribbon_edge"))
                     else:
                         px[x, y] = (*color, a("ribbon_core"))
-                else:
+                elif wash:
                     px[x, y] = (*color, a("wash"))
-    out = __file__.rsplit("/", 2)[0] + f"/graphics/{name}-overlay.png"
+                else:
+                    px[x, y] = (0, 0, 0, 0)
+    out = __file__.rsplit("/", 2)[0] + f"/graphics/{name}-overlay{suffix}.png"
     img.save(out, optimize=True)
     print(f"wrote {out}")
 
@@ -103,6 +105,14 @@ def make(name, color, dark, alpha_scale, opaque_ribbon):
 def main():
     for name, (color, dark, scale, opaque_ribbon) in STATES.items():
         make(name, color, dark, scale, opaque_ribbon)
+    # Chart variants for the claimed states (drawn by scripts/render.lua in
+    # map view): identical stripes and cell border, but the between-stripes
+    # wash is fully transparent — on the chart the wash reads as a solid
+    # background block over the terrain (playtest report), while in the
+    # world it sits invisibly on actual ground.
+    for name in ("trail", "rampart"):
+        color, dark, scale, opaque_ribbon = STATES[name]
+        make(name, color, dark, scale, opaque_ribbon, suffix="-chart", wash=False)
 
 
 if __name__ == "__main__":
