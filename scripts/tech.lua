@@ -74,7 +74,26 @@ local function force_owns_on_planet(force, planet)
   return false
 end
 
-local function maybe_grant_starter(force, surface, player, draw_hints)
+-- Optional provider: compat/mts.lua overrides the HOME starter cell for
+-- team surfaces (cell (0,0) exactly — every team races the same origin
+-- cell, so cross-team chronicle times compare fairly). Returns cx, cy or
+-- nil to fall through.
+tech.home_cell_provider = nil
+
+-- The home starter cell (playtest call: deterministic, not wherever the
+-- player happens to stand). MTS team surfaces spawn at the origin and the
+-- provider pins (0,0); everywhere else the force's spawn point decides,
+-- which is the map origin on default freeplay and respects custom spawns.
+local function home_cell(force, surface)
+  if tech.home_cell_provider then
+    local cx, cy = tech.home_cell_provider(surface)
+    if cx then return cx, cy end
+  end
+  local spawn = force.get_spawn_position(surface)
+  return math.floor(spawn.x / const.CELL), math.floor(spawn.y / const.CELL)
+end
+
+local function maybe_grant_starter(force, surface, player, is_home)
   if not (player and player.valid and player.physical_surface_index == surface.index) then return end
   local planet = surface.planet
   if not planet then return end
@@ -85,14 +104,23 @@ local function maybe_grant_starter(force, surface, player, draw_hints)
   if not chronicle.is_competitor(force.name) then return end
   if force_owns_on_planet(force, planet) then return end
 
-  local cx = math.floor(player.physical_position.x / const.CELL)
-  local cy = math.floor(player.physical_position.y / const.CELL)
+  -- Home planet: the deterministic spawn cell. Later planets: the cell
+  -- the player actually stands on — a cargo pod lands wherever it lands,
+  -- and a spawn-cell grant there could be disconnected land the player
+  -- never reached.
+  local cx, cy
+  if is_home then
+    cx, cy = home_cell(force, surface)
+  else
+    cx = math.floor(player.physical_position.x / const.CELL)
+    cy = math.floor(player.physical_position.y / const.CELL)
+  end
   if claims.grant_free(surface, force, player, cx, cy, "deed") then
     force.print({ "land-title-registry.starter-cell",
       string.format("[gps=%d,%d,%s]",
         cx * const.CELL + const.CELL / 2,
         cy * const.CELL + const.CELL / 2, surface.name) })
-    if draw_hints then
+    if is_home then
       welcome.draw_origin_hints(force, surface, cx, cy)
     end
   end

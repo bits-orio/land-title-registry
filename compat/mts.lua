@@ -34,6 +34,19 @@ render.team_color_provider = function(force_index)
   end
 end
 
+-- Home starter cell: MTS team surfaces spawn at their origin, so the free
+-- starter Deed is cell (0,0) EXACTLY — identical for every team, which
+-- keeps cross-team chronicle times on the origin cell comparable. Non-team
+-- surfaces (plain freeplay with MTS merely installed) fall through to the
+-- force-spawn-position rule in scripts/tech.lua.
+tech.home_cell_provider = function(surface)
+  if not remote.interfaces["mts-v1"] then return nil end
+  if remote.call("mts-v1", "is_team_surface", surface.name) then
+    return 0, 0
+  end
+  return nil
+end
+
 -- Cell chronicle: team display names and team-clock starts come straight
 -- from mts-v1's get_team_info — zero new MTS surface. Non-team forces fall
 -- back to force name + absolute time inside the chronicle module.
