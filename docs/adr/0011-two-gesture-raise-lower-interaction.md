@@ -1,5 +1,7 @@
 # The survey tool is two gestures: drag raises one rung, right-drag lowers
 
+> **Partially superseded by [ADR-0013](0013-mirrored-gestures-with-remappable-actions.md).** The two-gesture core survives unchanged; the jump accelerators were reworked into a mirrored grammar (Shift = jump to top, Shift-right = sell to bottom, Ctrl+Shift / the Rampart variant tool = middle jump) with per-player remapping after playtest feedback that right must be the exact opposite of left.
+
 Playtesting verdict: four modifier-gesture combinations (drag / Shift-drag / right-drag / Shift-right-drag, each mapped to a different tier action) is a memory test, not an interface. Nobody guessed them, and the rampart binding (Shift+Right) was effectively undiscoverable.
 
 The replacement leans on an invariant the economy already guarantees: **full credit makes stepping and jumping cost the same** (every route to a state totals the same points — ADR-0004). The four-mode tool existed to let players jump straight to a tier, but jumping saves nothing, so the modes were solving a problem the pricing had already solved. The advertised interaction is now:

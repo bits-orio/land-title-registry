@@ -187,6 +187,32 @@ local function evaluate_downgrade(surface, force, cx, cy)
   }
 end
 
+-- Evaluate one cell for release (sell straight back to Wilderness — the
+-- mirror of the Deed jump). All-or-nothing per cell: a cell whose entities
+-- still use ANY right cannot partially release; it no-ops instead, so a
+-- release drag never leaves surprise intermediate states behind. The refund
+-- equals the sum of the step refunds — path-independence, downward.
+local function evaluate_release(surface, force, cx, cy)
+  local surface_index = surface.index
+  local cell_key = registry.cell_key(cx, cy)
+  local rec = registry.get(surface_index, cell_key)
+  if rec == nil or rec.force_index ~= force.index then return nil end
+
+  local found = surface.find_entities_filtered({
+    area = blockers.cell_area(cx, cy),
+    force = force,
+    collision_mask = const.RELEASE_LAYERS,
+    limit = 1,
+  })
+  if #found > 0 then return nil end
+
+  return {
+    cx = cx, cy = cy, cell_key = cell_key,
+    old_state = rec.state, new_state = "wilderness",
+    refund = const.TOTAL[rec.state] * economy.refund_percent() / 100,
+  }
+end
+
 local function apply_claim(surface, force, player, t)
   local rec = registry.get(surface.index, t.cell_key)
   if rec then
@@ -234,28 +260,33 @@ local function apply_downgrade(surface, force, player, t)
 end
 
 -- Apply one survey-tool batch. `action` is "trail" | "rampart" | "deed" |
--- "downgrade"; `rect` is inclusive cell coordinates {x1, y1, x2, y2}.
+-- "downgrade" | "release"; `rect` is inclusive cell coordinates
+-- {x1, y1, x2, y2}. opts.ignore_adjacency skips the anchor test (remote
+-- interface, ADR-0006); opts.outpost additionally marks the claim as a
+-- founded outpost, which skips origin recording (scripts/outposts.lua owns
+-- that bookkeeping — an outpost must never become its own mainland).
 --
 -- Returns a result for the caller's feedback:
 --   {denied = "disabled"}
 --   {denied = "anchor"}
 --   {denied = "points", need = n, have = n}
 --   {applied = n, cost = n}      (claim actions; n may be 0 -> silent no-op)
---   {applied = n, refund = n}    (downgrade)
+--   {applied = n, refund = n}    (downgrade / release)
 function claims.apply_batch(surface, force, player, rect, action, opts)
   if storage.disabled_surfaces[surface.index] then
     return { denied = "disabled" }
   end
-  local ignore_adjacency = opts ~= nil and opts.ignore_adjacency or false
+  local ignore_adjacency = opts ~= nil and (opts.ignore_adjacency or opts.outpost) or false
 
   local single = rect.x1 == rect.x2 and rect.y1 == rect.y2
 
-  if action == "downgrade" then
+  if action == "downgrade" or action == "release" then
+    local evaluate = action == "release" and evaluate_release or evaluate_downgrade
     local transitions = {}
     local total_refund = 0
     for cy = rect.y1, rect.y2 do
       for cx = rect.x1, rect.x2 do
-        local t = evaluate_downgrade(surface, force, cx, cy)
+        local t = evaluate(surface, force, cx, cy)
         if t then
           transitions[#transitions + 1] = t
           total_refund = total_refund + t.refund
@@ -339,6 +370,12 @@ function claims.apply_batch(surface, force, player, rect, action, opts)
   for _, t in ipairs(transitions) do
     apply_claim(surface, force, player, t)
   end
+  -- Origin bookkeeping for outpost accounting (scripts/outposts.lua): a
+  -- force's first claim on a surface is its mainland anchor there. Outpost
+  -- claims are excluded — an outpost must never anchor itself free.
+  if #transitions > 0 and not (opts and opts.outpost) then
+    claims.note_origin(surface.index, force.index, transitions[1].cell_key)
+  end
   if total_cost > 0 then
     economy.change(force, -total_cost, "claim")
   end
@@ -359,11 +396,22 @@ end
 -- place their first machines. invested_points = 0: granted, not bought
 -- (the step-price refund chain on downgrading a granted cell leaks 1.25
 -- points at the default rate; accepted).
+-- The mainland anchor per (force, surface) for outpost accounting: set by
+-- the FIRST claim there (starter grant or paid) and then permanent until
+-- moved by scripts/outposts.lua when its cell is downgraded away.
+function claims.note_origin(surface_index, force_index, cell_key)
+  storage.origins[force_index] = storage.origins[force_index] or {}
+  if not storage.origins[force_index][surface_index] then
+    storage.origins[force_index][surface_index] = cell_key
+  end
+end
+
 function claims.grant_free(surface, force, player, cx, cy, state)
   if storage.disabled_surfaces[surface.index] then return false end
   local cell_key = registry.cell_key(cx, cy)
   if registry.get(surface.index, cell_key) then return false end
   if not blockers.cell_touches_generated(surface, cx, cy) then return false end
+  claims.note_origin(surface.index, force.index, cell_key)
   registry.set(surface.index, cell_key, {
     state = state,
     force_index = force.index,

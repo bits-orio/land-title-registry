@@ -14,6 +14,7 @@ local hud = require("scripts.hud")
 local custom_events = require("scripts.custom_events")
 local welcome = require("scripts.welcome")
 local chronicle = require("scripts.chronicle")
+local outposts = require("scripts.outposts")
 local mts_compat = require("compat.mts")
 local odb_compat = require("compat.odb")
 require("scripts.commands")
@@ -122,8 +123,32 @@ script.on_configuration_changed(function()
     blockers.enqueue_full_rebuild()
   end
 
-  -- storage.meta.version is 1; migration steps compare against it here as
-  -- the schema evolves.
+  -- Schema v2: border lines moved from shared per-force render objects to
+  -- per-player objects (per-user style settings), and outpost accounting
+  -- arrived. Old render arrays mix lines and stakes — drop everything and
+  -- re-derive through the batched rebuild. Origins retrofit: the oldest
+  -- claim per (force, surface) becomes the mainland anchor.
+  if (storage.meta.version or 1) < 2 then
+    storage.meta.version = 2
+    for surface_index in pairs(storage.renders) do
+      render.drop_surface(surface_index)
+    end
+    for surface_index, cells in pairs(storage.cells) do
+      local oldest = {}
+      for cell_key, rec in pairs(cells) do
+        local tick = rec.claimed_tick or 0
+        local current = oldest[rec.force_index]
+        if not current or tick < current.tick then
+          oldest[rec.force_index] = { key = cell_key, tick = tick }
+        end
+      end
+      for force_index, entry in pairs(oldest) do
+        storage.origins[force_index] = storage.origins[force_index] or {}
+        storage.origins[force_index][surface_index] = entry.key
+      end
+    end
+    blockers.enqueue_full_rebuild()
+  end
 end)
 
 -- World lifecycle
@@ -162,13 +187,32 @@ script.on_event(defines.events.on_forces_merged, function(event)
   blockers.enqueue_full_rebuild()
 end)
 
--- Research income
-script.on_event(defines.events.on_research_finished, tech.on_research_finished)
-script.on_event(defines.events.on_research_reversed, tech.on_research_reversed)
+-- Research income; outpost techs grant slots (not points), so their HUD
+-- line refreshes here rather than through on_points_changed.
+script.on_event(defines.events.on_research_finished, function(event)
+  tech.on_research_finished(event)
+  if string.find(event.research.name, "^ltr%-outpost%-grants%-") then
+    hud.refresh_force(event.research.force)
+  end
+end)
+script.on_event(defines.events.on_research_reversed, function(event)
+  tech.on_research_reversed(event)
+  if string.find(event.research.name, "^ltr%-outpost%-grants%-") then
+    hud.refresh_force(event.research.force)
+  end
+end)
 
--- Survey tool
+-- Survey tool (five gestures; each one's action is per-player remappable).
+-- Super-forced selection (Ctrl+Shift-drag) is a 2.1 engine feature: on 2.0
+-- the define is nil and the gesture is inert — the 2.0.x path to a Rampart
+-- jump is remapping another gesture via the ltr-gesture-* settings. The
+-- prototype-side super_forced_select is silently ignored there (verified
+-- against 2.0.77), so one code base serves both.
 script.on_event(defines.events.on_player_selected_area, tool.on_selected)
 script.on_event(defines.events.on_player_alt_selected_area, tool.on_alt_selected)
+if defines.events.on_player_super_forced_selected_area then
+  script.on_event(defines.events.on_player_super_forced_selected_area, tool.on_super_forced_selected)
+end
 script.on_event(defines.events.on_player_reverse_selected_area, tool.on_reverse_selected)
 script.on_event(defines.events.on_player_alt_reverse_selected_area, tool.on_alt_reverse_selected)
 script.on_event(defines.events.on_player_cursor_stack_changed, tool.on_cursor_changed)
@@ -180,11 +224,19 @@ script.on_event(defines.events.on_player_created, function(event)
   hud.on_player_created(event)
   welcome.on_player_created(event)
 end)
-script.on_event(defines.events.on_gui_click, welcome.on_gui_click)
+script.on_event(defines.events.on_gui_click, function(event)
+  welcome.on_gui_click(event)
+  outposts.on_gui_click(event)
+end)
+script.on_event(defines.events.on_gui_closed, outposts.on_gui_closed)
 script.on_event(defines.events.on_player_joined_game, function(event)
   hud.on_player_joined(event)
   tech.on_player_joined(event)
   welcome.on_player_joined(event)
+  -- Border lines are per player (per-user style settings); a joining
+  -- player's set is derived fresh from the registry.
+  local joined = game.get_player(event.player_index)
+  if joined and joined.valid then render.rebuild_player(joined) end
   -- One-shot chronicle backfill, anchored to a join rather than only to
   -- on_configuration_changed: a control-only code update at the same mod
   -- version never fires config-changed, so dev-loop saves would miss it.
@@ -230,16 +282,31 @@ script.on_event(defines.events.on_player_changed_force, function(event)
   tool.on_player_changed_force(event)
   tech.on_player_changed_force(event)
   hud.on_player_changed_force(event)
+  -- The player's border lines belong to their force; re-derive them.
+  local player = game.get_player(event.player_index)
+  if player and player.valid then render.rebuild_player(player) end
 end)
-script.on_event(defines.events.on_player_left_game, tool.on_player_gone)
-script.on_event(defines.events.on_player_removed, tool.on_player_gone)
+script.on_event(defines.events.on_player_left_game, function(event)
+  tool.on_player_gone(event)
+  render.drop_player(event.player_index)
+end)
+script.on_event(defines.events.on_player_removed, function(event)
+  tool.on_player_gone(event)
+  render.drop_player(event.player_index)
+  outposts.on_player_removed(event)
+end)
 
--- Settings: HUD visibility per player; border-color changes re-render
--- everything through the batched rebuild queue, never in one tick.
+-- Settings: HUD visibility per player; planet-color changes re-render
+-- everything through the batched rebuild queue, never in one tick;
+-- per-player border style rebuilds just that player's lines.
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
   hud.on_setting_changed(event)
   if string.find(event.setting, "^ltr%-color%-") then
     blockers.enqueue_full_rebuild()
+  end
+  if string.find(event.setting, "^ltr%-border%-") and event.player_index then
+    local player = game.get_player(event.player_index)
+    if player and player.valid then render.rebuild_player(player) end
   end
 end)
 
@@ -263,4 +330,7 @@ script.on_event(custom_events.on_cell_downgraded, function(event)
   if surface and surface.valid then
     render.refresh_around(surface, event.cell_pos.x, event.cell_pos.y)
   end
+  -- A released cell passes its outpost record / mainland origin to a
+  -- neighbouring owned cell.
+  outposts.on_cell_downgraded(event)
 end)

@@ -142,6 +142,12 @@ function tech.on_player_changed_force(event)
   if player and player.valid then establish_presence(player.force, player.surface, player) end
 end
 
+-- Recycled team slots start blank: without this a re-created team inherits
+-- its predecessor's charter history and never receives settlement grants.
+function tech.reset_charters(force_index)
+  if storage.charters then storage.charters[force_index] = nil end
+end
+
 -- Merged forces: union charter records so the survivor cannot re-farm a
 -- planet the source had already chartered (called from economy's merge).
 function tech.merge_charters(source_index, destination_index)

@@ -31,4 +31,13 @@ data:extend({
     indent = 1,
     trigger = { type = "time-elapsed", ticks = 60 * 60 * 5 },
   },
+  {
+    -- Surfaces when the mechanic becomes available, not on a timer.
+    type = "tips-and-tricks-item",
+    name = "ltr-tip-outposts",
+    category = "land-title-registry",
+    order = "d",
+    indent = 1,
+    trigger = { type = "research", technology = "ltr-outpost-grants-1" },
+  },
 })

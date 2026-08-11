@@ -23,12 +23,7 @@ local TRANSIT_TYPES = {
   ["curved-rail-a"] = true,
   ["curved-rail-b"] = true,
   ["half-diagonal-rail"] = true,
-  ["elevated-straight-rail"] = true,
-  ["elevated-curved-rail-a"] = true,
-  ["elevated-curved-rail-b"] = true,
-  ["elevated-half-diagonal-rail"] = true,
   ["rail-ramp"] = true,
-  ["rail-support"] = true,
   ["legacy-straight-rail"] = true,
   ["legacy-curved-rail"] = true,
   ["rail-signal"] = true,
@@ -38,13 +33,14 @@ local TRANSIT_TYPES = {
   ["pipe-to-ground"] = true,
 }
 
--- Self-sufficient defense: turrets (never artillery), walls, radar, and the
--- power kit that lets a rampart run itself. pump is rampart because it needs
--- electricity, and electricity is a Rampart right.
+-- Self-sufficient defense: turrets (never artillery), landmines, walls,
+-- radar, and the power kit that lets a rampart run itself. pump is rampart
+-- because it needs electricity, and electricity is a Rampart right.
 local RAMPART_TYPES = {
   ["ammo-turret"] = true,
   ["electric-turret"] = true,
   ["fluid-turret"] = true,
+  ["land-mine"] = true,
   ["radar"] = true,
   ["wall"] = true,
   ["gate"] = true,
@@ -77,6 +73,15 @@ local EXEMPT_TYPES = {
   ["cargo-pod"] = true,
   ["rocket-silo-rocket"] = true,
   ["rocket-silo-rocket-shadow"] = true,
+  -- Elevated rails and their support pylons: viaducts fly over unowned land
+  -- the way vehicles drive through it. Ramps stay Trail — elevation can only
+  -- be entered or left on claimed ground, so wilderness crossings are pure
+  -- transit with no stations, no signals, and no way down (playtest call).
+  ["elevated-straight-rail"] = true,
+  ["elevated-curved-rail-a"] = true,
+  ["elevated-curved-rail-b"] = true,
+  ["elevated-half-diagonal-rail"] = true,
+  ["rail-support"] = true,
 }
 
 -- Name-based exemptions, sanctioned by the spec for classes that share a

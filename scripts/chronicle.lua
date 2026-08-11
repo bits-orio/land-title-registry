@@ -454,6 +454,38 @@ function chronicle.take_notable()
 end
 
 
+-- A released team slot's history leaves with the team (playtest finding:
+-- without this, the recycled slot's stale entry trips the already-recorded
+-- guard in on_cell_claimed — the new occupant re-deeds a cell their
+-- predecessor held and no record, and no name, ever appears). Purge every
+-- entry and redraw the affected standings.
+function chronicle.on_team_released(force_name)
+  local affected = {}
+  local removed = 0
+  for group, cells in pairs(storage.chronicle) do
+    for cell_key, entries in pairs(cells) do
+      for i = #entries, 1, -1 do
+        if entries[i].force_name == force_name then
+          table.remove(entries, i)
+          removed = removed + 1
+          affected[#affected + 1] = { group = group, cell_key = cell_key }
+        end
+      end
+      if #entries == 0 then cells[cell_key] = nil end
+    end
+  end
+  if removed == 0 then return end
+  log("LTR-CHRON release: purged " .. removed .. " entries of " .. force_name)
+  for _, hit in ipairs(affected) do
+    local pos = registry.cell_key_to_pos(hit.cell_key)
+    for _, surface in pairs(game.surfaces) do
+      if group_of(surface) == hit.group then
+        chronicle.refresh_cell(surface, pos.x, pos.y)
+      end
+    end
+  end
+end
+
 -- Merged forces: keep each cell's best time under the surviving name.
 function chronicle.on_forces_merged(event)
   local destination_name = event.destination.name

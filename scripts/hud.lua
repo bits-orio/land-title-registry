@@ -7,6 +7,7 @@
 
 local mod_gui = require("mod-gui")
 local economy = require("scripts.economy")
+local outposts = require("scripts.outposts")
 
 local hud = {}
 
@@ -31,11 +32,24 @@ function hud.update(player)
     frame = mod_gui.get_frame_flow(player).add({
       type = "frame",
       name = FRAME_NAME,
+      direction = "vertical",
       style = mod_gui.frame_style,
     })
     frame.add({ type = "label", name = "points" })
   end
   frame.points.caption = { "land-title-registry.hud-points", economy.format(economy.get(player.force.index)) }
+
+  -- Outposts line: shown only once the force has researched a slot, so the
+  -- HUD stays a one-liner for everyone who never touches the mechanic.
+  -- Passive counts — no BFS on a HUD refresh path.
+  local used, cap = outposts.counts(player.force)
+  local line = frame.outposts
+  if cap > 0 then
+    if not line then line = frame.add({ type = "label", name = "outposts" }) end
+    line.caption = { "land-title-registry.hud-outposts", used, cap }
+  elseif line then
+    line.destroy()
+  end
 end
 
 function hud.on_player_created(event)
@@ -55,6 +69,12 @@ end
 function hud.on_points_changed(event)
   local force = game.forces[event.force_name]
   if not (force and force.valid) then return end
+  hud.refresh_force(force)
+end
+
+-- Outpost research grants no points, so the points-changed trigger never
+-- fires for it; control.lua calls this directly on those techs.
+function hud.refresh_force(force)
   for _, player in pairs(force.players) do
     hud.update(player)
   end

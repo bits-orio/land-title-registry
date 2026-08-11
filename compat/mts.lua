@@ -12,6 +12,8 @@ local economy = require("scripts.economy")
 local blockers = require("scripts.blockers")
 local render = require("scripts.render")
 local chronicle = require("scripts.chronicle")
+local tech = require("scripts.tech")
+local outposts = require("scripts.outposts")
 
 local mts = { active = false }
 
@@ -140,9 +142,13 @@ function mts.resolve_events()
     script.on_event(on_team_created, sweep_non_team_surfaces)
   end
 
-  -- Recycled team slots must not inherit the previous occupant's balance.
-  -- This is what reset_force exists for, and why it is implemented and
-  -- exercised from day one rather than left as a stub in the interface.
+  -- Recycled team slots must not inherit the previous occupant's state —
+  -- balance, chronicle records, charter history, or outpost slots. This is
+  -- what reset_force exists for, and why it is implemented and exercised
+  -- from day one rather than left as a stub in the interface. The
+  -- chronicle purge doubles as the fix for the re-deed bug: a stale entry
+  -- under the recycled name trips the already-recorded guard, so the new
+  -- occupant's deed would never enter the standings.
   local on_team_released =
     remote.call("mts-v1", "get_event_id", "on_team_released")
   if on_team_released then
@@ -150,6 +156,9 @@ function mts.resolve_events()
       local force = game.forces[event.force_name]
       if force and force.valid then
         economy.set(force, settings.global["ltr-starting-points"].value, "reset")
+        chronicle.on_team_released(force.name)
+        tech.reset_charters(force.index)
+        outposts.reset_force(force.index)
       end
     end)
   end

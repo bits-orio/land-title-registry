@@ -21,20 +21,25 @@ Movement is never restricted. You can walk, drive, and railroad through Wilderne
 
 ## Playing
 
-Everything happens through one item: the **survey tool**, available from the shortcut bar. It has four drag modes:
+Everything happens through one item: the **survey tool**, available from the shortcut bar. Right is the exact mirror of left — every raising gesture selects in green, every lowering one in red:
 
-| Drag | Action |
+| Gesture | Action |
 |---|---|
-| select | Claim Trail on every Wilderness cell in the rectangle |
-| alt-select | Claim or upgrade to Deed |
-| alt-reverse-select | Claim or upgrade to Rampart |
-| reverse-select | Downgrade one step, with a partial refund |
+| Drag | Raise every covered cell one rung |
+| Shift + Drag | Jump to Deed |
+| Ctrl + Shift + Drag | Jump to Rampart *(Factorio 2.1; on 2.0 use the Rampart variant tool, default ALT+W)* |
+| Right-drag | Lower one rung, with a partial refund |
+| Shift + Right-drag | Sell everything back to Wilderness |
+
+Every gesture's action is remappable per player in mod settings, and each player styles their own border lines — width, per-state colors, alpha — without affecting anyone else's view.
 
 Batches are **all-or-nothing** — if you can't afford the whole drag, nothing is applied and the shortfall is shown. Prices are flat, with full credit for rights you already hold: an incremental path never costs more than a direct one. The tool works in map view, so territory can be managed remotely.
 
 Land points come from the `ltr-land-grants` research chain, which ends in an infinite technology with a **linear** cost curve — so late-game income tapers but never stops. Forces also get a starting grant, and a one-time settlement charter the first time they reach each planet.
 
 New claims must touch land you already hold. That's checked only when you claim; territory that later gets disconnected stays yours.
+
+The exception is earned: **Outpost grants** research permits Deeds founded anywhere in the wilderness, no adjacency required — one concurrent outpost per researched level. Founding asks for confirmation (slots are hard-earned), and a slot returns once the outpost's territory grows to connect with your mainland.
 
 ### The causeway
 

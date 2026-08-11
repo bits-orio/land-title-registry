@@ -25,6 +25,8 @@ Stable from v1: these signatures and payloads are a compatibility contract. Decl
 | `get_surface_enabled(surface)` | `boolean` | Whether Land Title Registry's grid is active on the surface. |
 | `get_cell_chronicle(surface, cell_pos)` | array | The cell's chronicle: `{force_name, clock}` entries, ranked fastest-first on each team's own clock (`clock` in ticks). Empty when nobody has deeded it. Every team's copy of a planet shares one chronicle, so a scoreboard can rank a cell across all teams. |
 | `get_cell_size()` | `uint` | Cell edge length in tiles (startup `ltr-cell-size`). |
+| `release(surface, cell_pos, force, opts?)` | `ok, reason` | Sell the cell straight back to Wilderness (the Shift+right-drag gesture). Fails like `downgrade` when any entity on the cell still uses a right. |
+| `get_outpost_info(force_index)` | `{used, cap}` | Outpost slots occupied and the researched cap (`ltr-outpost-grants` chain). `nil` for an invalid force. |
 | `get_event_id(name)` | `uint` or `nil` | Resolves a custom-event name to this session's event id. |
 
 ## Custom events

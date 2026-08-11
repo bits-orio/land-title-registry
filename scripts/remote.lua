@@ -16,6 +16,7 @@ local economy = require("scripts.economy")
 local claims = require("scripts.claims")
 local chronicle = require("scripts.chronicle")
 local custom_events = require("scripts.custom_events")
+local outposts = require("scripts.outposts")
 
 local VALID_TARGET = { trail = true, rampart = true, deed = true }
 
@@ -70,6 +71,26 @@ remote.add_interface("land-title-registry", {
       return false, "invalid-cell-pos"
     end
     return to_ok(claims.apply_batch(surface, force, nil, one_cell_rect(cell_pos), "downgrade"))
+  end,
+
+  -- Sell a cell straight back to Wilderness (v1.1 addition, mirrors the
+  -- Shift+right-drag gesture). Same ok, reason contract as downgrade.
+  release = function(surface, cell_pos, force, opts)
+    if not (surface and surface.valid) then return false, "invalid-surface" end
+    if not (force and force.valid) then return false, "invalid-force" end
+    if type(cell_pos) ~= "table" or type(cell_pos.x) ~= "number" or type(cell_pos.y) ~= "number" then
+      return false, "invalid-cell-pos"
+    end
+    return to_ok(claims.apply_batch(surface, force, nil, one_cell_rect(cell_pos), "release"))
+  end,
+
+  -- Outpost accounting: {used = n, cap = n} for scoreboards and
+  -- integrations. Passive counts; reconciliation happens on claim batches.
+  get_outpost_info = function(force_index)
+    local force = game.forces[force_index]
+    if not (force and force.valid) then return nil end
+    local used, cap = outposts.counts(force)
+    return { used = used, cap = cap }
   end,
 
   get_cell = function(surface, cell_pos)

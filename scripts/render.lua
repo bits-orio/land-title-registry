@@ -28,7 +28,6 @@
 
 local const = require("scripts.const")
 local registry = require("scripts.registry")
-local state_colors = require("scripts.state_colors")
 
 local render = {}
 
@@ -40,22 +39,40 @@ local EDGE_ART = {
   deed = { width = 1, dash = 0, gap = 0 },
 }
 
--- Edge colors are per STATE (deed green, rampart yellow, trail orange —
--- the same palette the ground overlays are generated from, via
--- scripts/state_colors.lua). Ownership identity stays on the survey
--- stakes, which keep the per-planet / MTS team color.
+-- Edge colors are per STATE and per PLAYER: each player styles their own
+-- force's lines through the ltr-border-* per-user settings (width, color,
+-- alpha — playtest call), whose defaults are the scripts/state_colors.lua
+-- palette. Line objects therefore carry BOTH a forces filter and a players
+-- filter; ownership identity stays on the survey stakes, which keep the
+-- per-planet / MTS team color and stay shared per force.
 --
 -- Alpha as a coarse zoom ramp. ScriptRenderMode is exactly "game"|"chart"
 -- (verified against the 2.0.77 API — the chart_zoomed_in defines value is
 -- the PLAYER's view state, not a draw-call option), so a continuous
 -- zoom-dependent alpha does not exist and neither does a middle step. What
--- exists is a two-step ramp: subtle lines up close in the world, full
--- strength on the map.
+-- exists is a two-step ramp — subtle lines up close in the world, full
+-- strength on the map — scaled by the alpha the player chose.
 local EDGE_ALPHA = { game = 0.55, chart = 1.0 }
 
-local function state_color(state, alpha)
-  local c = state_colors[state]
-  return { r = c.r / 255 * alpha, g = c.g / 255 * alpha, b = c.b / 255 * alpha, a = alpha }
+-- A player's line style, read once per refresh/rebuild pass.
+local function style_of(player)
+  local s = player.mod_settings
+  return {
+    width = s["ltr-border-width"].value,
+    colors = {
+      trail = s["ltr-border-color-trail"].value,
+      rampart = s["ltr-border-color-rampart"].value,
+      deed = s["ltr-border-color-deed"].value,
+    },
+  }
+end
+
+-- Premultiplied line color: the player's chosen color and alpha, scaled by
+-- the mode's ramp step.
+local function line_color(style, state, mode_alpha)
+  local c = style.colors[state]
+  local a = (c.a or 1) * mode_alpha
+  return { r = c.r * a, g = c.g * a, b = c.b * a, a = a }
 end
 
 -- Optional provider hook: compat/mts.lua (M4) sets this to return a team
@@ -114,40 +131,77 @@ end
 -- frontiers remain single lines.
 local INSET = 0.2
 
-local function draw_edge(objects, surface, from, to, state, force)
+-- Both render modes of one edge line, for one player, in that player's
+-- style. The forces filter scopes to the owner; the players filter scopes
+-- to the one viewer whose settings shaped these objects.
+local function draw_edge(objects, surface, from, to, state, force, player, style)
   local art = EDGE_ART[state]
   objects[#objects + 1] = rendering.draw_line({
     surface = surface,
     from = from,
     to = to,
-    color = state_color(state, EDGE_ALPHA.game),
-    width = art.width,
+    color = line_color(style, state, EDGE_ALPHA.game),
+    width = style.width,
     dash_length = art.dash,
     gap_length = art.gap,
     draw_on_ground = true,
     only_in_alt_mode = true,
     forces = { force },
+    players = { player },
   })
   objects[#objects + 1] = rendering.draw_line({
     surface = surface,
     from = from,
     to = to,
-    color = state_color(state, EDGE_ALPHA.chart),
-    width = 2,
+    color = line_color(style, state, EDGE_ALPHA.chart),
+    width = style.width + 1,
     dash_length = art.dash,
     gap_length = art.gap,
     render_mode = "chart",
     forces = { force },
+    players = { player },
   })
 end
 
--- One claimed side of a frontier edge: art and color are the side's own
--- state; visibility is the side owner's force.
-local function draw_edge_side(objects, surface, side_state, side_owner, from, to)
-  if side_state == "wilderness" or not side_owner then return end
-  local force = game.forces[side_owner]
-  if not (force and force.valid) then return end
-  draw_edge(objects, surface, from, to, side_state, force)
+-- The line objects of cell (cx, cy)'s owned edges (west + north) that
+-- belong to ONE player: only sides owned by that player's force, in that
+-- player's style. Factored out of refresh_cell so a player-scoped rebuild
+-- (join, force change, setting change) can re-derive lines without
+-- touching the shared stakes.
+local function build_player_lines(surface, cx, cy, player, style)
+  local surface_index = surface.index
+  local force = player.force
+  local force_index = force.index
+  local objects = {}
+  local x0, y0 = cx * const.CELL, cy * const.CELL
+  local C = const.CELL
+
+  local sc = state_at(surface_index, cx, cy)
+  local sw = state_at(surface_index, cx - 1, cy)
+  if sw ~= sc then
+    if sc ~= "wilderness" and owner_at(surface_index, cx, cy) == force_index then
+      draw_edge(objects, surface, { x = x0 + INSET, y = y0 + INSET },
+        { x = x0 + INSET, y = y0 + C - INSET }, sc, force, player, style)
+    end
+    if sw ~= "wilderness" and owner_at(surface_index, cx - 1, cy) == force_index then
+      draw_edge(objects, surface, { x = x0 - INSET, y = y0 + INSET },
+        { x = x0 - INSET, y = y0 + C - INSET }, sw, force, player, style)
+    end
+  end
+
+  local sn = state_at(surface_index, cx, cy - 1)
+  if sn ~= sc then
+    if sc ~= "wilderness" and owner_at(surface_index, cx, cy) == force_index then
+      draw_edge(objects, surface, { x = x0 + INSET, y = y0 + INSET },
+        { x = x0 + C - INSET, y = y0 + INSET }, sc, force, player, style)
+    end
+    if sn ~= "wilderness" and owner_at(surface_index, cx, cy - 1) == force_index then
+      draw_edge(objects, surface, { x = x0 + INSET, y = y0 - INSET },
+        { x = x0 + C - INSET, y = y0 - INSET }, sn, force, player, style)
+    end
+  end
+
+  return objects
 end
 
 -- The four edges touching vertex V(cx, cy) — the NW corner of cell (cx, cy):
@@ -161,46 +215,66 @@ local function vertex_edges(cx, cy)
   }
 end
 
+local function destroy_all(objects)
+  if not objects then return end
+  for _, object in pairs(objects) do
+    if object.valid then object.destroy() end
+  end
+end
+
 -- Rebuild the render objects OWNED by cell (cx, cy): west edge, north edge,
--- NW stake. Destroys before creating; safe to call for any cell at any time.
+-- NW stake. Destroys before creating; safe to call for any cell at any
+-- time. Stakes are shared per force (storage.renders); lines are built per
+-- connected player of each involved force, in that player's own style
+-- (storage.player_renders).
 function render.refresh_cell(surface, cx, cy)
   local surface_index = surface.index
   storage.renders[surface_index] = storage.renders[surface_index] or {}
   local refs = storage.renders[surface_index]
   local cell_key = registry.cell_key(cx, cy)
 
-  local old = refs[cell_key]
-  if old then
-    for _, object in pairs(old) do
-      if object.valid then object.destroy() end
+  destroy_all(refs[cell_key])
+  refs[cell_key] = nil
+  for _, per_surface in pairs(storage.player_renders) do
+    local bucket = per_surface[surface_index]
+    if bucket then
+      destroy_all(bucket[cell_key])
+      bucket[cell_key] = nil
     end
-    refs[cell_key] = nil
   end
 
   if storage.disabled_surfaces[surface_index] then return end
 
   local objects = {}
   local x0, y0 = cx * const.CELL, cy * const.CELL
-  local C = const.CELL
 
-  -- West edge: between W = (cx-1, cy) and this cell. Each claimed side
-  -- draws its own inset line.
-  local sw = state_at(surface_index, cx - 1, cy)
+  -- The forces involved in this cell's owned edges and stake vertex — the
+  -- stake owners, and whose connected players get line objects.
+  local involved = {}
   local sc = state_at(surface_index, cx, cy)
-  if sw ~= sc then
-    draw_edge_side(objects, surface, sc, owner_at(surface_index, cx, cy),
-      { x = x0 + INSET, y = y0 + INSET }, { x = x0 + INSET, y = y0 + C - INSET })
-    draw_edge_side(objects, surface, sw, owner_at(surface_index, cx - 1, cy),
-      { x = x0 - INSET, y = y0 + INSET }, { x = x0 - INSET, y = y0 + C - INSET })
+  for _, pair in pairs({ { cx - 1, cy }, { cx, cy - 1 } }) do
+    if state_at(surface_index, pair[1], pair[2]) ~= sc then
+      local own = owner_at(surface_index, cx, cy)
+      local other = owner_at(surface_index, pair[1], pair[2])
+      if own then involved[own] = true end
+      if other then involved[other] = true end
+    end
   end
 
-  -- North edge: between N = (cx, cy-1) and this cell.
-  local sn = state_at(surface_index, cx, cy - 1)
-  if sn ~= sc then
-    draw_edge_side(objects, surface, sc, owner_at(surface_index, cx, cy),
-      { x = x0 + INSET, y = y0 + INSET }, { x = x0 + C - INSET, y = y0 + INSET })
-    draw_edge_side(objects, surface, sn, owner_at(surface_index, cx, cy - 1),
-      { x = x0 + INSET, y = y0 - INSET }, { x = x0 + C - INSET, y = y0 - INSET })
+  -- Lines, per connected player of each involved force.
+  for force_index in pairs(involved) do
+    local force = game.forces[force_index]
+    if force and force.valid then
+      for _, player in pairs(force.connected_players) do
+        local lines = build_player_lines(surface, cx, cy, player, style_of(player))
+        if #lines > 0 then
+          local per_surface = storage.player_renders[player.index] or {}
+          storage.player_renders[player.index] = per_surface
+          per_surface[surface_index] = per_surface[surface_index] or {}
+          per_surface[surface_index][cell_key] = lines
+        end
+      end
+    end
   end
 
   -- NW survey stake: drawn when at least one touching edge is a frontier.
@@ -231,6 +305,43 @@ function render.refresh_cell(surface, cx, cy)
   if #objects > 0 then refs[cell_key] = objects end
 end
 
+-- Destroy one player's line objects everywhere (leave, force change, style
+-- change — the rebuild half is render.rebuild_player).
+function render.drop_player(player_index)
+  local per_surface = storage.player_renders[player_index]
+  if per_surface then
+    for _, cells in pairs(per_surface) do
+      for _, objects in pairs(cells) do destroy_all(objects) end
+    end
+  end
+  storage.player_renders[player_index] = nil
+end
+
+-- Rebuild one player's lines from the registry. Every cell owning a
+-- frontier edge also has a stake entry in storage.renders (its own edges
+-- are among its stake vertex's touching edges), so the shared bookkeeping
+-- is a complete index of candidate cells.
+function render.rebuild_player(player)
+  render.drop_player(player.index)
+  if not (player.valid and player.connected) then return end
+  local style = style_of(player)
+  local per_surface = {}
+  storage.player_renders[player.index] = per_surface
+
+  for surface_index, refs in pairs(storage.renders) do
+    local surface = game.surfaces[surface_index]
+    if surface and surface.valid and not storage.disabled_surfaces[surface_index] then
+      local bucket = {}
+      for cell_key in pairs(refs) do
+        local pos = registry.cell_key_to_pos(cell_key)
+        local lines = build_player_lines(surface, pos.x, pos.y, player, style)
+        if #lines > 0 then bucket[cell_key] = lines end
+      end
+      if next(bucket) then per_surface[surface_index] = bucket end
+    end
+  end
+end
+
 -- A state change (or fresh charting) of cell (cx, cy) affects the owned
 -- objects of exactly these four cells.
 function render.refresh_around(surface, cx, cy)
@@ -240,17 +351,21 @@ function render.refresh_around(surface, cx, cy)
   render.refresh_cell(surface, cx + 1, cy + 1)
 end
 
--- Surface teardown: destroy every render object and drop the bookkeeping.
+-- Surface teardown: destroy every render object and drop the bookkeeping,
+-- shared and per-player alike.
 function render.drop_surface(surface_index)
   local refs = storage.renders[surface_index]
   if refs then
-    for _, objects in pairs(refs) do
-      for _, object in pairs(objects) do
-        if object.valid then object.destroy() end
-      end
-    end
+    for _, objects in pairs(refs) do destroy_all(objects) end
   end
   storage.renders[surface_index] = nil
+  for _, per_surface in pairs(storage.player_renders) do
+    local bucket = per_surface[surface_index]
+    if bucket then
+      for _, objects in pairs(bucket) do destroy_all(objects) end
+      per_surface[surface_index] = nil
+    end
+  end
 end
 
 return render

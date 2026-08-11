@@ -59,6 +59,11 @@ const.VALIDITY_LAYERS = {
   trail = { "ltr-land", "ltr-transit", "ltr-rampart" },
 }
 
+-- Release validity (sell straight back to Wilderness): after Wilderness no
+-- rights remain, so the cell must hold no layered entity at all — the union
+-- of every per-step check above, in one query.
+const.RELEASE_LAYERS = { "ltr-land", "ltr-transit", "ltr-rampart" }
+
 -- The rung above each state, for the advance action (drag = raise one rung).
 const.NEXT_STATE = {
   wilderness = "trail",

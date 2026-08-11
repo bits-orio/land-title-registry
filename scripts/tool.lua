@@ -8,10 +8,12 @@ local registry = require("scripts.registry")
 local economy = require("scripts.economy")
 local claims = require("scripts.claims")
 local chronicle = require("scripts.chronicle")
+local outposts = require("scripts.outposts")
 
 local tool = {}
 
 local TOOL_NAME = "ltr-survey-tool"
+local RAMPART_TOOL_NAME = "ltr-survey-tool-rampart"
 local HOVER_TICK_INTERVAL = 10
 
 local SOUND_CLAIM = "ltr-sound-claim"
@@ -23,7 +25,8 @@ local LABEL_SHORT = { r = 1, g = 0.35, b = 0.35 }
 
 local function holding_tool(player)
   local stack = player.cursor_stack
-  return stack ~= nil and stack.valid_for_read and stack.name == TOOL_NAME
+  return stack ~= nil and stack.valid_for_read
+    and (stack.name == TOOL_NAME or stack.name == RAMPART_TOOL_NAME)
 end
 
 -- Cursor-stack writes are guarded by value comparison: a write to the stack
@@ -91,7 +94,7 @@ local function feedback(player, action, result)
     return
   end
 
-  if action == "downgrade" then
+  if action == "downgrade" or action == "release" then
     player.play_sound({ path = SOUND_REFUND })
     player.create_local_flying_text({
       text = { "land-title-registry.batch-refunded", economy.format(result.refund) },
@@ -126,10 +129,11 @@ local function announce(player, surface, rect, action, result)
   -- nil must be handled explicitly, not just the zero.
   if result.denied or not result.applied or result.applied == 0 then return end
 
+  local lowering = action == "downgrade" or action == "release"
   local gps = string.format("[gps=%d,%d,%s]",
     (rect.x1 + rect.x2 + 1) / 2 * const.CELL,
     (rect.y1 + rect.y2 + 1) / 2 * const.CELL, surface.name)
-  local amount = economy.format(action == "downgrade" and result.refund or result.cost)
+  local amount = economy.format(lowering and result.refund or result.cost)
 
   local notable = chronicle.take_notable()
   local record = ""
@@ -142,7 +146,7 @@ local function announce(player, surface, rect, action, result)
   end
 
   player.force.print({
-    action == "downgrade" and "land-title-registry.announce-lower" or "land-title-registry.announce-raise",
+    lowering and "land-title-registry.announce-lower" or "land-title-registry.announce-raise",
     chronicle.team_tag(player.force.name),
     colored_name(player),
     result.applied,
@@ -152,28 +156,73 @@ local function announce(player, surface, rect, action, result)
   })
 end
 
-local function handle_selection(action, event)
-  if event.item ~= TOOL_NAME then return end
+-- Gesture grammar (playtest rework): right is the exact mirror of left.
+-- Drag raises one rung, right-drag lowers one; Shift jumps to the top
+-- (Deed), Shift-right jumps to the bottom (sell everything back to
+-- Wilderness); Ctrl+Shift is the middle jump (Rampart). Each gesture's
+-- ACTION is per-player remappable through the ltr-gesture-* settings —
+-- the claims-side vocabulary is the setting value translated here.
+local ACTION_OF = {
+  ["raise-one"] = "advance",
+  ["jump-deed"] = "deed",
+  ["jump-rampart"] = "rampart",
+  ["lower-one"] = "downgrade",
+  ["release-all"] = "release",
+}
+
+-- The Rampart variant tool is fixed-function (its whole point is a
+-- dependable Rampart jump on plain drag); the other gestures mirror the
+-- main tool's defaults so muscle memory transfers.
+local RAMPART_TOOL_ACTION = {
+  ["ltr-gesture-drag"] = "rampart",
+  ["ltr-gesture-shift-drag"] = "deed",
+  ["ltr-gesture-ctrl-shift-drag"] = "rampart",
+  ["ltr-gesture-right-drag"] = "downgrade",
+  ["ltr-gesture-shift-right-drag"] = "release",
+}
+
+local function handle_selection(gesture_setting, event)
   local player = game.get_player(event.player_index)
   if not (player and player.valid) then return end
   local surface = event.surface
   if not (surface and surface.valid) then return end
+  local action
+  if event.item == TOOL_NAME then
+    action = ACTION_OF[player.mod_settings[gesture_setting].value] or "advance"
+  elseif event.item == RAMPART_TOOL_NAME then
+    action = RAMPART_TOOL_ACTION[gesture_setting]
+  else
+    return
+  end
 
   local rect = rect_from_area(event.area)
   chronicle.begin_batch()
   local result = claims.apply_batch(surface, player.force, player, rect, action)
+
+  -- An anchor-denied Deed jump on a single Wilderness cell may instead be
+  -- an outpost founding — offered through a confirmation dialog, never
+  -- applied from the drag itself (slots are hard-earned; an accidental
+  -- gesture must not spend one).
+  if result.denied == "anchor" and action == "deed"
+    and outposts.try_offer(player, surface, rect, player.force) then
+    return
+  end
+
   feedback(player, action, result)
   announce(player, surface, rect, action, result)
+
+  -- Territory changed: an outpost region may now reach the mainland. Once
+  -- per batch, never per cell (the reconcile BFS is region-bounded).
+  if result.applied and result.applied > 0 then
+    outposts.reconcile(player.force)
+  end
 end
 
--- The advertised interaction is two gestures (ADR-0011): drag raises every
--- covered cell one rung, right-drag lowers one rung. The Shift variants are
--- unadvertised accelerators that jump with full credit — the economy's
--- path-independence makes stepping and jumping cost the same.
-function tool.on_selected(event) handle_selection("advance", event) end
-function tool.on_alt_selected(event) handle_selection("deed", event) end
-function tool.on_reverse_selected(event) handle_selection("downgrade", event) end
-function tool.on_alt_reverse_selected(event) handle_selection("rampart", event) end
+function tool.on_selected(event) handle_selection("ltr-gesture-drag", event) end
+function tool.on_alt_selected(event) handle_selection("ltr-gesture-shift-drag", event) end
+function tool.on_super_forced_selected(event) handle_selection("ltr-gesture-ctrl-shift-drag", event) end
+function tool.on_reverse_selected(event) handle_selection("ltr-gesture-right-drag", event) end
+function tool.on_alt_reverse_selected(event) handle_selection("ltr-gesture-shift-right-drag", event) end
 
 -- ---------------------------------------------------------------------------
 -- Hover feedback: a short-interval on_nth_tick registered only while at

@@ -22,4 +22,15 @@ data:extend({
     item_to_spawn = "ltr-survey-tool",
     consuming = "none",
   },
+  {
+    -- The Rampart survey tool's only entry point. W is free in the ALT
+    -- row vanilla occupies (A/B/C/D/E/F/G/L/R/T/U/Y); rebindable like
+    -- every custom input.
+    type = "custom-input",
+    name = "ltr-get-rampart-tool",
+    key_sequence = "ALT + W",
+    action = "spawn-item",
+    item_to_spawn = "ltr-survey-tool-rampart",
+    consuming = "none",
+  },
 })

@@ -223,7 +223,25 @@ end
 -- prototypes are named by start level ("ltr-land-grants-1", "-11", "-21", …)
 -- and one locale key (technology-name.ltr-land-grants) covers the family.
 
-local function build_ladder(bands)
+-- Science prerequisites of one band: the unlock tech of every pack the band
+-- adds, appended to `prereqs` (deduped, existing-tech-guarded). Without
+-- these links a tier floats free in the tech tree — researchable before its
+-- own ingredients can be crafted (playtest finding). Packs craftable from
+-- game start have no unlock tech and contribute no link.
+local function append_band_prereqs(band, unlock_of, prereqs)
+  local seen = {}
+  for _, existing in ipairs(prereqs) do seen[existing] = true end
+  for _, pack in ipairs(band.packs) do
+    local unlock = pack.unlock_tech or unlock_of[pack.name]
+    if unlock and not seen[unlock] and data.raw.technology[unlock] then
+      seen[unlock] = true
+      prereqs[#prereqs + 1] = unlock
+    end
+  end
+  return prereqs
+end
+
+local function build_ladder(bands, unlock_of)
   if #bands == 0 then return end
   local cumulative = {}
   local previous_name
@@ -237,6 +255,8 @@ local function build_ladder(bands)
     local terminal = (i == #bands)
     local start_level = (i - 1) * LEVELS_PER_TIER + 1
     local name = "ltr-land-grants-" .. start_level
+    local prereqs = append_band_prereqs(band, unlock_of,
+      previous_name and { previous_name } or {})
 
     techs[#techs + 1] = {
       type = "technology",
@@ -245,7 +265,12 @@ local function build_ladder(bands)
       icon_size = 64,
       upgrade = true,
       max_level = terminal and "infinite" or (i * LEVELS_PER_TIER),
-      prerequisites = previous_name and { previous_name } or nil,
+      prerequisites = #prereqs > 0 and prereqs or nil,
+      -- The engine's global technology-price multiplier (map setting) is
+      -- ignored: land income is an economy of its own, priced by
+      -- ltr-tech-cost-multiplier alone. A marathon map should slow the
+      -- science game, not divorce land prices from the tuned curve.
+      ignore_tech_cost_multiplier = true,
       unit = {
         count_formula = terminal
           and ("L*" .. (1000 * multiplier))
@@ -261,9 +286,62 @@ local function build_ladder(bands)
   data:extend(techs)
 end
 
-local override = settings.startup["ltr-tech-tiers"].value
-if override ~= "" then
-  build_ladder(parse_override(override))
-else
-  build_ladder(band_packs(collect_packs()))
+-- ---------------------------------------------------------------------------
+-- The ltr-outpost-grants chain: one tech per tier, mirroring the grants
+-- bands. Level i raises the force's cap of concurrent disconnected Deed
+-- outposts to i (runtime accounting in scripts/outposts.lua). Costs climb
+-- 1000 science per level over the cumulative pack list of tiers 1..i —
+-- deliberately steep; an outpost slot is a strategic purchase, not a level
+-- of income.
+
+local function build_outposts(bands, unlock_of)
+  if #bands == 0 then return end
+  local cumulative = {}
+  local previous_name
+  local techs = {}
+
+  for i, band in ipairs(bands) do
+    for _, pack in ipairs(band.packs) do
+      cumulative[#cumulative + 1] = { pack.name, 1 }
+    end
+    local name = "ltr-outpost-grants-" .. i
+    local prereqs = append_band_prereqs(band, unlock_of,
+      previous_name and { previous_name } or {})
+
+    techs[#techs + 1] = {
+      type = "technology",
+      name = name,
+      icon = "__land-title-registry__/graphics/survey-stake.png",
+      icon_size = 64,
+      upgrade = true,
+      max_level = i, -- the -i suffix is the start level: one level per tech
+      prerequisites = #prereqs > 0 and prereqs or nil,
+      ignore_tech_cost_multiplier = true,
+      unit = {
+        count = math.max(1, math.floor(i * 1000 * multiplier + 0.5)),
+        ingredients = table.deepcopy(cumulative),
+        time = 60,
+      },
+      order = string.format("z-ltr-outpost-%03d", i),
+    }
+    previous_name = name
+  end
+
+  data:extend(techs)
 end
+
+-- Pack discovery runs regardless of the override: the override pins the
+-- BANDING, but science-unlock prerequisites always come from the real DAG.
+local packs = collect_packs()
+local unlock_of = {}
+for _, pack in ipairs(packs) do unlock_of[pack.name] = pack.unlock_tech end
+
+local override = settings.startup["ltr-tech-tiers"].value
+local bands
+if override ~= "" then
+  bands = parse_override(override)
+else
+  bands = band_packs(packs)
+end
+build_ladder(bands, unlock_of)
+build_outposts(bands, unlock_of)

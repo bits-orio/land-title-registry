@@ -138,3 +138,61 @@ data:extend({
     order = "a[economy]-b[refund-percent]",
   },
 })
+
+-- Per-player border style (playtest call): each player draws their own
+-- force's frontier lines in their own width and per-state colors, alpha
+-- included. Lines are rendered per player (scripts/render.lua); the survey
+-- stakes keep the team/planet identity color and are NOT per-player.
+local BORDER_COLOR_DEFAULTS = {
+  -- scripts/state_colors.lua values at full alpha; render.lua applies its
+  -- world/chart alpha ramp on top, scaled by each color's alpha channel.
+  { state = "trail", color = { r = 222 / 255, g = 126 / 255, b = 38 / 255, a = 1 } },
+  { state = "rampart", color = { r = 224 / 255, g = 186 / 255, b = 48 / 255, a = 1 } },
+  { state = "deed", color = { r = 90 / 255, g = 170 / 255, b = 82 / 255, a = 1 } },
+}
+local border_settings = {
+  {
+    type = "int-setting",
+    name = "ltr-border-width",
+    setting_type = "runtime-per-user",
+    default_value = 1,
+    minimum_value = 1,
+    maximum_value = 6,
+    order = "f[borders]-a[width]",
+  },
+}
+for i, entry in ipairs(BORDER_COLOR_DEFAULTS) do
+  border_settings[#border_settings + 1] = {
+    type = "color-setting",
+    name = "ltr-border-color-" .. entry.state,
+    setting_type = "runtime-per-user",
+    default_value = entry.color,
+    order = "f[borders]-" .. string.char(97 + i), -- b, c, d
+  }
+end
+data:extend(border_settings)
+
+-- Per-player gesture mapping (playtest call): the engine's five selection
+-- gestures are fixed key combinations, but WHAT each one does is a
+-- per-player dropdown. Border colors follow the gesture (startup prototype
+-- data), so a remapped gesture keeps its original color.
+local GESTURE_ACTIONS = { "raise-one", "jump-deed", "jump-rampart", "lower-one", "release-all" }
+local gesture_settings = {
+  { name = "ltr-gesture-drag", default = "raise-one", order = "a" },
+  { name = "ltr-gesture-shift-drag", default = "jump-deed", order = "b" },
+  { name = "ltr-gesture-ctrl-shift-drag", default = "jump-rampart", order = "c" },
+  { name = "ltr-gesture-right-drag", default = "lower-one", order = "d" },
+  { name = "ltr-gesture-shift-right-drag", default = "release-all", order = "e" },
+}
+local extended_gestures = {}
+for _, entry in ipairs(gesture_settings) do
+  extended_gestures[#extended_gestures + 1] = {
+    type = "string-setting",
+    name = entry.name,
+    setting_type = "runtime-per-user",
+    default_value = entry.default,
+    allowed_values = GESTURE_ACTIONS,
+    order = "g[gestures]-" .. entry.order,
+  }
+end
+data:extend(extended_gestures)

@@ -44,6 +44,16 @@ function registry.init_storage()
   storage.chronicle = storage.chronicle or {}
   -- [surface_index][cell_key] -> the drawn chronicle text objects
   storage.chronicle_renders = storage.chronicle_renders or {}
+  -- [force_index][surface_index] -> mainland-anchor cell_key (outposts)
+  storage.origins = storage.origins or {}
+  -- [force_index] -> array of {surface_index, cell_key} founded outposts
+  -- still counting against the force's slot cap
+  storage.outposts = storage.outposts or {}
+  -- player_index -> {surface_index, cx, cy} awaiting outpost confirmation
+  storage.outpost_pending = storage.outpost_pending or {}
+  -- [player_index][surface_index][cell_key] -> that player's border line
+  -- objects (per-player styling; stakes stay in storage.renders)
+  storage.player_renders = storage.player_renders or {}
 end
 
 function registry.init_surface(surface_index)
