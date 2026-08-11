@@ -181,6 +181,91 @@ local RAMPART_TOOL_ACTION = {
   ["ltr-gesture-shift-right-drag"] = "release",
 }
 
+local LOWERING = { downgrade = true, release = true }
+local LOWER_FRAME = "ltr_lower_confirm_frame"
+
+-- Apply a batch with full player feedback — the shared tail of the direct
+-- path and the confirmed-lowering path.
+local function apply_with_feedback(player, surface, rect, action)
+  chronicle.begin_batch()
+  local result = claims.apply_batch(surface, player.force, player, rect, action)
+  feedback(player, action, result)
+  announce(player, surface, rect, action, result)
+  if result.applied and result.applied > 0 and not LOWERING[action] then
+    outposts.reconcile(player.force)
+  end
+  return result
+end
+
+local function close_lower_confirm(player)
+  storage.lower_pending[player.index] = nil
+  local frame = player.gui.screen[LOWER_FRAME]
+  if frame then frame.destroy() end
+end
+
+-- Lowering gestures confirm before they act (playtest call: an accidental
+-- right-drag refunds only a fraction of the invested points, and nothing
+-- said so until it had happened). The preview runs the real evaluation as
+-- a dry run, so the dialog shows the actual cell count and refund.
+-- ltr-confirm-lowering (per-player, default on) disables it for veterans.
+local function open_lower_confirm(player, surface, rect, action, preview)
+  close_lower_confirm(player)
+  storage.lower_pending[player.index] = {
+    surface_index = surface.index,
+    rect = rect,
+    action = action,
+  }
+  local frame = player.gui.screen.add({
+    type = "frame",
+    name = LOWER_FRAME,
+    direction = "vertical",
+    caption = { "land-title-registry.lower-title" },
+  })
+  frame.auto_center = true
+  frame.add({ type = "label", name = "l1", caption = {
+    action == "release" and "land-title-registry.lower-line-release"
+      or "land-title-registry.lower-line-downgrade",
+    preview.applied,
+    economy.format(preview.refund),
+  } })
+  local l2 = frame.add({ type = "label", name = "l2",
+    caption = { "land-title-registry.lower-line-2", economy.refund_percent() } })
+  l2.style.single_line = false
+  l2.style.maximal_width = 400
+  local buttons = frame.add({ type = "flow", name = "buttons" })
+  buttons.style.horizontal_spacing = 12
+  buttons.add({ type = "button", name = "ltr_lower_confirm", style = "confirm_button",
+    caption = { "land-title-registry.lower-confirm" } })
+  buttons.add({ type = "button", name = "ltr_lower_cancel",
+    caption = { "land-title-registry.lower-cancel" } })
+  player.opened = frame
+end
+
+function tool.on_gui_click(event)
+  local element = event.element
+  if not (element and element.valid) then return end
+  if element.name ~= "ltr_lower_confirm" and element.name ~= "ltr_lower_cancel" then return end
+  local player = game.get_player(event.player_index)
+  if not (player and player.valid) then return end
+  local pending = storage.lower_pending[player.index]
+  close_lower_confirm(player)
+  if element.name ~= "ltr_lower_confirm" or not pending then return end
+  local surface = game.surfaces[pending.surface_index]
+  if not (surface and surface.valid) then return end
+  -- The world may have shifted while the dialog sat open; the apply
+  -- re-evaluates from scratch, so the outcome is honest even if it now
+  -- differs from the preview.
+  apply_with_feedback(player, surface, pending.rect, pending.action)
+end
+
+function tool.on_gui_closed(event)
+  local element = event.element
+  if element and element.valid and element.name == LOWER_FRAME then
+    local player = game.get_player(event.player_index)
+    if player and player.valid then close_lower_confirm(player) end
+  end
+end
+
 local function handle_selection(gesture_setting, event)
   local player = game.get_player(event.player_index)
   if not (player and player.valid) then return end
@@ -196,6 +281,17 @@ local function handle_selection(gesture_setting, event)
   end
 
   local rect = rect_from_area(event.area)
+
+  if LOWERING[action] and player.mod_settings["ltr-confirm-lowering"].value then
+    local preview = claims.apply_batch(surface, player.force, player, rect, action, { dry_run = true })
+    if preview.applied and preview.applied > 0 then
+      open_lower_confirm(player, surface, rect, action, preview)
+      return
+    end
+    -- Nothing would change: fall through so the normal path delivers the
+    -- denied/hint feedback instead of a pointless dialog.
+  end
+
   chronicle.begin_batch()
   local result = claims.apply_batch(surface, player.force, player, rect, action)
 
@@ -301,6 +397,7 @@ end
 function tool.on_player_gone(event)
   storage.tool_holders[event.player_index] = nil
   storage.hover[event.player_index] = nil
+  storage.lower_pending[event.player_index] = nil
   tool.ensure_hover_handler()
 end
 

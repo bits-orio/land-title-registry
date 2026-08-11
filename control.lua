@@ -30,14 +30,11 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 6: wilderness map sprites follow the create-hidden /
--- reveal-on-chart pattern (a creation-time charted gate proved fragile:
--- it silently produced zero visible sprites in play), and the migration
--- also sweeps MTS non-play surfaces (pen overlays) and adopts cloned
--- blockers. Epochs 2-5 were consumed by saves mid-iteration; 6 re-runs
--- the sequence, and its drain-end rechart doubles as the reveal sweep
--- for every charted chunk.
-local CHART_EPOCH = 6
+-- Epoch 7: 6 plus the print-claims default flip below. Wilderness map
+-- sprites follow the create-hidden / reveal-on-chart pattern,
+-- the migration sweeps MTS non-play surfaces (pen overlays), and its
+-- drain-end rechart doubles as the reveal sweep for every charted chunk.
+local CHART_EPOCH = 7
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
@@ -69,6 +66,12 @@ local function migrate_chart_epoch()
   -- Existing saves shed overlays from MTS non-play surfaces (the pen)
   -- before the rebuild re-derives everything else.
   if mts_compat.active then mts_compat.sweep_non_team_surfaces() end
+  -- The print-claims default flipped to ON (team-chat audit trail,
+  -- playtest call) and runtime-global settings keep their stored value on
+  -- existing saves — apply the new default once; hosts can switch back.
+  if (storage.chart_epoch or 1) < 7 then
+    settings.global["ltr-print-claims"] = { value = true }
+  end
   ensure_recharted()
 end
 
@@ -292,8 +295,12 @@ end)
 script.on_event(defines.events.on_gui_click, function(event)
   welcome.on_gui_click(event)
   outposts.on_gui_click(event)
+  tool.on_gui_click(event)
 end)
-script.on_event(defines.events.on_gui_closed, outposts.on_gui_closed)
+script.on_event(defines.events.on_gui_closed, function(event)
+  outposts.on_gui_closed(event)
+  tool.on_gui_closed(event)
+end)
 script.on_event(defines.events.on_player_joined_game, function(event)
   hud.on_player_joined(event)
   tech.on_player_joined(event)

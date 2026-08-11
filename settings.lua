@@ -111,14 +111,24 @@ data:extend({
     order = "a[economy]-c[settlement-charter]",
   },
   {
-    -- Off by default: with many teams the per-action line is the single
-    -- largest source of chat volume, and it narrates what the acting
-    -- player just did. Records still announce; standings live on the map.
+    -- On by default (playtest call, reversing 0.1.6): the line goes only
+    -- to the acting TEAM's chat and is the audit trail for who bought or
+    -- sold which land — accountability beat quietness once teammates
+    -- shared a purse. Hosts who want silence still have the switch.
     type = "bool-setting",
     name = "ltr-print-claims",
     setting_type = "runtime-global",
-    default_value = false,
+    default_value = true,
     order = "c[ux]-a[print-claims]",
+  },
+  {
+    -- Accidental right-drags refund only a fraction of the invested
+    -- points; the dialog makes the loss explicit before it happens.
+    type = "bool-setting",
+    name = "ltr-confirm-lowering",
+    setting_type = "runtime-per-user",
+    default_value = true,
+    order = "c[ux]-d[confirm-lowering]",
   },
   {
     type = "int-setting",

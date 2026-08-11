@@ -2,6 +2,8 @@
 Version: 0.1.8
 Date: 2026-08-11
   Features:
+    - Lowering gestures confirm before they act: right-drag and Shift-right-drag open a dialog showing the real cell count and refund, with a reminder that refunds return only a fraction of the invested price - an accidental right-click should not learn that the hard way. Per-player setting to turn off once the economy is second nature.
+    - Survey-tool actions are logged to the acting team's chat by default (reversing 0.1.6): who bought or sold, how many cells, the amount, and a map ping - the audit trail for a shared purse. The line never leaves the team; hosts can still switch it off. Outpost foundings log the same line.
     - First-claim tutorials: a force's first paid Trail, Rampart, and Deed each draw a short explainer on that cell - what the rung means and what the next one adds - retiring the moment something is built inside the cell or its state changes. Shown once per force; recycled team slots see them again.
     - The starter-cell hints render their rich text properly (the keybind tags showed raw) and carry the survey-tool icon.
     - Outpost grants: a new research chain (one tech per science tier, 1000 science per level over that tier's cumulative packs) permits concurrent Deeds founded anywhere in the wilderness, no adjacency required. Founding asks for confirmation - slots are hard-earned - and a slot is returned once the outpost's territory grows to connect with your mainland. HUD shows used/cap once the first level is researched.

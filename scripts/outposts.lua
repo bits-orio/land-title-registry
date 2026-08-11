@@ -21,6 +21,7 @@ local const = require("scripts.const")
 local registry = require("scripts.registry")
 local economy = require("scripts.economy")
 local claims = require("scripts.claims")
+local chronicle = require("scripts.chronicle")
 
 local outposts = {}
 
@@ -254,6 +255,22 @@ function outposts.on_gui_click(event)
       text = { "land-title-registry.outpost-founded", economy.format(result.cost) },
       create_at_cursor = true,
     })
+    -- The team-chat audit line the survey gestures print (dialog applies
+    -- bypass tool.lua's announce path).
+    if settings.global["ltr-print-claims"].value then
+      local c = player.chat_color
+      force.print({
+        "land-title-registry.announce-raise",
+        chronicle.team_tag(force.name),
+        string.format("[color=%.3f,%.3f,%.3f]%s[/color]", c.r, c.g, c.b, player.name),
+        1,
+        economy.format(result.cost),
+        "",
+        string.format("[gps=%d,%d,%s]",
+          pending.cx * const.CELL + const.CELL / 2,
+          pending.cy * const.CELL + const.CELL / 2, surface.name),
+      })
+    end
   elseif result.denied == "points" then
     refuse({
       "land-title-registry.insufficient-points",

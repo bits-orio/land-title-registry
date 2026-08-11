@@ -293,6 +293,11 @@ function claims.apply_batch(surface, force, player, rect, action, opts)
         end
       end
     end
+    -- Dry run: the same evaluation, nothing applied — the lowering
+    -- confirmation dialog previews real numbers with it.
+    if opts and opts.dry_run then
+      return { applied = #transitions, refund = total_refund }
+    end
     for _, t in ipairs(transitions) do
       apply_downgrade(surface, force, player, t)
     end

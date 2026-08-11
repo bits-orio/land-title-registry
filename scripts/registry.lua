@@ -54,6 +54,9 @@ function registry.init_storage()
   storage.outposts = storage.outposts or {}
   -- player_index -> {surface_index, cx, cy} awaiting outpost confirmation
   storage.outpost_pending = storage.outpost_pending or {}
+  -- player_index -> {surface_index, rect, action} awaiting lowering
+  -- confirmation (accidental right-drags refund only a fraction)
+  storage.lower_pending = storage.lower_pending or {}
   -- [player_index][surface_index][cell_key] -> that player's border line
   -- objects (per-player styling; stakes stay in storage.renders)
   storage.player_renders = storage.player_renders or {}
