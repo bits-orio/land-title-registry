@@ -30,27 +30,41 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 3: the tint experiments removed; striped chart sprites on every
--- blocker cell, wilderness included. (2 recharted BEFORE the rebuild had
--- created the sprites — see below — so 3 re-runs the whole sequence.)
-local CHART_EPOCH = 3
+-- Epoch 4: striped chart sprites on every blocker cell, wilderness
+-- included, gated on the cell being charted (chart-mode render objects
+-- draw even over uncharted void — playtest screenshot: red stripes
+-- floating on black). Epochs 2/3 were consumed by saves mid-iteration;
+-- 4 re-runs the whole sequence with the gating in place.
+local CHART_EPOCH = 4
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
   storage.chart_epoch = CHART_EPOCH
-  -- Rechart AFTER the rebuild has materialized the chart sprites, not
-  -- before: the engine re-renders chart tiles with whatever render
-  -- objects exist at that moment, so an immediate rechart bakes the OLD
-  -- look everywhere outside live radar/vision (playtest finding: the
-  -- wilderness stripes existed — census confirmed — but never showed).
-  -- The drain's completion consumes this flag.
+  -- Rechart AFTER the rebuild has re-derived the chart sprites; the
+  -- drain's completion consumes the flag. Announce the sweep — it is
+  -- seconds, not instants, and a player staring at the map deserves to
+  -- know the redraw is coming.
   storage.rechart_pending = true
-  if blockers.enqueue_full_rebuild() == 0 then
+  local count = blockers.enqueue_full_rebuild()
+  if count == 0 then
     storage.rechart_pending = nil
     for _, force in pairs(game.forces) do
       force.rechart()
     end
+  else
+    game.print({ "land-title-registry.rebuild-started", count })
   end
+end
+
+-- Same-version code updates can change the map-view scheme without ever
+-- firing config-changed, and a SINGLE-PLAYER load fires no join event —
+-- playtest finding: the epoch migration simply never ran outside
+-- multiplayer. on_load may not write storage, so a stale epoch registers
+-- a first-tick migration instead; deterministic, since every peer reads
+-- the same storage.
+local function migrate_chart_epoch()
+  script.on_event(defines.events.on_tick, nil)
+  ensure_recharted()
 end
 
 local function init_surface(surface)
@@ -76,6 +90,9 @@ script.on_init(function()
   storage.meta.cell_size = const.CELL
   if mts_compat.active then mts_compat.resolve_events() end
   if odb_compat.active then odb_compat.register() end
+  -- A fresh map is already on the current map-view scheme; only loaded
+  -- saves migrate through the epoch.
+  storage.chart_epoch = CHART_EPOCH
   -- Blanket any chunks that existed before Land Title Registry did (mid-game install,
   -- scenario-pregenerated maps). Fresh maps enqueue little or nothing.
   blockers.enqueue_full_rebuild()
@@ -85,6 +102,9 @@ script.on_load(function()
   blockers.ensure_rebuild_handler()
   tool.ensure_hover_handler()
   if mts_compat.active then mts_compat.resolve_events() end
+  if storage.chart_epoch ~= CHART_EPOCH then
+    script.on_event(defines.events.on_tick, migrate_chart_epoch)
+  end
 end)
 
 script.on_configuration_changed(function()
@@ -187,6 +207,7 @@ end)
 
 -- World lifecycle
 script.on_event(defines.events.on_chunk_generated, blockers.on_chunk_generated)
+script.on_event(defines.events.on_chunk_charted, render.on_chunk_charted)
 script.on_event(defines.events.on_object_destroyed, blockers.on_object_destroyed)
 
 script.on_event(defines.events.on_surface_created, function(event)

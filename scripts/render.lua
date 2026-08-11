@@ -222,6 +222,28 @@ local function destroy_all(objects)
   end
 end
 
+-- Chart-mode render objects draw even over uncharted void (playtest
+-- screenshot: wilderness stripes floating on black), so the wilderness map
+-- sprite waits until a player-bearing force has charted the cell's centre
+-- chunk; render.on_chunk_charted fills late-charted cells in. "Someone"
+-- rather than per-force: sprites are global like the world overlay, and
+-- under the one-building-force-per-surface model any charter is the
+-- surface's own team. A straddling cell (24-tile cells cross chunk lines)
+-- follows its centre chunk — an 8-tile sliver of stripe on black at the
+-- frontier of vision is accepted.
+local function charted_by_someone(surface, cx, cy)
+  local chunk = {
+    x = math.floor((cx * const.CELL + const.CELL / 2) / 32),
+    y = math.floor((cy * const.CELL + const.CELL / 2) / 32),
+  }
+  for _, force in pairs(game.forces) do
+    if #force.players > 0 and force.is_chunk_charted(surface, chunk) then
+      return true
+    end
+  end
+  return false
+end
+
 -- Rebuild the render objects OWNED by cell (cx, cy): west edge, north edge,
 -- NW stake. Destroys before creating; safe to call for any cell at any
 -- time. Stakes are shared per force (storage.renders); lines are built per
@@ -302,7 +324,8 @@ function render.refresh_cell(surface, cx, cy)
     end
   elseif sc == "wilderness"
     and storage.blocker_regids[surface_index]
-    and storage.blocker_regids[surface_index][cell_key] then
+    and storage.blocker_regids[surface_index][cell_key]
+    and charted_by_someone(surface, cx, cy) then
     objects[#objects + 1] = rendering.draw_sprite({
       surface = surface,
       sprite = "ltr-wilderness-overlay",
@@ -339,6 +362,28 @@ function render.refresh_cell(surface, cx, cy)
   end
 
   if #objects > 0 then refs[cell_key] = objects end
+end
+
+-- A chunk becoming charted lights up its wilderness cells' map sprites
+-- (they are gated on charted status — see charted_by_someone). Cheap on
+-- radar re-charts: only cells with no render entry at all are touched, so
+-- already-sprited wilderness and every claimed cell skip in one lookup.
+-- Deed cells re-run a no-op refresh; accepted.
+function render.on_chunk_charted(event)
+  local surface_index = event.surface_index
+  if storage.disabled_surfaces[surface_index] then return end
+  local surface = game.surfaces[surface_index]
+  if not (surface and surface.valid) then return end
+  local refs = storage.renders[surface_index]
+  local x0, x1 = const.cell_range_of_chunk(event.position.x)
+  local y0, y1 = const.cell_range_of_chunk(event.position.y)
+  for cy = y0, y1 do
+    for cx = x0, x1 do
+      if not (refs and refs[registry.cell_key(cx, cy)]) then
+        render.refresh_cell(surface, cx, cy)
+      end
+    end
+  end
 end
 
 -- Destroy one player's line objects everywhere (leave, force change, style
