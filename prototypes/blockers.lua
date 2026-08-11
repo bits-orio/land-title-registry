@@ -16,19 +16,29 @@
 local SIZE = tonumber(settings.startup["ltr-cell-size"].value)
 local HALF = SIZE / 2
 
-local function blocker(name, layers, picture)
+-- Wilderness is the one blocker WITH a map presence (playtest call): a
+-- translucent red engine tint over every explored unclaimed cell — the
+-- chart cannot draw the striped artwork, and script sprites per wilderness
+-- cell would be O(explored area) render objects (ADR-0009's cost model).
+-- Claimed cells get their real artwork on the map as chart sprites instead
+-- (scripts/render.lua), so trail/rampart keep not-on-map here.
+local function blocker(name, layers, picture, map_color)
+  local flags = {
+    "placeable-off-grid",
+    "not-repairable",
+    "not-deconstructable",
+    "not-blueprintable",
+  }
+  -- A nil in a table literal punches a hole in the array part, so the
+  -- conditional flag is appended, never inlined.
+  if map_color == nil then flags[#flags + 1] = "not-on-map" end
   return {
     type = "simple-entity-with-owner",
     name = name,
     icon = "__land-title-registry__/graphics/survey-tool.png",
     icon_size = 64,
-    flags = {
-      "placeable-off-grid",
-      "not-repairable",
-      "not-on-map",
-      "not-deconstructable",
-      "not-blueprintable",
-    },
+    flags = flags,
+    map_color = map_color,
     allow_copy_paste = false,
     -- The 0.01 inset keeps the box fractionally inside the cell so it never
     -- collides across the boundary with entities placed flush against the
@@ -65,7 +75,10 @@ end
 data:extend({
   blocker("ltr-cell-wilderness",
     { ["ltr-land"] = true, ["ltr-transit"] = true, ["ltr-rampart"] = true },
-    overlay("wilderness-overlay")),
+    overlay("wilderness-overlay"),
+    -- The overlay's red at ~1/3 strength: present without fully burying
+    -- resource patches. Blockers are neutral, so every force sees it.
+    { r = 0.29, g = 0.07, b = 0.05, a = 0.35 }),
   blocker("ltr-cell-trail", { ["ltr-land"] = true, ["ltr-rampart"] = true },
     overlay("trail-overlay")),
   blocker("ltr-cell-rampart", { ["ltr-land"] = true },

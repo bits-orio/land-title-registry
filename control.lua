@@ -261,6 +261,14 @@ script.on_event(defines.events.on_player_joined_game, function(event)
       blockers.enqueue_full_rebuild()
     end
   end
+  -- One-shot map-overlay backfill, join-anchored like the above: interior
+  -- claimed cells owned no render objects before chart overlays existed,
+  -- and a control-only update at the same mod version never fires
+  -- config-changed.
+  if not storage.chart_overlays_backfilled then
+    storage.chart_overlays_backfilled = true
+    blockers.enqueue_full_rebuild()
+  end
   -- Same join anchor for the disabled-surface heal (see config-changed).
   if not storage.disable_healed then
     storage.disable_healed = true

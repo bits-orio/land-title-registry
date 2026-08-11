@@ -277,6 +277,27 @@ function render.refresh_cell(surface, cx, cy)
     end
   end
 
+  -- Map-view overlay: the cell's own striped artwork as one chart sprite,
+  -- visible to the owning force (matching the border lines). Bounded by
+  -- claimed area — the chronicle's accepted cost model. Wilderness is
+  -- engine-drawn via the blocker's map_color; Deed stays clean (absence =
+  -- fully yours, on the map as on the ground).
+  if sc == "trail" or sc == "rampart" then
+    local own = owner_at(surface_index, cx, cy)
+    local force = own and game.forces[own]
+    if force and force.valid then
+      objects[#objects + 1] = rendering.draw_sprite({
+        surface = surface,
+        sprite = "ltr-" .. sc .. "-overlay",
+        target = { x = x0 + const.CELL / 2, y = y0 + const.CELL / 2 },
+        x_scale = const.CELL / 32,
+        y_scale = const.CELL / 32,
+        render_mode = "chart",
+        forces = { force },
+      })
+    end
+  end
+
   -- NW survey stake: drawn when at least one touching edge is a frontier.
   local stake_forces = {}
   for _, e in pairs(vertex_edges(cx, cy)) do
