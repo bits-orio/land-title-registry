@@ -93,15 +93,26 @@ local function home_cell(force, surface)
   return math.floor(spawn.x / const.CELL), math.floor(spawn.y / const.CELL)
 end
 
+-- Every refusal logs its gate (LTR-GRANT): a missing starter Deed was a
+-- silent mystery once (playtest report), never again.
 local function maybe_grant_starter(force, surface, player, is_home)
-  if not (player and player.valid and player.physical_surface_index == surface.index) then return end
+  if not (player and player.valid and player.physical_surface_index == surface.index) then
+    log("LTR-GRANT skip: player not physically on " .. surface.name)
+    return
+  end
   local planet = surface.planet
-  if not planet then return end
+  if not planet then
+    log("LTR-GRANT skip: " .. surface.name .. " has no planet")
+    return
+  end
   -- Never gift land to a non-competing force: under MTS players sit on
   -- `player` before joining a team and on `spectator` while watching, and
   -- granting there produced the bogus "Team player"/"Team spectator"
   -- chronicle entries seen in play.
-  if not chronicle.is_competitor(force.name) then return end
+  if not chronicle.is_competitor(force.name) then
+    log("LTR-GRANT skip: " .. force.name .. " is not a competing force")
+    return
+  end
   if force_owns_on_planet(force, planet) then return end
 
   -- Home planet: the deterministic spawn cell. Later planets: the cell
@@ -116,6 +127,7 @@ local function maybe_grant_starter(force, surface, player, is_home)
     cy = math.floor(player.physical_position.y / const.CELL)
   end
   if claims.grant_free(surface, force, player, cx, cy, "deed") then
+    log(string.format("LTR-GRANT: starter Deed (%d,%d) on %s for %s", cx, cy, surface.name, force.name))
     force.print({ "land-title-registry.starter-cell",
       string.format("[gps=%d,%d,%s]",
         cx * const.CELL + const.CELL / 2,
@@ -123,16 +135,26 @@ local function maybe_grant_starter(force, surface, player, is_home)
     if is_home then
       welcome.draw_origin_hints(force, surface, cx, cy)
     end
+  else
+    log(string.format("LTR-GRANT skip: grant_free refused (%d,%d) on %s — disabled surface, occupied cell, or ungenerated chunk",
+      cx, cy, surface.name))
   end
 end
 
 local function establish_presence(force, surface, player)
   if not (force and force.valid and surface and surface.valid) then return end
   local planet = surface.planet
-  if not planet then return end -- space platforms and planet-less surfaces
+  if not planet then
+    -- Space platforms and planet-less surfaces (the MTS pen); logged so a
+    -- starter-grant hunt can see presence events that never qualify.
+    log("LTR-GRANT skip: presence on planet-less " .. surface.name)
+    return
+  end
 
   local charters = charters_of(force.index)
   local is_first_planet = next(charters) == nil
+  log(string.format("LTR-GRANT presence: %s on %s (first_planet=%s)",
+    force.name, surface.name, tostring(is_first_planet)))
 
   -- The starter grant runs before the charter early-return so it can
   -- retrofit saves whose presence was recorded before the grant existed.
@@ -147,6 +169,18 @@ local function establish_presence(force, surface, player)
   if amount > 0 then
     economy.change(force, amount, "settlement-charter")
     force.print({ "land-title-registry.settlement-charter", planet.prototype.localised_name or planet.name, amount })
+  end
+end
+
+-- Public retry for surface-enablement races: MTS can enable a team
+-- surface AFTER its players already landed there (deferred teleport
+-- queues), so the landing-time grant attempt found a disabled surface
+-- and refused. compat/mts.lua calls this when a team surface enables.
+function tech.establish_presence_for_surface(surface)
+  for _, player in pairs(game.connected_players) do
+    if player.valid and player.physical_surface_index == surface.index then
+      establish_presence(player.force, surface, player)
+    end
   end
 end
 

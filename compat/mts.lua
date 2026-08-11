@@ -160,6 +160,10 @@ function mts.resolve_events()
         -- vision. The drain-end rechart volley is the reveal.
         storage.rechart_pending = true
         blockers.enqueue_surface_rebuild(surface)
+        -- A deferred teleport can land the team BEFORE this event enables
+        -- the surface, in which case the landing-time starter grant found
+        -- a disabled surface and refused. Retry for everyone already here.
+        tech.establish_presence_for_surface(surface)
       end
     end)
   end
