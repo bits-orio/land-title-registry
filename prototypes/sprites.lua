@@ -18,6 +18,7 @@ data:extend({
     filename = "__land-title-registry__/graphics/wilderness-overlay-chart.png",
     width = 1024,
     height = 1024,
+    flags = { "linear-minification", "linear-magnification" },
   },
   {
     type = "sprite",
@@ -25,6 +26,7 @@ data:extend({
     filename = "__land-title-registry__/graphics/trail-overlay-chart.png",
     width = 1024,
     height = 1024,
+    flags = { "linear-minification", "linear-magnification" },
   },
   {
     type = "sprite",
@@ -32,5 +34,6 @@ data:extend({
     filename = "__land-title-registry__/graphics/rampart-overlay-chart.png",
     width = 1024,
     height = 1024,
+    flags = { "linear-minification", "linear-magnification" },
   },
 })

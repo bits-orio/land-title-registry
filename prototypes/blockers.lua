@@ -66,6 +66,9 @@ local function overlay(name)
     width = 1024,
     height = 1024,
     scale = SIZE * 32 / 1024,
+    -- The art is anti-aliased at source; linear filtering keeps it smooth
+    -- through the engine's own zoom scaling.
+    flags = { "linear-minification", "linear-magnification" },
   }
 end
 

@@ -8,6 +8,7 @@ Date: 2026-08-11
     - Every gesture's action is remappable per player in mod settings.
     - Per-player border styling: line width and per-state colors including alpha, applied to your own view only.
   Changes:
+    - The overlay stripes are anti-aliased (they were visibly stair-stepped once the wilderness ribbons went fully opaque) and roughly half as wide, so map-view terrain stays readable beneath them; world and map share the same artwork.
     - The overlays now show in map view, as stripes and never as tints: every blocker cell draws its striped artwork on the chart - opaque red on Wilderness, translucent orange/red on Trail and Rampart (visible to the owning force) - with terrain keeping its natural chart colors between the stripes and everywhere else. Deed stays clean - absence means fully yours, on the map as on the ground.
     - The cell overlays changed roles: Rampart now wears the original red ribbon pattern (one rung from Deed still reads as "not fully yours"), and Wilderness escalates the same artwork with 100% opaque red stripes - a hard no at any zoom. Trail keeps its subtle orange tint.
     - Landmines may now be built on Rampart cells.

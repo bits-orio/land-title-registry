@@ -20,13 +20,24 @@ Run from the repo root:  python3 tools/gen_overlays.py
 """
 
 from PIL import Image
+import numpy as np
 
 SIZE = 1024
 PERIOD = 128
-RIBBON = 30
-EDGE = 4
+# 16px of 128 (12.5% coverage, half the original 30): thin enough that map
+# terrain stays readable under the stripes (playtest call), same artwork
+# in the world so both views speak one language.
+RIBBON = 16
+EDGE = 3
 BORDER = 4
 INNER = 2
+
+# Supersampling factor: the pattern is computed at SIZE*SS and downscaled
+# with Lanczos, anti-aliasing every diagonal edge. The hard per-pixel
+# thresholds looked fine at the old translucent alphas but turned into
+# staircases once the wilderness stripes went fully opaque (playtest
+# report: "as if anti-aliasing isn't happening" — it wasn't).
+SS = 4
 
 # Base alphas at full strength (wilderness).
 A = {
@@ -77,26 +88,36 @@ def make(name, color, dark, alpha_scale, opaque_ribbon, suffix="", wash=True):
             return 255
         return max(1, round(A[key] * alpha_scale))
 
-    img = Image.new("RGBA", (SIZE, SIZE))
-    px = img.load()
-    for y in range(SIZE):
-        for x in range(SIZE):
-            b = min(x, y, SIZE - 1 - x, SIZE - 1 - y)
-            if b < BORDER:
-                px[x, y] = (*dark, a("border"))
-            elif b < BORDER + INNER:
-                px[x, y] = (*color, a("inner"))
-            else:
-                d = (x + y) % PERIOD
-                if d < RIBBON:
-                    if d < EDGE or d >= RIBBON - EDGE:
-                        px[x, y] = (*dark, a("ribbon_edge"))
-                    else:
-                        px[x, y] = (*color, a("ribbon_core"))
-                elif wash:
-                    px[x, y] = (*color, a("wash"))
-                else:
-                    px[x, y] = (0, 0, 0, 0)
+    # Compute at SIZE*SS, downscale with Lanczos — the anti-aliasing pass.
+    # Out-of-stripe pixels carry the stripe RGB at alpha 0 (not black), so
+    # the downscale ramps alpha along edges without darkening the hue.
+    big = SIZE * SS
+    ys, xs = np.mgrid[0:big, 0:big]
+    b = np.minimum.reduce([xs, ys, big - 1 - xs, big - 1 - ys])
+    d = (xs + ys) % (PERIOD * SS)
+
+    in_border = b < BORDER * SS
+    in_inner = (~in_border) & (b < (BORDER + INNER) * SS)
+    body = ~in_border & ~in_inner
+    in_ribbon = body & (d < RIBBON * SS)
+    ribbon_edge = in_ribbon & ((d < EDGE * SS) | (d >= (RIBBON - EDGE) * SS))
+    ribbon_core = in_ribbon & ~ribbon_edge
+    outside = body & ~in_ribbon
+
+    rgba = np.empty((big, big, 4), dtype=np.uint8)
+    rgba[..., 0:3] = color
+    rgba[..., 3] = 0
+    for mask, rgb, alpha in (
+        (in_border, dark, a("border")),
+        (in_inner, color, a("inner")),
+        (ribbon_edge, dark, a("ribbon_edge")),
+        (ribbon_core, color, a("ribbon_core")),
+        (outside, color, a("wash") if wash else 0),
+    ):
+        rgba[mask, 0:3] = rgb
+        rgba[mask, 3] = alpha
+
+    img = Image.fromarray(rgba, "RGBA").resize((SIZE, SIZE), Image.LANCZOS)
     out = __file__.rsplit("/", 2)[0] + f"/graphics/{name}-overlay{suffix}.png"
     img.save(out, optimize=True)
     print(f"wrote {out}")
