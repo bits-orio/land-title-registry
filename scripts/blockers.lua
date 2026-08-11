@@ -210,16 +210,27 @@ local function drain_rebuild_queue()
     for _, player in pairs(game.players) do
       player.print({ "land-title-registry.rebuild-done" })
     end
-    -- An epoch rechart waits here, at the END of the drain: chart tiles
-    -- re-render with whatever render objects exist at that moment, so
-    -- recharting before the rebuild materialized its sprites would bake
-    -- the old look into everything outside live radar/vision.
+    -- An epoch rechart waits here, at the END of the drain, so its
+    -- on_chunk_charted volley sweeps over the freshly created sprites and
+    -- reveals every charted chunk's wilderness stripes (render.lua).
     if storage.rechart_pending then
       storage.rechart_pending = nil
       for _, force in pairs(game.forces) do
         force.rechart()
       end
     end
+    -- Census to the log: one line per completed rebuild, so a "stripes
+    -- missing" report comes with evidence of created-vs-visible.
+    local total, visible = 0, 0
+    for _, sprites in pairs(storage.chart_sprites) do
+      for _, sprite in pairs(sprites) do
+        if sprite.valid then
+          total = total + 1
+          if sprite.visible then visible = visible + 1 end
+        end
+      end
+    end
+    log("LTR-MAP census after rebuild: " .. total .. " wilderness chart sprites, " .. visible .. " visible")
   end
 end
 

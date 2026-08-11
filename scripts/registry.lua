@@ -54,6 +54,10 @@ function registry.init_storage()
   -- [player_index][surface_index][cell_key] -> that player's border line
   -- objects (per-player styling; stakes stay in storage.renders)
   storage.player_renders = storage.player_renders or {}
+  -- [surface_index][cell_key] -> the wilderness map-view sprite, kept
+  -- apart from storage.renders so on_chunk_charted can reveal it in one
+  -- lookup (created hidden, flipped visible when the chunk charts)
+  storage.chart_sprites = storage.chart_sprites or {}
 end
 
 function registry.init_surface(surface_index)

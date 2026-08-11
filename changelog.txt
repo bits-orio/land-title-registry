@@ -15,7 +15,7 @@ Date: 2026-08-11
     - Land grants and Outpost grants technologies now require the unlocking technology of every science pack they consume, so a tier can no longer be researched before its own ingredients exist.
     - Land grants research ignores the map's global technology-price multiplier; land income is priced by the mod's own cost multiplier alone.
   Bugfixes:
-    - Map-view migrations now actually run everywhere: the migration was anchored on the multiplayer join event, so single-player loads never rebuilt map sprites for existing chunks. A stale map-view scheme now migrates on the first tick after any load. Wilderness map stripes are also gated on the cell being charted - chart sprites otherwise draw even over unexplored blackness.
+    - Map-view migrations now actually run everywhere: the migration was anchored on the multiplayer join event, so single-player loads never rebuilt map sprites for existing chunks. A stale map-view scheme now migrates on the first tick after any load. Wilderness map stripes are created hidden with their blocker and revealed as chunks chart (chart sprites otherwise draw even over unexplored blackness); the migration's final rechart doubles as the reveal sweep for everything already charted.
     - Re-deeding a cell your previous (disbanded) team had deeded now records your new team in the cell chronicle: a released team's chronicle entries, settlement-charter history, and outpost slots are purged with its points.
     - The four layer-override startup settings and the cell-size dropdown values no longer show as unknown locale keys; the locale checker now fails a release on any nameless setting.
 ---------------------------------------------------------------------------------------------------

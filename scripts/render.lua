@@ -223,21 +223,23 @@ local function destroy_all(objects)
 end
 
 -- Chart-mode render objects draw even over uncharted void (playtest
--- screenshot: wilderness stripes floating on black), so the wilderness map
--- sprite waits until a player-bearing force has charted the cell's centre
--- chunk; render.on_chunk_charted fills late-charted cells in. "Someone"
--- rather than per-force: sprites are global like the world overlay, and
--- under the one-building-force-per-surface model any charter is the
--- surface's own team. A straddling cell (24-tile cells cross chunk lines)
--- follows its centre chunk — an 8-tile sliver of stripe on black at the
--- frontier of vision is accepted.
+-- screenshot: wilderness stripes floating on black), so the wilderness
+-- map sprite is created WITH the blocker but hidden, and revealed
+-- when the chunk charts. This helper only
+-- sets the INITIAL visibility; render.on_chunk_charted does the flips —
+-- and because an epoch rechart fires on_chunk_charted for every charted
+-- chunk, the reveal self-heals even where this initial check disagrees
+-- with the engine. Enemy/neutral never chart, so querying every force is
+-- both cheap and player-independent. A straddling cell (24-tile cells
+-- cross chunk lines) follows its centre chunk — an 8-tile sliver of
+-- stripe on black at the frontier of vision is accepted.
 local function charted_by_someone(surface, cx, cy)
   local chunk = {
     x = math.floor((cx * const.CELL + const.CELL / 2) / 32),
     y = math.floor((cy * const.CELL + const.CELL / 2) / 32),
   }
   for _, force in pairs(game.forces) do
-    if #force.players > 0 and force.is_chunk_charted(surface, chunk) then
+    if force.is_chunk_charted(surface, chunk) then
       return true
     end
   end
@@ -257,6 +259,11 @@ function render.refresh_cell(surface, cx, cy)
 
   destroy_all(refs[cell_key])
   refs[cell_key] = nil
+  local chart_sprites = storage.chart_sprites[surface_index]
+  if chart_sprites and chart_sprites[cell_key] then
+    if chart_sprites[cell_key].valid then chart_sprites[cell_key].destroy() end
+    chart_sprites[cell_key] = nil
+  end
   for _, per_surface in pairs(storage.player_renders) do
     local bucket = per_surface[surface_index]
     if bucket then
@@ -324,15 +331,18 @@ function render.refresh_cell(surface, cx, cy)
     end
   elseif sc == "wilderness"
     and storage.blocker_regids[surface_index]
-    and storage.blocker_regids[surface_index][cell_key]
-    and charted_by_someone(surface, cx, cy) then
-    objects[#objects + 1] = rendering.draw_sprite({
+    and storage.blocker_regids[surface_index][cell_key] then
+    -- Created unconditionally with the blocker, HIDDEN until the chunk is
+    -- charted (see charted_by_someone above).
+    storage.chart_sprites[surface_index] = storage.chart_sprites[surface_index] or {}
+    storage.chart_sprites[surface_index][cell_key] = rendering.draw_sprite({
       surface = surface,
       sprite = "ltr-wilderness-overlay",
       target = { x = x0 + const.CELL / 2, y = y0 + const.CELL / 2 },
       x_scale = const.CELL / 32,
       y_scale = const.CELL / 32,
       render_mode = "chart",
+      visible = charted_by_someone(surface, cx, cy),
     })
   end
 
@@ -364,23 +374,24 @@ function render.refresh_cell(surface, cx, cy)
   if #objects > 0 then refs[cell_key] = objects end
 end
 
--- A chunk becoming charted lights up its wilderness cells' map sprites
--- (they are gated on charted status — see charted_by_someone). Cheap on
--- radar re-charts: only cells with no render entry at all are touched, so
--- already-sprited wilderness and every claimed cell skip in one lookup.
--- Deed cells re-run a no-op refresh; accepted.
+-- A chunk becoming charted reveals its wilderness cells' hidden map
+-- sprites — one flag flip per cell, no destroy/recreate. The epoch
+-- rechart re-fires this for every charted chunk, so
+-- any sprite created with the wrong initial visibility self-heals. Cheap
+-- on radar re-charts: an already-visible sprite is one lookup and one
+-- boolean read.
 function render.on_chunk_charted(event)
   local surface_index = event.surface_index
   if storage.disabled_surfaces[surface_index] then return end
-  local surface = game.surfaces[surface_index]
-  if not (surface and surface.valid) then return end
-  local refs = storage.renders[surface_index]
+  local chart_sprites = storage.chart_sprites[surface_index]
+  if not chart_sprites then return end
   local x0, x1 = const.cell_range_of_chunk(event.position.x)
   local y0, y1 = const.cell_range_of_chunk(event.position.y)
   for cy = y0, y1 do
     for cx = x0, x1 do
-      if not (refs and refs[registry.cell_key(cx, cy)]) then
-        render.refresh_cell(surface, cx, cy)
+      local sprite = chart_sprites[registry.cell_key(cx, cy)]
+      if sprite and sprite.valid and not sprite.visible then
+        sprite.visible = true
       end
     end
   end
@@ -444,13 +455,20 @@ function render.refresh_around(surface, cx, cy)
 end
 
 -- Surface teardown: destroy every render object and drop the bookkeeping,
--- shared and per-player alike.
+-- shared, per-player, and chart sprites alike.
 function render.drop_surface(surface_index)
   local refs = storage.renders[surface_index]
   if refs then
     for _, objects in pairs(refs) do destroy_all(objects) end
   end
   storage.renders[surface_index] = nil
+  local chart_sprites = storage.chart_sprites[surface_index]
+  if chart_sprites then
+    for _, sprite in pairs(chart_sprites) do
+      if sprite.valid then sprite.destroy() end
+    end
+  end
+  storage.chart_sprites[surface_index] = nil
   for _, per_surface in pairs(storage.player_renders) do
     local bucket = per_surface[surface_index]
     if bucket then

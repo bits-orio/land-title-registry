@@ -30,12 +30,12 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 4: striped chart sprites on every blocker cell, wilderness
--- included, gated on the cell being charted (chart-mode render objects
--- draw even over uncharted void — playtest screenshot: red stripes
--- floating on black). Epochs 2/3 were consumed by saves mid-iteration;
--- 4 re-runs the whole sequence with the gating in place.
-local CHART_EPOCH = 4
+-- Epoch 5: wilderness map sprites follow the create-hidden /
+-- reveal-on-chart pattern (a creation-time charted gate proved fragile:
+-- it silently produced zero visible sprites in play). Epochs 2-4 were
+-- consumed by saves mid-iteration; 5 re-runs the sequence, and its
+-- drain-end rechart doubles as the reveal sweep for every charted chunk.
+local CHART_EPOCH = 5
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
