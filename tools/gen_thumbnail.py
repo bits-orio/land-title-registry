@@ -41,6 +41,10 @@ FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 LETTER_SIZE = 185
 SUBTITLE_SIZE = 44
 
+# The wilderness overlay as a background underlay: the card wears the
+# texture the map wears, at the artwork's own strength (no extra
+# transparency — playtest call).
+
 
 def load_state_colors():
     text = (Path(__file__).resolve().parent.parent / "scripts/state_colors.lua").read_text()
@@ -66,10 +70,24 @@ def draw_letters(colors):
     return layer, layer.getbbox()
 
 
+def wilderness_underlay(root):
+    """The wilderness stripes, cropped of their baked cell border and sized
+    to the card's inner area (inside the frame), at full artwork strength."""
+    src = Image.open(root / "graphics/wilderness-overlay.png").convert("RGBA")
+    crop = 10  # the artwork's cell-edge border + inner line
+    src = src.crop((crop, crop, src.width - crop, src.height - crop))
+    inner = SIZE - 2 * (FRAME_INSET + FRAME_WIDTH)
+    return src.resize((inner, inner), Image.LANCZOS)
+
+
 def build():
+    root = Path(__file__).resolve().parent.parent
     colors = load_state_colors()
     img = Image.new("RGB", (SIZE, SIZE), BG)
     d = ImageDraw.Draw(img)
+
+    under = wilderness_underlay(root)
+    img.paste(under, (FRAME_INSET + FRAME_WIDTH, FRAME_INSET + FRAME_WIDTH), under)
 
     far = SIZE - 1 - FRAME_INSET
     d.rectangle([FRAME_INSET, FRAME_INSET, far, far], outline=FRAME, width=FRAME_WIDTH)
