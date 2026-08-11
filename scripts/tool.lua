@@ -244,12 +244,16 @@ end
 function tool.on_gui_click(event)
   local element = event.element
   if not (element and element.valid) then return end
-  if element.name ~= "ltr_lower_confirm" and element.name ~= "ltr_lower_cancel" then return end
+  -- Read the name BEFORE closing: the button lives inside the frame the
+  -- close destroys, and a destroyed element throws on every access
+  -- (playtest crash).
+  local name = element.name
+  if name ~= "ltr_lower_confirm" and name ~= "ltr_lower_cancel" then return end
   local player = game.get_player(event.player_index)
   if not (player and player.valid) then return end
   local pending = storage.lower_pending[player.index]
   close_lower_confirm(player)
-  if element.name ~= "ltr_lower_confirm" or not pending then return end
+  if name ~= "ltr_lower_confirm" or not pending then return end
   local surface = game.surfaces[pending.surface_index]
   if not (surface and surface.valid) then return end
   -- The world may have shifted while the dialog sat open; the apply
