@@ -60,10 +60,10 @@ An edge between two orthogonally adjacent cells whose states differ. Borders are
 The corner marker sprite at a vertex touched by at least one frontier edge. The mod's visual signature — square cells delegate identity to rendering rather than geometry.
 
 **Survey tool**:
-`ltr-survey-tool`, the single selection-tool item through which all claiming, upgrading, and downgrading happens. Two gestures: drag raises one rung, right-drag lowers one (Shift variants jump, unadvertised). Only-in-cursor, never craftable, acquired via shortcut button or hotkey.
+`ltr-survey-tool`, the selection-tool item through which claiming, upgrading, and downgrading happens. Five mirrored gestures — drag raises one rung, right-drag lowers one; Shift-drag jumps to Deed, Shift-right-drag sells to Wilderness; Ctrl+Shift-drag jumps to Rampart (Factorio 2.1) — each remappable per player. Lowering gestures confirm before applying. A fixed-function Rampart variant tool (`ltr-survey-tool-rampart`, own hotkey) covers the Rampart jump on 2.0. Only-in-cursor, never craftable.
 
 **Starter cell**:
-The free Trail granted on the cell a player stands on at their force's first presence on each planet — the visible anchor growth starts from. Granted, not bought (invested 0).
+The free Deed granted at a force's first presence on its home planet — cell (0,0) exactly on MTS team surfaces (every team races the same origin cell), the force's spawn cell elsewhere. On later planets the grant lands on the cell the player stands on (a cargo pod lands where it lands). Granted, not bought (invested 0).
 
 **Batch**:
 The set of cells covered by one survey-tool drag. All-or-nothing: if the total cost exceeds the balance, nothing is applied. Never partially applied — predictability over cleverness.
@@ -75,7 +75,19 @@ The claim-time requirement that a new Wilderness claim share an edge (4-way, nev
 What makes a batch eligible to claim: the drag rectangle contains or edge-touches owned territory — or, when the force owns nothing on the surface, contains the cell the acting player is standing in. A batch is anchored or it isn't; there is no partial case.
 
 **Settlement charter**:
-The one-time lump sum granted the first time a force establishes presence on a planet. Strictly once per force per planet, keyed by `surface.planet.name`. Solves the new-planet cold start; clock-fair under MTS because the trigger is team-internal progression.
+The one-time lump sum granted the first time a force establishes presence on a planet. Strictly once per force per planet, keyed by the planet a surface *represents* (`tech.planet_name_of`: the engine's `surface.planet`, else mts-v1's `get_surface_planet` — cloned team surfaces carry no engine planet). Solves the new-planet cold start; clock-fair under MTS because the trigger is team-internal progression.
 
 **Land grants**:
 The `ltr-land-grants-N` sequential technology chain — the recurring income faucet. Ends in a terminal infinite tech with a **linear** cost formula, so late-game income tapers but never reaches zero.
+
+**Release**:
+The lowering action that sells a cell straight back to Wilderness (Shift-right-drag). All-or-nothing per cell — a cell whose entities still use any right no-ops — with a refund equal to the summed step refunds.
+
+**Outpost**:
+A Deed founded on a disconnected Wilderness cell, no adjacency required — the earned exception to the adjacency rule. Founded through a confirmation dialog at the normal Deed price plus one outpost slot.
+
+**Outpost slot**:
+The capacity an `ltr-outpost-grants` research level adds (one per level). A slot is *occupied*, not consumed: it returns when the outpost's territory grows to reach the force's mainland, or is dropped when the outpost's region disappears.
+
+**Mainland**:
+A force's origin territory on a surface, anchored by its first claim there (the origin cell). Outpost slots free by BFS-connecting to it; the origin record passes to a neighbouring owned cell when its own cell is released.
