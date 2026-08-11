@@ -90,7 +90,12 @@ if [[ "$MOD_EXISTS" -eq 0 ]]; then
         HOMEPAGE=$(jq -r '.homepage // empty' info.json)
         [[ -n "$HOMEPAGE" ]] && PUBLISH_FIELDS+=(-F "source_url=${HOMEPAGE}")
     fi
-    [[ -f README.md ]] && PUBLISH_FIELDS+=(-F "description=<README.md")
+    if [[ -f README.md && -f tools/portal_description.py ]]; then
+        # Portal-ready render: relative links rewritten absolute.
+        DESC_FILE=$(mktemp)
+        python3 tools/portal_description.py > "$DESC_FILE"
+        PUBLISH_FIELDS+=(-F "description=<${DESC_FILE}")
+    fi
 fi
 
 UPLOAD_RESPONSE=$(curl -sS \

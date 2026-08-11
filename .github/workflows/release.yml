@@ -226,6 +226,13 @@ jobs:
             "${{ steps.info.outputs.version }}" \
             "${{ steps.info.outputs.folder }}.zip"
 
+      # The upload API never touches the page description, so it goes stale
+      # against the README. Sync it every release (README rendered with
+      # absolute links — relative ones 404 on the portal).
+      - name: Sync portal description
+        if: ${{ always() && steps.upload.outcome == 'success' && env.FACTORIO_API_KEY != '' }}
+        run: ./tools/sync_portal_description.sh
+
       # Short "now live on the mod portal" ping to a separate announcements
       # channel. The full changelog goes to DISCORD_WEBHOOK (changelog
       # channel); this is the human-facing "go play it" message that fires

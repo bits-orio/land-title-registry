@@ -1,0 +1,17 @@
+# Sync the mod-portal page description from the repo README, on demand.
+# The release workflow runs the same sync after every upload; this exists
+# for description-only fixes between releases (Actions tab -> run workflow).
+name: Sync Portal Description
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      FACTORIO_API_KEY: ${{ secrets.FACTORIO_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync description
+        run: ./tools/sync_portal_description.sh
