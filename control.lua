@@ -107,12 +107,14 @@ script.on_init(function()
   -- A fresh map is already on the current map-view scheme; only loaded
   -- saves migrate through the epoch.
   storage.chart_epoch = CHART_EPOCH
-  -- Pre-release shim: new maps copy runtime-global settings from
-  -- mod-settings.dat, NOT from default_value, so machines that ran older
-  -- dev builds seed fresh games with the retired print-claims default
-  -- (false). Apply the current default once at map start; the host's
-  -- in-save changes stick afterwards. Drop a release after 0.1.8.
-  settings.global["ltr-print-claims"] = { value = true }
+  -- (0.1.8 forced ltr-print-claims on here, because machines running
+  -- pre-release dev builds carried the retired default in their
+  -- mod-settings.dat and new maps take runtime-global values from that
+  -- file rather than from default_value. Every published build has
+  -- shipped the current default, so the shim is retired — forcing it
+  -- would only override a host who deliberately chose otherwise before
+  -- creating the map. Existing saves still get the flip once, from the
+  -- chart-epoch migration.)
   -- Blanket any chunks that existed before Land Title Registry did (mid-game install,
   -- scenario-pregenerated maps). Fresh maps enqueue little or nothing —
   -- but what they DO enqueue includes the spawn area, whose charting

@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.9
+Date: 2026-08-14
+  Changes:
+    - Trail cells are much easier to see: their overlay stripes are about twice as strong, so a claimed Trail reads over any terrain instead of vanishing into dirt. Overlay weight now tracks how much a rung forbids - opaque on Wilderness, half strength on Trail, faint on Rampart, and absent on a Deed, where clear ground is the mark of full rights.
+    - Cell standings no longer draw when nobody is competing: in a single-team game the per-cell roster was noise rather than a scoreboard. Map view keeps the cell coordinates. Multi-team games - with or without Multi-Team Support - are unaffected, and records are still kept either way, so a game that later gains a rival has its history intact.
+    - Land Title Registry is now MIT licensed.
+  Bugfixes:
+    - The wilderness map overlay lines up with the terrain again. Cells straddle chunk boundaries, so the striped field could hang a full cell over unexplored black - which read as the whole pattern being offset - or, briefly, leave charted ground bare. It now always covers charted ground and extends about one cell past the frontier.
+    - Creating a new map no longer overrides the host's choice for the team-chat action log; the setting configured before map creation is respected.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.8
 Date: 2026-08-11
   Features:
