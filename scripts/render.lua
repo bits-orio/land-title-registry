@@ -230,31 +230,60 @@ end
 -- rechart fires on_chunk_charted for every charted chunk, the reveal
 -- self-heals even where this initial check disagrees with the engine.
 --
--- STRICT gating: every chunk the cell overlaps must be charted, not just
--- the centre one. Cells straddle chunk lines (24-tile cells, 32-tile
--- chunks — ADR-0010), and any looser rule lets edge cells hang up to a
--- cell of stripe over unexplored black, which at map zoom reads as the
--- whole overlay being offset from the terrain (playtest report). The
--- cost is the mirror sliver — a charted fringe up to a cell wide stays
--- unstriped until its neighbouring chunks chart — which reads as
--- caution, not breakage. Enemy/neutral never chart, so querying every
--- force is cheap and player-independent.
-local function cell_fully_charted(surface, cx, cy)
+-- Cells straddle chunk lines (24-tile cells, 32-tile chunks — ADR-0010;
+-- the two grids only re-align every 96 tiles), so the striped field can
+-- never end exactly where charted terrain does. Something must give at
+-- the frontier, and OVERHANG beats UNDERHANG (playtest call): stripes
+-- spilling a little onto black read as the overlay being generous,
+-- while charted ground left bare reads as the overlay being broken or
+-- misaligned.
+--
+-- So the rule is deliberately loose, with a one-cell buffer: a cell's
+-- sprite shows when any chunk within BUFFER_CELLS of it is charted.
+-- Every charted cell is therefore covered, and the field extends about a
+-- cell past the frontier. Enemy/neutral never chart, so querying every
+-- force is cheap and player-independent; the early return makes interior
+-- cells a single query.
+local BUFFER_CELLS = 1
+
+-- One force usually does all the charting on a surface (under MTS, its
+-- team), so the last force that answered yes is tried first — it turns
+-- the common query into one API call instead of one per force.
+local last_charting_force
+
+local function any_force_charted(surface, chunk_x, chunk_y)
+  local chunk = { x = chunk_x, y = chunk_y }
+  local remembered = last_charting_force and game.forces[last_charting_force]
+  if remembered and remembered.valid and remembered.is_chunk_charted(surface, chunk) then
+    return true
+  end
+  for _, force in pairs(game.forces) do
+    if force.is_chunk_charted(surface, chunk) then
+      last_charting_force = force.name
+      return true
+    end
+  end
+  return false
+end
+
+-- Creation-time visibility checks the cell's OWN chunks only — up to 2x2
+-- for a 24-tile cell, and an "any charted?" question cannot exit early on
+-- a NO, so scanning the whole buffer ring here made a full rebuild of
+-- unexplored territory ~2x more expensive for nothing. The buffer is
+-- delivered by the reveal path instead: on_chunk_charted widens by
+-- BUFFER_CELLS, so a cell just outside the frontier lights up the moment
+-- a chunk near it charts, and the drain-end rechart replays that for
+-- every already-charted chunk. Same overhang, paid only where charting
+-- actually happens.
+local function cell_charted(surface, cx, cy)
   local x0, x1 = const.chunk_range_of_cell(cx)
   local y0, y1 = const.chunk_range_of_cell(cy)
   for chunk_y = y0, y1 do
     for chunk_x = x0, x1 do
-      local charted = false
-      for _, force in pairs(game.forces) do
-        if force.is_chunk_charted(surface, { x = chunk_x, y = chunk_y }) then
-          charted = true
-          break
-        end
-      end
-      if not charted then return false end
+      if any_force_charted(surface, chunk_x, chunk_y) then return true end
     end
   end
-  return true
+  return false
 end
 
 -- Rebuild the render objects OWNED by cell (cx, cy): west edge, north edge,
@@ -344,7 +373,7 @@ function render.refresh_cell(surface, cx, cy)
     and storage.blocker_regids[surface_index]
     and storage.blocker_regids[surface_index][cell_key] then
     -- Created unconditionally with the blocker, HIDDEN until the chunk is
-    -- charted (see cell_fully_charted above).
+    -- charted (see cell_charted above).
     storage.chart_sprites[surface_index] = storage.chart_sprites[surface_index] or {}
     storage.chart_sprites[surface_index][cell_key] = rendering.draw_sprite({
       surface = surface,
@@ -353,7 +382,7 @@ function render.refresh_cell(surface, cx, cy)
       x_scale = const.CELL / 32,
       y_scale = const.CELL / 32,
       render_mode = "chart",
-      visible = cell_fully_charted(surface, cx, cy),
+      visible = cell_charted(surface, cx, cy),
     })
   end
 
@@ -386,26 +415,25 @@ function render.refresh_cell(surface, cx, cy)
 end
 
 -- A chunk becoming charted reveals hidden wilderness map sprites — one
--- flag flip per cell, no destroy/recreate — under the same STRICT rule
--- as creation: a straddling cell lights up only once the LAST of its
--- overlapped chunks charts, never while part of it hangs over black.
--- The epoch rechart re-fires this for every charted chunk, so any sprite
--- created with the wrong initial visibility self-heals. Cheap on radar
--- re-charts: an already-visible sprite is one lookup and one boolean.
+-- flag flip per cell, no destroy/recreate. This is where the overhang
+-- comes from: the iteration is the charted chunk's own cells widened by
+-- BUFFER_CELLS, so the striped field always reaches a cell past the
+-- frontier and charted ground is never left bare. No charted query is
+-- needed — membership in that widened set IS the rule. The epoch rechart
+-- replays this for every already-charted chunk, so sprites created
+-- hidden (creation checks own chunks only) light up there. Cheap on
+-- radar re-charts: an already-visible sprite is one lookup and a boolean.
 function render.on_chunk_charted(event)
   local surface_index = event.surface_index
   if storage.disabled_surfaces[surface_index] then return end
   local chart_sprites = storage.chart_sprites[surface_index]
   if not chart_sprites then return end
-  local surface = game.surfaces[surface_index]
-  if not (surface and surface.valid) then return end
   local x0, x1 = const.cell_range_of_chunk(event.position.x)
   local y0, y1 = const.cell_range_of_chunk(event.position.y)
-  for cy = y0, y1 do
-    for cx = x0, x1 do
+  for cy = y0 - BUFFER_CELLS, y1 + BUFFER_CELLS do
+    for cx = x0 - BUFFER_CELLS, x1 + BUFFER_CELLS do
       local sprite = chart_sprites[registry.cell_key(cx, cy)]
-      if sprite and sprite.valid and not sprite.visible
-        and cell_fully_charted(surface, cx, cy) then
+      if sprite and sprite.valid and not sprite.visible then
         sprite.visible = true
       end
     end

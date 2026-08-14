@@ -30,15 +30,17 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 10: 9 plus strict wilderness-sprite gating — a straddling cell
--- shows only when EVERY chunk it overlaps is charted, and previously
--- over-revealed edge sprites need re-deriving. 9 redrew chronicle text —
+-- Epoch 11: 10's strict gating traded overhang for underhang (bare
+-- charted ground at the frontier — worse, since cells and chunks only
+-- re-align every 96 tiles and SOMETHING must give); the rule is now a
+-- one-cell buffer applied on the reveal path, and 10's under-revealed
+-- edge sprites need re-deriving. 9 redrew chronicle text —
 -- non-competitive games stopped drawing standings. Wilderness map sprites
 -- follow the create-hidden / reveal-on-chart pattern, the migration
 -- sweeps MTS non-play surfaces, applies the print-claims default, and
 -- its drain-end rechart doubles as the reveal sweep for every charted
 -- chunk.
-local CHART_EPOCH = 10
+local CHART_EPOCH = 11
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
