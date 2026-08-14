@@ -7,9 +7,12 @@ wilderness escalates the same artwork to fully opaque red stripes,
 unmistakable at any zoom):
 
     wilderness  red, stripes 100% opaque   (hard no)
-    trail       orange, calmer             (transit corridor)
+    trail       orange at ~half strength   (transit corridor)
     rampart     red, the original pattern  (one rung from Deed)
     deed        —                          (no blocker, fully clear)
+
+Stripe weight tracks how much the rung forbids, so the ladder reads as a
+gradient from loud to silent even before the colors register.
 
 Each sprite is 1024x1024 px; the data stage scales it to the configured cell
 size. The stripe period divides 1024, so patterns continue seamlessly across
@@ -71,21 +74,36 @@ def darken(c, f=0.66):
 
 # Per-state look. Rampart deliberately wears the WILDERNESS palette entry —
 # if that line looks wrong, read the module docstring: the red pattern
-# moved down a rung, it was not left behind by accident. Only wilderness
-# sets opaque_ribbon, which lifts the two stripe elements (edge + core) to
-# alpha 255 while border, inner line, and wash keep their usual strengths.
+# moved down a rung, it was not left behind by accident.
+#
+# The last field overrides individual alphas from A. Stripe strength is set
+# per state rather than scaled globally, because alpha_scale also dims the
+# cell border and wash — and the states want different stripe weights while
+# sharing everything else. The weights encode the ladder: the more a rung
+# forbids, the louder it argues.
+#
+#   wilderness  opaque       a hard no, unmissable at any zoom
+#   trail       ~half        visible over any terrain, still see-through
+#   rampart     base (~1/3)  the quietest marked rung, one step from Deed
+#   deed        —            no blocker, no overlay: clear ground is owned
+#
+# Trail's boost is a playtest call: at the base alphas its orange read as
+# ~19% over dirt and effectively vanished (screenshot), and halving the
+# ribbon width for anti-aliasing had made it fainter still.
 RED = COLORS["wilderness"]
 STATES = {
-    "wilderness": (RED, darken(RED), 1.00, True),
-    "trail": (COLORS["trail"], darken(COLORS["trail"]), 0.90, False),
-    "rampart": (RED, darken(RED), 1.00, False),
+    "wilderness": (RED, darken(RED), 1.00, {"ribbon_edge": 255, "ribbon_core": 255}),
+    "trail": (COLORS["trail"], darken(COLORS["trail"]), 0.90,
+              {"ribbon_edge": 190, "ribbon_core": 125, "inner": 90}),
+    "rampart": (RED, darken(RED), 1.00, {}),
 }
 
 
-def make(name, color, dark, alpha_scale, opaque_ribbon, suffix="", wash=True):
+def make(name, color, dark, alpha_scale, overrides, suffix="", wash=True):
     def a(key):
-        if opaque_ribbon and key in ("ribbon_edge", "ribbon_core"):
-            return 255
+        override = overrides.get(key)
+        if override is not None:
+            return override
         return max(1, round(A[key] * alpha_scale))
 
     # Compute at SIZE*SS, downscale with Lanczos — the anti-aliasing pass.
@@ -124,8 +142,8 @@ def make(name, color, dark, alpha_scale, opaque_ribbon, suffix="", wash=True):
 
 
 def main():
-    for name, (color, dark, scale, opaque_ribbon) in STATES.items():
-        make(name, color, dark, scale, opaque_ribbon)
+    for name, (color, dark, scale, overrides) in STATES.items():
+        make(name, color, dark, scale, overrides)
     # Chart variants for every blocker state (drawn by scripts/render.lua
     # in map view): identical stripes and cell border, but the
     # between-stripes wash is fully transparent — on the chart the wash
@@ -136,8 +154,8 @@ def main():
     # playtest: any area recoloring makes the OTHER side of the boundary
     # read as tinted by contrast).
     for name in ("wilderness", "trail", "rampart"):
-        color, dark, scale, opaque_ribbon = STATES[name]
-        make(name, color, dark, scale, opaque_ribbon, suffix="-chart", wash=False)
+        color, dark, scale, overrides = STATES[name]
+        make(name, color, dark, scale, overrides, suffix="-chart", wash=False)
 
 
 if __name__ == "__main__":
