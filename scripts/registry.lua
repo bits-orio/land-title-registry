@@ -49,8 +49,9 @@ function registry.init_storage()
   -- contested = bool} — the drawn chronicle objects, chart ones bucketed
   -- by the map zoom tier that reveals them
   storage.chronicle_renders = storage.chronicle_renders or {}
-  -- player_index -> true when that player has hidden the map chronicle
-  storage.chronicle_off = storage.chronicle_off or {}
+  -- player_index -> true when that player has opted INTO the map
+  -- chronicle (absent = off, the default)
+  storage.chronicle_on = storage.chronicle_on or {}
   -- player_index -> {tier, surface_index} last applied for map detail
   storage.chart_view = storage.chart_view or {}
   -- player_index -> true while connected, gating the zoom sampler

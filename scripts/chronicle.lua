@@ -334,7 +334,7 @@ local function visibility_lists(surface_index)
     -- player.surface_index follows remote view, which is exactly the
     -- surface whose chart the player is looking at.
     if player.valid and player.surface_index == surface_index
-      and not storage.chronicle_off[player.index] then
+      and storage.chronicle_on[player.index] then
       local view = storage.chart_view[player.index]
       local tier = view and view.tier or TIER_NEAR
       local contested_only = player.mod_settings["ltr-chronicle-contested-only"].value
@@ -431,14 +431,18 @@ function chronicle.ensure_poll_handler()
 end
 
 -- Toggle the whole map layer for one player (shortcut button / hotkey).
+-- OFF is the default: the standings are genuinely useful but they are a
+-- lot of ink on a developed map, and a player who wants them asks
+-- (playtest call). Absent state therefore means hidden, and the opt-in
+-- persists per player.
 function chronicle.set_enabled(player, enabled)
-  storage.chronicle_off[player.index] = (not enabled) or nil
+  storage.chronicle_on[player.index] = enabled or nil
   player.set_shortcut_toggled("ltr-toggle-chronicle", enabled)
   chronicle.apply_visibility(player.surface_index)
 end
 
 function chronicle.enabled_for(player)
-  return not storage.chronicle_off[player.index]
+  return storage.chronicle_on[player.index] == true
 end
 
 function chronicle.on_player_joined(player)
