@@ -30,7 +30,9 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 13: migrations became LAZY and per surface. Every earlier bump
+-- Epoch 14: cells draw only their record holder — the ranked top-three
+-- block is gone from both views, so existing objects must be redrawn.
+-- 13: migrations became LAZY and per surface. Every earlier bump
 -- enqueued every chunk of every surface at once — on a 30-surface server
 -- that is a ~227,000-item queue running a find_entities_filtered per cell
 -- forever after, which measured 75ms/tick and gutted UPS (playtest). A
@@ -49,7 +51,7 @@ require("scripts.remote")
 -- sweeps MTS non-play surfaces, applies the print-claims default, and
 -- its drain-end rechart doubles as the reveal sweep for every charted
 -- chunk.
-local CHART_EPOCH = 13
+local CHART_EPOCH = 14
 
 -- Redraw a surface that a migration still owes, the moment somebody looks
 -- at it. Installed on chronicle's viewed hook, so cost is paid per surface

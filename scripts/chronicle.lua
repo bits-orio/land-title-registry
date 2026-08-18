@@ -31,11 +31,6 @@ chronicle.team_info_provider = nil
 -- its own — a team reads the same color everywhere it is named.
 local TEXT_COLOR = { r = 0.92, g = 0.92, b = 0.92 }
 local COORD_COLOR = { r = 0.78, g = 0.78, b = 0.72 }
-local LINE_STEP = 0.62          -- vertical spacing of standings lines
--- Standings are centered on the cell; the coordinate label is right-
--- aligned so it ends just left of them. Half the typical standings width,
--- so the pair reads as one centered block.
-local STANDINGS_HALF_WIDTH = 3.9
 -- Chart text is smaller than it looks it should be, deliberately: a long
 -- team label used to overrun the cell it belongs to and collide with its
 -- neighbours (playtest report). Smaller type plus the compact map format
@@ -43,7 +38,6 @@ local STANDINGS_HALF_WIDTH = 3.9
 -- inside its own cell.
 local CHART_SCALE = 3.2
 local CHART_LINE_STEP = 2.6
-local COORD_GAP = 0.3
 -- Map-view level of detail, for when the layer is switched on. Chart text
 -- is world-anchored, so zooming out shrinks it but never THINS it: every
 -- deeded cell kept shouting its full leaderboard, and a developed map
@@ -516,9 +510,6 @@ local function destroy_refs(entry)
         if object.valid then object.destroy() end
       end
     end
-    for _, object in pairs(entry.world) do
-      if object.valid then object.destroy() end
-    end
   else
     for _, object in pairs(entry) do
       if type(object) == "table" and object.valid then object.destroy() end
@@ -546,72 +537,42 @@ function chronicle.refresh_cell(surface, cx, cy)
   local shown = competitive and math.min(3, #entries) or 0
   local center_x = cx * const.CELL + const.CELL / 2
   local center_y = cy * const.CELL + const.CELL / 2
-  local first_y = cy * const.CELL + 0.5
 
-  local world = {}
   local buckets = { {}, {} }
 
+  -- One line per cell: the FASTEST team and its clock, nothing else.
+  -- Ranks 2-3 used to draw here and in world view too; at a cell per 24
+  -- tiles that was three labels on every deeded cell in the game, and
+  -- playtest called it what it was — noise that buried the one fact worth
+  -- reading. The full standings remain queryable (survey-tool hover,
+  -- /ltr-debug, get_cell_chronicle); the map states the record holder.
+  --
+  -- Compact format on purpose: team tag and clock, no rank number and no
+  -- leader name, so a label stays inside its own cell.
   if shown > 0 then
-  -- Cell coordinates, hugging the left of the standings block. No `font`
-  -- override anywhere here: the small bitmap fonts render blurry when
-  -- scaled, so the default font at a modest scale is what stays crisp.
-  world[#world + 1] = rendering.draw_text({
-    text = string.format("(%d,%d)", cx, cy),
-    surface = surface,
-    target = {
-      x = center_x - STANDINGS_HALF_WIDTH - COORD_GAP,
-      y = first_y + (shown - 1) * LINE_STEP / 2,
-    },
-    color = COORD_COLOR,
-    scale = 0.8,
-    alignment = "right",
-  })
-
-  for rank = 1, shown do
-    local entry = entries[rank]
-    world[#world + 1] = rendering.draw_text({
-      text = { "land-title-registry.chronicle-line", rank,
-        chronicle.team_label(entry.force_name), chronicle.format_clock(entry.clock) },
+    local leader = entries[1]
+    local lean = buckets[TIER_LEAN]
+    lean[#lean + 1] = rendering.draw_text({
+      text = { "land-title-registry.chronicle-chart-line",
+        chronicle.team_tag(leader.force_name), chronicle.format_clock(leader.clock) },
       surface = surface,
-      target = { x = center_x, y = first_y + (rank - 1) * LINE_STEP },
+      target = { x = center_x, y = center_y + CHART_LINE_STEP / 2 },
       color = TEXT_COLOR,
-      scale = 0.7,
+      scale = CHART_SCALE,
       alignment = "center",
+      vertical_alignment = "middle",
       use_rich_text = true,
+      render_mode = "chart",
     })
   end
-  end
 
-  -- Map view, by tier: the leader's line always, ranks 2-3 up close.
-  -- Map lines use the compact format — team tag and clock, no rank number
-  -- and no leader name — so a label stays inside its own cell.
-  if shown > 0 then
-    for rank = 1, shown do
-      local entry = entries[rank]
-      local bucket = (rank == 1) and TIER_LEAN or TIER_FULL
-      local objects = buckets[bucket]
-      objects[#objects + 1] = rendering.draw_text({
-        text = { "land-title-registry.chronicle-chart-line",
-          chronicle.team_tag(entry.force_name), chronicle.format_clock(entry.clock) },
-        surface = surface,
-        target = { x = center_x, y = center_y + rank * CHART_LINE_STEP },
-        color = TEXT_COLOR,
-        scale = CHART_SCALE,
-        alignment = "center",
-        vertical_alignment = "middle",
-        use_rich_text = true,
-        render_mode = "chart",
-      })
-    end
-  end
-
-  -- The coordinate is close-zoom only in every game: at a distance it was
-  -- pure noise, and a solo game (no standings at all) still gets it here.
+  -- The coordinate is close-zoom only: at a distance it was pure noise,
+  -- and a solo game (no standings at all) still gets it here.
   local near = buckets[TIER_FULL]
   near[#near + 1] = rendering.draw_text({
     text = string.format("(%d,%d)", cx, cy),
     surface = surface,
-    target = { x = center_x, y = center_y - CHART_LINE_STEP },
+    target = { x = center_x, y = center_y - CHART_LINE_STEP / 2 },
     color = COORD_COLOR,
     scale = CHART_SCALE,
     alignment = "center",
@@ -619,7 +580,7 @@ function chronicle.refresh_cell(surface, cx, cy)
     render_mode = "chart",
   })
 
-  local entry = { world = world, buckets = buckets, contested = #entries > 1 }
+  local entry = { buckets = buckets, contested = #entries > 1 }
   apply_cell(entry, visibility_lists(surface_index))
   refs[cell_key] = entry
 end
