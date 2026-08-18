@@ -12,6 +12,9 @@ local blockers = {}
 -- Bounded slice per drain so large rebuilds never spike a tick.
 local REBUILD_TICK_INTERVAL = 2
 local REBUILD_SLICE = 48
+-- Redraw items skip the entity work entirely (no area query, no
+-- create/destroy), so a slice can be far larger for the same tick cost.
+local REDRAW_SLICE = 240
 
 -- Is any chunk touching this cell generated? The gameplay gate for claims
 -- and heals; blocker creation itself works on ungenerated chunks.
@@ -197,7 +200,10 @@ end
 local function drain_rebuild_queue()
   local queue = storage.rebuild_queue
   local n = #queue
-  local slice = math.min(REBUILD_SLICE, n)
+  -- The tail decides the slice: redraw work is cheap enough to move in
+  -- much bigger bites, and one enqueue pass produces a homogeneous queue.
+  local tail = queue[n]
+  local slice = math.min(tail and tail.redraw and REDRAW_SLICE or REBUILD_SLICE, n)
   for _ = 1, slice do
     local item = queue[n]
     queue[n] = nil
@@ -209,7 +215,15 @@ local function drain_rebuild_queue()
       local y0, y1 = const.cell_range_of_chunk(item.y)
       for cy = y0, y1 do
         for cx = x0, x1 do
-          blockers.reconcile(surface, cx, cy)
+          if item.redraw then
+            -- Map-visual migrations change only what is DRAWN. Skipping
+            -- reconcile skips a find_entities_filtered per cell, which is
+            -- the expensive half by a wide margin.
+            render.refresh_cell(surface, cx, cy)
+            chronicle.refresh_cell(surface, cx, cy)
+          else
+            blockers.reconcile(surface, cx, cy)
+          end
         end
       end
     end
@@ -251,21 +265,44 @@ function blockers.ensure_rebuild_handler()
   end
 end
 
-function blockers.enqueue_surface_rebuild(surface)
+function blockers.enqueue_surface_rebuild(surface, redraw)
   local queue = storage.rebuild_queue
   local count = 0
   for chunk in surface.get_chunks() do
-    queue[#queue + 1] = { surface_index = surface.index, x = chunk.x, y = chunk.y }
+    queue[#queue + 1] = {
+      surface_index = surface.index, x = chunk.x, y = chunk.y, redraw = redraw or nil,
+    }
     count = count + 1
   end
   blockers.ensure_rebuild_handler()
   return count
 end
 
-function blockers.enqueue_full_rebuild()
-  local total = 0
+-- The drain pops from the END, so whatever is enqueued LAST is fixed
+-- FIRST. Surfaces with players on them go last, because on a server with
+-- dozens of team surfaces the one you are standing on must not wait
+-- behind twenty-seven you cannot see (playtest: a 224k-chunk migration
+-- left the local surface stale, and its toggle inert, for minutes).
+function blockers.enqueue_full_rebuild(redraw)
+  local occupied, empty = {}, {}
   for _, surface in pairs(game.surfaces) do
-    total = total + blockers.enqueue_surface_rebuild(surface)
+    local has_player = false
+    for _, player in pairs(game.connected_players) do
+      if player.valid and player.surface_index == surface.index then
+        has_player = true
+        break
+      end
+    end
+    local bucket = has_player and occupied or empty
+    bucket[#bucket + 1] = surface
+  end
+
+  local total = 0
+  for _, surface in ipairs(empty) do
+    total = total + blockers.enqueue_surface_rebuild(surface, redraw)
+  end
+  for _, surface in ipairs(occupied) do
+    total = total + blockers.enqueue_surface_rebuild(surface, redraw)
   end
   return total
 end

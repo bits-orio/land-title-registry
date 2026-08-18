@@ -53,7 +53,9 @@ local function ensure_recharted()
   -- seconds, not instants, and a player staring at the map deserves to
   -- know the redraw is coming.
   storage.rechart_pending = true
-  local count = blockers.enqueue_full_rebuild()
+  -- A chart-epoch bump changes what is DRAWN, never the blockers, so this
+  -- is a redraw pass: no per-cell entity query, and a much larger slice.
+  local count = blockers.enqueue_full_rebuild(true)
   if count == 0 then
     storage.rechart_pending = nil
     for _, force in pairs(game.forces) do
