@@ -37,8 +37,14 @@ SUBTITLE_FILL = (154, 160, 166)
 # reads as a rim rather than a faint smudge; it clips at full white close
 # to the glyph, which is exactly where the contrast is needed.
 GLOW = (255, 255, 255)
-GLOW_RADIUS = 5
-GLOW_STRENGTH = 2.2
+# Two passes, drawn widest first. The tight rim is what makes the letters
+# legible against a stripe; the wide, weak bloom underneath does nothing
+# for legibility and everything for depth -- it lifts the mark off the
+# striped ground so it reads as floating above the card rather than
+# printed on it. Keep the wide pass unboosted: at strength 1.0 a radius-26
+# blur is already a thin veil, and lifting it turns the halo into a solid
+# blob that closes the counters of the R.
+GLOW_PASSES = ((26, 1.0), (5, 2.2))
 
 LETTERS = "LTR"
 SUBTITLE = "LAND RIGHTS"
@@ -84,10 +90,11 @@ def draw_letters(colors):
     return layer, layer.getbbox()
 
 
-def glow_for(layer):
+def glow_for(layer, radius, strength):
     """A blurred white copy of `layer`'s coverage, to sit directly behind it."""
-    alpha = layer.getchannel("A").filter(ImageFilter.GaussianBlur(GLOW_RADIUS))
-    alpha = alpha.point(lambda v: min(255, int(v * GLOW_STRENGTH)))
+    alpha = layer.getchannel("A").filter(ImageFilter.GaussianBlur(radius))
+    if strength != 1.0:
+        alpha = alpha.point(lambda v: min(255, int(v * strength)))
     halo = Image.new("RGBA", layer.size, GLOW + (0,))
     halo.putalpha(alpha)
     return halo
@@ -121,9 +128,11 @@ def build():
         round(SIZE / 2 - (left + right) / 2),
         round(LETTERS_CENTRE_Y - (top + bottom) / 2),
     )
-    # Halo first, letters over it: the glow only ever shows outside the
+    # Halos first, letters over them: the glow only ever shows outside the
     # glyphs, so it never washes out the palette colors it is protecting.
-    img.paste(glow_for(layer), offset, glow_for(layer))
+    for radius, strength in GLOW_PASSES:
+        halo = glow_for(layer, radius, strength)
+        img.paste(halo, offset, halo)
     img.paste(layer, offset, layer)
 
     font = ImageFont.truetype(FONT, SUBTITLE_SIZE)
