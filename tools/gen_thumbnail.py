@@ -19,7 +19,7 @@ Run from the repo root:  python3 tools/gen_thumbnail.py
 import re
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 SIZE = 512
 BG = (43, 43, 43)
@@ -27,6 +27,18 @@ FRAME = (64, 64, 64)
 FRAME_INSET = 14
 FRAME_WIDTH = 8
 SUBTITLE_FILL = (154, 160, 166)
+
+# A white halo behind the mark, centred (no offset) rather than cast to one
+# side. The card underlays the wilderness stripes, and wilderness red is
+# also the L's own color -- so wherever a stripe fell behind the L the
+# letter dissolved into it. The halo separates every letter from whatever
+# is under it without changing the letters themselves, which have to stay
+# on the state palette. Strength lifts the blur's midtones so the halo
+# reads as a rim rather than a faint smudge; it clips at full white close
+# to the glyph, which is exactly where the contrast is needed.
+GLOW = (255, 255, 255)
+GLOW_RADIUS = 10
+GLOW_STRENGTH = 2.4
 
 LETTERS = "LTR"
 SUBTITLE = "LAND RIGHTS"
@@ -72,6 +84,15 @@ def draw_letters(colors):
     return layer, layer.getbbox()
 
 
+def glow_for(layer):
+    """A blurred white copy of `layer`'s coverage, to sit directly behind it."""
+    alpha = layer.getchannel("A").filter(ImageFilter.GaussianBlur(GLOW_RADIUS))
+    alpha = alpha.point(lambda v: min(255, int(v * GLOW_STRENGTH)))
+    halo = Image.new("RGBA", layer.size, GLOW + (0,))
+    halo.putalpha(alpha)
+    return halo
+
+
 def wilderness_underlay(root):
     """The wilderness stripes, cropped of their baked cell border and sized
     to the card's inner area (inside the frame), at full artwork strength."""
@@ -100,6 +121,9 @@ def build():
         round(SIZE / 2 - (left + right) / 2),
         round(LETTERS_CENTRE_Y - (top + bottom) / 2),
     )
+    # Halo first, letters over it: the glow only ever shows outside the
+    # glyphs, so it never washes out the palette colors it is protecting.
+    img.paste(glow_for(layer), offset, glow_for(layer))
     img.paste(layer, offset, layer)
 
     font = ImageFont.truetype(FONT, SUBTITLE_SIZE)
