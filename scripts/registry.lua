@@ -56,6 +56,9 @@ function registry.init_storage()
   storage.chart_view = storage.chart_view or {}
   -- player_index -> true while connected, gating the zoom sampler
   storage.chart_watchers = storage.chart_watchers or {}
+  -- surface_index -> true when a map-view migration still owes this
+  -- surface a redraw; paid lazily, when someone actually looks at it
+  storage.chart_dirty = storage.chart_dirty or {}
   -- [force_index][surface_index] -> mainland-anchor cell_key (outposts)
   storage.origins = storage.origins or {}
   -- [force_index] -> array of {surface_index, cell_key} founded outposts

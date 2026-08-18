@@ -1,6 +1,9 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.1.10
 Date: 2026-08-18
+  Bugfixes:
+    - Fixed a severe, compounding performance problem on servers with many team surfaces. Every map-view update enqueued a reconcile of every chunk on every surface at once; that queue is saved with the game, so it resumed on each load and could reach hundreds of thousands of pending chunks, each running an entity query. On a 30-surface save this measured 75 ms per tick - roughly 13 UPS. Map-view updates are now deferred per surface and paid only when someone actually looks at that surface, and any oversized queue inherited from an older version is discarded on load. The same save now measures 9 ms per tick.
+    - /ltr-rebuild now reconciles your current surface; /ltr-rebuild all does every surface, which on a many-team server is a long, UPS-heavy sweep.
   Features:
     - Map-view cell standings are now OFF by default and switched on per player with a shortcut-bar button or ALT+C. They are useful but they are a lot of ink on a developed map, so they are now something you ask for; the choice persists.
     - When switched on, the standings thin out as you zoom away: the leading team's line alone at a distance, the full top three and the cell coordinate up close. Previously every deeded cell drew its whole leaderboard at every zoom.

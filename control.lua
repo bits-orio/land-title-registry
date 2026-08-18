@@ -30,7 +30,13 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 12: the map chronicle became a three-tier zoom LOD with bucketed
+-- Epoch 13: migrations became LAZY and per surface. Every earlier bump
+-- enqueued every chunk of every surface at once — on a 30-surface server
+-- that is a ~227,000-item queue running a find_entities_filtered per cell
+-- forever after, which measured 75ms/tick and gutted UPS (playtest). A
+-- migration now marks surfaces dirty and redraws one only when somebody
+-- looks at it, and it clears any queue inherited from the old scheme.
+-- 12: the map chronicle became a zoom LOD with bucketed
 -- render objects; pre-12 saves hold flat object arrays with no tier
 -- membership and must be redrawn. 11 fixed frontier overhang: 10's strict
 -- gating traded overhang for underhang (bare
@@ -43,26 +49,43 @@ require("scripts.remote")
 -- sweeps MTS non-play surfaces, applies the print-claims default, and
 -- its drain-end rechart doubles as the reveal sweep for every charted
 -- chunk.
-local CHART_EPOCH = 12
+local CHART_EPOCH = 13
+
+-- Redraw a surface that a migration still owes, the moment somebody looks
+-- at it. Installed on chronicle's viewed hook, so cost is paid per surface
+-- VISITED rather than for every surface that exists.
+local function redraw_if_dirty(surface_index)
+  if not storage.chart_dirty[surface_index] then return end
+  storage.chart_dirty[surface_index] = nil
+  local surface = game.surfaces[surface_index]
+  if not (surface and surface.valid) then return end
+  local count = blockers.enqueue_surface_rebuild(surface, true)
+  if count > 0 then
+    game.print({ "land-title-registry.rebuild-started", count })
+  end
+end
+chronicle.on_surface_viewed = redraw_if_dirty
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
   storage.chart_epoch = CHART_EPOCH
-  -- Rechart AFTER the rebuild has re-derived the chart sprites; the
-  -- drain's completion consumes the flag. Announce the sweep — it is
-  -- seconds, not instants, and a player staring at the map deserves to
-  -- know the redraw is coming.
+  -- Older migrations enqueued every chunk of every surface in one go. On a
+  -- server with dozens of team surfaces that is a six-figure queue running
+  -- a per-cell entity query for minutes, and the queue PERSISTS in the
+  -- save, so it resumes on every load until it finally drains. Drop
+  -- whatever such a queue is still carrying: everything it would have
+  -- fixed is derived state that the lazy redraw below re-derives anyway.
+  storage.rebuild_queue = {}
+  for _, surface in pairs(game.surfaces) do
+    storage.chart_dirty[surface.index] = true
+  end
+  -- Rechart AFTER a redraw drains; its completion consumes the flag.
   storage.rechart_pending = true
-  -- A chart-epoch bump changes what is DRAWN, never the blockers, so this
-  -- is a redraw pass: no per-cell entity query, and a much larger slice.
-  local count = blockers.enqueue_full_rebuild(true)
-  if count == 0 then
-    storage.rechart_pending = nil
-    for _, force in pairs(game.forces) do
-      force.rechart()
-    end
-  else
-    game.print({ "land-title-registry.rebuild-started", count })
+  blockers.ensure_rebuild_handler()
+  -- Pay for the surfaces someone is actually on right now; the rest wait
+  -- until visited.
+  for _, player in pairs(game.connected_players) do
+    if player.valid then redraw_if_dirty(player.surface_index) end
   end
 end
 

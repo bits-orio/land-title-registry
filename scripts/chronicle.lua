@@ -389,6 +389,11 @@ function chronicle.apply_visibility(surface_index)
   end
 end
 
+-- control.lua installs this to redraw a surface the moment somebody looks
+-- at it, paying a migration's cost per surface visited instead of for all
+-- thirty up front.
+chronicle.on_surface_viewed = nil
+
 -- Poll connected players for zoom and viewed surface. There is no event
 -- for either, so this is a 20-tick sampler registered only while someone
 -- is connected (scripts/chronicle.ensure_poll_handler) — the same scoped
@@ -402,6 +407,9 @@ function chronicle.poll()
       local view = storage.chart_view[index]
       local tier = tier_for(player.zoom, view and view.tier)
       local surface_index = player.surface_index
+      if chronicle.on_surface_viewed then
+        chronicle.on_surface_viewed(surface_index)
+      end
       if not view or view.tier ~= tier or view.surface_index ~= surface_index then
         if view and view.surface_index ~= surface_index then
           dirty[view.surface_index] = true

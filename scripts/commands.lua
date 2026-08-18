@@ -8,8 +8,20 @@ local blockers = require("scripts.blockers")
 local welcome = require("scripts.welcome")
 local chronicle = require("scripts.chronicle")
 
+-- Default to the CURRENT surface: on a server with dozens of team
+-- surfaces, "rebuild everything" is a six-figure queue that degrades UPS
+-- for minutes, and the drift being recovered from is almost always local.
+-- `/ltr-rebuild all` still does the whole world for whoever means it.
 commands.add_command("ltr-rebuild", { "land-title-registry.cmd-rebuild-help" }, function(event)
-  local count = blockers.enqueue_full_rebuild()
+  local everywhere = (event.parameter or ""):match("^%s*all%s*$") ~= nil
+  local count
+  if everywhere or not event.player_index then
+    count = blockers.enqueue_full_rebuild()
+  else
+    local player = game.get_player(event.player_index)
+    count = (player and player.valid)
+      and blockers.enqueue_surface_rebuild(player.surface) or 0
+  end
   local message = { "land-title-registry.rebuild-started", count }
   if event.player_index then
     local player = game.get_player(event.player_index)
