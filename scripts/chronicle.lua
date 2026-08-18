@@ -433,6 +433,37 @@ function chronicle.ensure_poll_handler()
   end
 end
 
+-- Redraw every cell this mod has chronicle objects for, on every surface.
+--
+-- The lazy per-surface migration is right for MAP SPRITES, which number in
+-- the hundred-thousands and are only worth paying for where someone looks.
+-- Chronicle objects are the opposite: a few thousand in total, and stale
+-- ones are actively wrong — they outlive their locale keys and render as
+-- "Unknown key" (playtest screenshot). Cheap enough to fix everywhere at
+-- once, so a chronicle-shape change does exactly that and never leaves a
+-- surface carrying dead text because nobody happened to visit it.
+function chronicle.refresh_all_tracked()
+  local refreshed = 0
+  for surface_index, refs in pairs(storage.chronicle_renders) do
+    local surface = game.surfaces[surface_index]
+    if surface and surface.valid then
+      local keys = {}
+      for key in pairs(refs) do keys[#keys + 1] = key end
+      for _, key in ipairs(keys) do
+        local pos = registry.cell_key_to_pos(key)
+        chronicle.refresh_cell(surface, pos.x, pos.y)
+        refreshed = refreshed + 1
+      end
+    else
+      -- Surface is gone; free whatever it still held.
+      for _, entry in pairs(refs) do destroy_refs(entry) end
+      storage.chronicle_renders[surface_index] = nil
+    end
+  end
+  log("LTR-CHRON refreshed " .. refreshed .. " tracked cells across all surfaces")
+  return refreshed
+end
+
 -- Everything /ltr-debug needs to explain why the map layer does or does
 -- not show anything for this player, in one call.
 function chronicle.diagnose(player)

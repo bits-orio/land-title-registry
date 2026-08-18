@@ -30,7 +30,10 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 15: sweeps render objects this mod orphaned when the ranked
+-- Epoch 16: refreshes chronicle objects on EVERY surface, not just
+-- visited ones — stale ones outlive their locale keys and render as
+-- "Unknown key", and there are few enough to fix outright.
+-- 15: sweeps render objects this mod orphaned when the ranked
 -- world-view block was retired without its destroy loop — they are
 -- unreachable from storage, so only an explicit sweep frees them.
 -- 14: cells draw only their record holder — the ranked top-three
@@ -54,7 +57,7 @@ require("scripts.remote")
 -- sweeps MTS non-play surfaces, applies the print-claims default, and
 -- its drain-end rechart doubles as the reveal sweep for every charted
 -- chunk.
-local CHART_EPOCH = 15
+local CHART_EPOCH = 16
 
 -- Redraw a surface that a migration still owes, the moment somebody looks
 -- at it. Installed on chronicle's viewed hook, so cost is paid per surface
@@ -134,6 +137,10 @@ local function ensure_recharted()
   -- fixed is derived state that the lazy redraw below re-derives anyway.
   storage.rebuild_queue = {}
   sweep_orphan_renders()
+  -- Chronicle objects are few and stale ones are actively wrong, so they
+  -- are fixed everywhere immediately rather than waiting for someone to
+  -- visit each surface.
+  chronicle.refresh_all_tracked()
   for _, surface in pairs(game.surfaces) do
     storage.chart_dirty[surface.index] = true
   end
