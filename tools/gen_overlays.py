@@ -71,15 +71,19 @@ INNER = 2
 # report: "as if anti-aliasing isn't happening" — it wasn't).
 SS = 4
 
-# Base alphas at full strength (wilderness). The ribbon pair is halved from
-# what it was at ribbon 64, because ribbon 128 covers twice the area -- see
-# RIBBON. Only rampart reads these two directly; wilderness and trail
-# override both below.
+# Base alphas at full strength (wilderness). Only RAMPART reads the ribbon
+# pair directly -- wilderness and trail override both below -- so those two
+# numbers are effectively rampart's dial, and they are NOT halved the way
+# the other states were when ribbon went 64 -> 128. Halving them was a
+# mistake: rampart is already the faintest rung, and taking the
+# coverage-doubling discount on top of that put it at mean alpha 19, which
+# playtest could not see in either view. Being the quietest rung still
+# means being visible.
 A = {
     "border": 120,
     "inner": 60,
-    "ribbon_edge": 58,
-    "ribbon_core": 33,
+    "ribbon_edge": 110,
+    "ribbon_core": 72,
     "wash": 12,
 }
 
@@ -114,9 +118,9 @@ def darken(c, f=0.66):
 # sharing everything else. The weights encode the ladder: the more a rung
 # forbids, the louder it argues.
 #
-#   wilderness  ~half        a hard no, unmissable at any zoom
-#   trail       ~half        visible over any terrain, still see-through
-#   rampart     base (~1/3)  the quietest marked rung, one step from Deed
+#   wilderness  mean a 67   a hard no, unmissable at any zoom
+#   trail       mean a 48    visible over any terrain, still see-through
+#   rampart     mean a 39    the quietest marked rung, one step from Deed
 #   deed        —            no blocker, no overlay: clear ground is owned
 #
 # Trail's boost is a playtest call: at the base alphas its orange read as
