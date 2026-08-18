@@ -37,8 +37,8 @@ SUBTITLE_FILL = (154, 160, 166)
 # reads as a rim rather than a faint smudge; it clips at full white close
 # to the glyph, which is exactly where the contrast is needed.
 GLOW = (255, 255, 255)
-GLOW_RADIUS = 10
-GLOW_STRENGTH = 2.4
+GLOW_RADIUS = 5
+GLOW_STRENGTH = 2.2
 
 LETTERS = "LTR"
 SUBTITLE = "LAND RIGHTS"
