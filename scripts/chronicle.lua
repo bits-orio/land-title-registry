@@ -31,32 +31,26 @@ chronicle.team_info_provider = nil
 -- its own — a team reads the same color everywhere it is named.
 local TEXT_COLOR = { r = 0.92, g = 0.92, b = 0.92 }
 local COORD_COLOR = { r = 0.78, g = 0.78, b = 0.72 }
--- Chart text is smaller than it looks it should be, deliberately: a long
--- team label used to overrun the cell it belongs to and collide with its
--- neighbours (playtest report). Smaller type plus the compact map format
--- (team tag and clock, no rank number, no leader name) keeps a label
--- inside its own cell.
-local CHART_SCALE = 3.2
-local CHART_LINE_STEP = 2.6
--- Map-view level of detail, for when the layer is switched on. Chart text
--- is world-anchored, so zooming out shrinks it but never THINS it: every
--- deeded cell kept shouting its full leaderboard, and a developed map
--- turned illegible (playtest screenshot: ~140 visible cells x 4 labels).
+local LINE_STEP = 0.62          -- vertical spacing of world standings
+-- World standings are centred on the cell; the coordinate is right-aligned
+-- so it ends just left of them, and the pair reads as one centred block.
+local STANDINGS_HALF_WIDTH = 3.9
+local COORD_GAP = 0.3
+-- Map type is large again: the compact map format (team tag and clock, no
+-- rank number and no leader name) is short enough to carry it without
+-- overrunning the cell, which the full label at this size could not.
+local CHART_SCALE = 4.4
+local CHART_LINE_STEP = 3.6
+-- The map draws one record line and the cell coordinate, both at every
+-- zoom (playtest: hiding the coordinate at a distance made it feel
+-- unreliable). There is nothing left to thin out, so the zoom ladder that
+-- used to stage detail is gone; visibility is now simply on or off per
+-- player. World view is separate and always shows the full standings.
 --
---   1 LEAN  the leader's line alone
---   2 FULL  + ranks 2-3, and the cell coordinate
---
--- Both tiers always show SOMETHING, so switching the layer on is visible
--- at any zoom. (A third, text-free tier drawing only a team-coloured dot
--- was tried and cut: with dozens of teams a colour is not identifiable by
--- eye, so the dot carried no information — playtest call.)
---
--- LuaPlayer.zoom is readable (baseline 1.0, smaller = further out). The
--- rise and fall thresholds differ so scroll-zooming across the boundary
--- cannot thrash the object updates.
-local TIER_LEAN, TIER_FULL = 1, 2
-local TIER_UP = { [TIER_FULL] = 0.32 }
-local TIER_DOWN = { [TIER_FULL] = 0.28 }
+-- Bump when the stored entry structure changes: chronicle.needs_repair
+-- compares against it, so a shape change self-heals on the next load
+-- without depending on any other version counter staying in step.
+local ENTRY_SHAPE = 3
 
 -- Every Land Title Registry announcement carries the survey-tool mark: one symbol
 -- across the portal thumbnail, shortcut bar, tool, technology, and chat.
@@ -300,16 +294,6 @@ end
 -- alternative, a set per player, multiplies a mature surface's thousands
 -- of objects by the team roster.
 
--- Where a player sits on the ladder right now: their toggle first, then
--- zoom with directional thresholds so a scroll across a boundary settles
--- instead of oscillating.
-local function tier_for(zoom, previous)
-  local tier = previous or TIER_FULL
-  while tier < TIER_FULL and zoom >= TIER_UP[tier + 1] do tier = tier + 1 end
-  while tier > TIER_LEAN and zoom < TIER_DOWN[tier] do tier = tier - 1 end
-  return tier
-end
-
 -- Player lists per tier for one surface, split by whether the viewer asked
 -- to see uncontested cells. contested[t] is a superset of all[t]: a cell
 -- with rivals is shown to everyone at that tier, a lone entry only to
@@ -324,22 +308,16 @@ local function visibility_lists(surface_index)
   local hit = vis_cache[surface_index]
   if hit then return hit end
 
-  local lists = { all = { {}, {} }, contested = { {}, {} } }
+  local lists = { all = {}, contested = {} }
   for _, player in pairs(game.connected_players) do
     -- player.surface_index follows remote view, which is exactly the
     -- surface whose chart the player is looking at.
     if player.valid and player.surface_index == surface_index
       and storage.chronicle_on[player.index] then
-      local view = storage.chart_view[player.index]
-      local tier = view and view.tier or TIER_FULL
       local contested_only = player.mod_settings["ltr-chronicle-contested-only"].value
-      for t = TIER_LEAN, tier do
-        local c = lists.contested[t]
-        c[#c + 1] = player.index
-        if not contested_only then
-          local a = lists.all[t]
-          a[#a + 1] = player.index
-        end
+      lists.contested[#lists.contested + 1] = player.index
+      if not contested_only then
+        lists.all[#lists.all + 1] = player.index
       end
     end
   end
@@ -365,10 +343,7 @@ end
 
 local function apply_cell(entry, lists)
   if not entry.buckets then return end
-  local set = entry.contested and lists.contested or lists.all
-  for tier = TIER_LEAN, TIER_FULL do
-    show_to(entry.buckets[tier], set[tier])
-  end
+  show_to(entry.buckets[1], entry.contested and lists.contested or lists.all)
 end
 
 -- Re-apply every cell's map visibility on one surface. Called when a
@@ -399,16 +374,15 @@ function chronicle.poll()
     if player.valid then
       local index = player.index
       local view = storage.chart_view[index]
-      local tier = tier_for(player.zoom, view and view.tier)
       local surface_index = player.surface_index
       if chronicle.on_surface_viewed then
         chronicle.on_surface_viewed(surface_index)
       end
-      if not view or view.tier ~= tier or view.surface_index ~= surface_index then
+      if not view or view.surface_index ~= surface_index then
         if view and view.surface_index ~= surface_index then
           dirty[view.surface_index] = true
         end
-        storage.chart_view[index] = { tier = tier, surface_index = surface_index }
+        storage.chart_view[index] = { surface_index = surface_index }
         dirty[surface_index] = true
       end
     end
@@ -442,8 +416,7 @@ end
 function chronicle.needs_repair()
   for _, refs in pairs(storage.chronicle_renders) do
     for _, entry in pairs(refs) do
-      if not entry.buckets then return true end
-      if entry.world and #entry.world > 0 then return true end
+      if entry.shape ~= ENTRY_SHAPE then return true end
     end
   end
   return false
@@ -506,7 +479,7 @@ function chronicle.diagnose(player)
     competitive = chronicle.competitive(),
     render_mode = tostring(player.render_mode),
     zoom = player.zoom,
-    tier = view and view.tier or 0,
+
     applied_surface = view and view.surface_index or 0,
     surface_index = surface_index,
     cells = cells, bucketed = bucketed, legacy = legacy,
@@ -593,21 +566,57 @@ function chronicle.refresh_cell(surface, cx, cy)
   local center_x = cx * const.CELL + const.CELL / 2
   local center_y = cy * const.CELL + const.CELL / 2
 
-  local buckets = { {}, {} }
+  local world = {}
+  local buckets = { {} }
+  local first_y = cy * const.CELL + 0.5
 
-  -- One line per cell: the FASTEST team and its clock, nothing else.
-  -- Ranks 2-3 used to draw here and in world view too; at a cell per 24
-  -- tiles that was three labels on every deeded cell in the game, and
-  -- playtest called it what it was — noise that buried the one fact worth
-  -- reading. The full standings remain queryable (survey-tool hover,
-  -- /ltr-debug, get_cell_chronicle); the map states the record holder.
-  --
-  -- Compact format on purpose: team tag and clock, no rank number and no
-  -- leader name, so a label stays inside its own cell.
+  -- WORLD view keeps the full standings. Only a handful of cells are on
+  -- screen at a time here, so the ranked block costs nothing in
+  -- legibility — it was the MAP that drowned in it (playtest).
+  if shown > 0 then
+    world[#world + 1] = rendering.draw_text({
+      text = string.format("(%d,%d)", cx, cy),
+      surface = surface,
+      target = {
+        x = center_x - STANDINGS_HALF_WIDTH - COORD_GAP,
+        y = first_y + (shown - 1) * LINE_STEP / 2,
+      },
+      color = COORD_COLOR,
+      scale = 0.8,
+      alignment = "right",
+    })
+    for rank = 1, shown do
+      local ranked = entries[rank]
+      world[#world + 1] = rendering.draw_text({
+        text = { "land-title-registry.chronicle-line", rank,
+          chronicle.team_label(ranked.force_name), chronicle.format_clock(ranked.clock) },
+        surface = surface,
+        target = { x = center_x, y = first_y + (rank - 1) * LINE_STEP },
+        color = TEXT_COLOR,
+        scale = 0.7,
+        alignment = "center",
+        use_rich_text = true,
+      })
+    end
+  end
+
+  -- MAP view: the record holder and the cell coordinate, both at every
+  -- zoom. Compact format on purpose — team tag and clock, no rank number
+  -- and no leader name — so the larger type still fits its own cell.
+  local map = buckets[1]
+  map[#map + 1] = rendering.draw_text({
+    text = string.format("(%d,%d)", cx, cy),
+    surface = surface,
+    target = { x = center_x, y = center_y - CHART_LINE_STEP / 2 },
+    color = COORD_COLOR,
+    scale = CHART_SCALE,
+    alignment = "center",
+    vertical_alignment = "middle",
+    render_mode = "chart",
+  })
   if shown > 0 then
     local leader = entries[1]
-    local lean = buckets[TIER_LEAN]
-    lean[#lean + 1] = rendering.draw_text({
+    map[#map + 1] = rendering.draw_text({
       text = { "land-title-registry.chronicle-chart-line",
         chronicle.team_tag(leader.force_name), chronicle.format_clock(leader.clock) },
       surface = surface,
@@ -621,21 +630,12 @@ function chronicle.refresh_cell(surface, cx, cy)
     })
   end
 
-  -- The coordinate is close-zoom only: at a distance it was pure noise,
-  -- and a solo game (no standings at all) still gets it here.
-  local near = buckets[TIER_FULL]
-  near[#near + 1] = rendering.draw_text({
-    text = string.format("(%d,%d)", cx, cy),
-    surface = surface,
-    target = { x = center_x, y = center_y - CHART_LINE_STEP / 2 },
-    color = COORD_COLOR,
-    scale = CHART_SCALE,
-    alignment = "center",
-    vertical_alignment = "middle",
-    render_mode = "chart",
-  })
-
-  local entry = { buckets = buckets, contested = #entries > 1 }
+  local entry = {
+    shape = ENTRY_SHAPE,
+    world = world,
+    buckets = buckets,
+    contested = #entries > 1,
+  }
   apply_cell(entry, visibility_lists(surface_index))
   refs[cell_key] = entry
 end

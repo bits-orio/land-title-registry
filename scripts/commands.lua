@@ -93,8 +93,8 @@ commands.add_command("ltr-debug", { "land-title-registry.cmd-debug-help" }, func
   -- Map-layer state: why the standings do or do not show right now.
   local d = chronicle.diagnose(player)
   player.print("── map layer ──")
-  player.print(string.format("layer: %s   competitive: %s   view: %s zoom %.3f (tier %d)",
-    d.enabled and "ON" or "OFF", tostring(d.competitive), d.render_mode, d.zoom, d.tier))
+  player.print(string.format("layer: %s   competitive: %s   view: %s zoom %.3f",
+    d.enabled and "ON" or "OFF", tostring(d.competitive), d.render_mode, d.zoom))
   player.print(string.format("chart cells on this surface: %d (%d bucketed, %d legacy) — %d objects, %d visible",
     d.cells, d.bucketed, d.legacy, d.objects, d.visible))
   player.print(string.format("chart epoch: %d   rebuild queue: %d", d.epoch, d.queued))
