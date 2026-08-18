@@ -200,6 +200,9 @@ script.on_configuration_changed(function()
   -- feature (or a newer form of it) arrives get their grant on upgrade.
   for _, player in pairs(game.connected_players) do
     tech.on_player_joined({ player_index = player.index })
+    -- Storage exists again by now, so the zoom sampler can arm for players
+    -- already in the game rather than waiting for a join that may not come.
+    chronicle.on_player_joined(player)
   end
   -- Deeds that predate the chronicle enter it from the registry; a batched
   -- rebuild redraws everything (reconcile draws chronicle text too).

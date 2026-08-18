@@ -420,7 +420,10 @@ local POLL_INTERVAL = 20
 -- Registration must be reproducible from storage alone: called after
 -- watcher changes and from on_load.
 function chronicle.ensure_poll_handler()
-  if next(storage.chart_watchers) then
+  -- on_load runs BEFORE on_configuration_changed, so a storage field
+  -- introduced in the current version is still nil here on an updating
+  -- save. Guard rather than assume (this crashed a 0.1.9 save on load).
+  if storage.chart_watchers and next(storage.chart_watchers) then
     script.on_nth_tick(POLL_INTERVAL, chronicle.poll)
   else
     script.on_nth_tick(POLL_INTERVAL, nil)

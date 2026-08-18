@@ -246,7 +246,7 @@ end
 -- Called from on_load as well as after enqueueing: registration must happen
 -- in both places, and on_load may not touch storage beyond reading it.
 function blockers.ensure_rebuild_handler()
-  if next(storage.rebuild_queue) then
+  if storage.rebuild_queue and next(storage.rebuild_queue) then
     script.on_nth_tick(REBUILD_TICK_INTERVAL, drain_rebuild_queue)
   end
 end

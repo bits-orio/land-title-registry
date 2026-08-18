@@ -392,7 +392,7 @@ end
 -- Registration must be reproducible from storage alone: called after holder
 -- changes and from on_load.
 function tool.ensure_hover_handler()
-  if next(storage.tool_holders) then
+  if storage.tool_holders and next(storage.tool_holders) then
     script.on_nth_tick(HOVER_TICK_INTERVAL, hover_tick)
   else
     script.on_nth_tick(HOVER_TICK_INTERVAL, nil)
