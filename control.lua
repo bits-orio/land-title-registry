@@ -57,7 +57,7 @@ require("scripts.remote")
 -- sweeps MTS non-play surfaces, applies the print-claims default, and
 -- its drain-end rechart doubles as the reveal sweep for every charted
 -- chunk.
-local CHART_EPOCH = 16
+local CHART_EPOCH = 17
 
 -- Redraw a surface that a migration still owes, the moment somebody looks
 -- at it. Installed on chronicle's viewed hook, so cost is paid per surface

@@ -222,9 +222,22 @@ local function drain_rebuild_queue()
       for cy = y0, y1 do
         for cx = x0, x1 do
           if item.redraw then
-            -- Map-visual migrations change only what is DRAWN. Skipping
-            -- reconcile skips a find_entities_filtered per cell, which is
-            -- the expensive half by a wide margin.
+            -- Map-visual migrations change only what is DRAWN, so this
+            -- skips reconcile's find_entities_filtered per cell — the
+            -- expensive half by a wide margin.
+            --
+            -- Except where a blocker is MISSING. That is not cosmetic: an
+            -- unblocked wilderness cell is unenforced, buildable by
+            -- anyone, and its map sprite is gated on the registration so
+            -- the hole shows up as bare terrain (playtest: ~4,100 such
+            -- cells on one team surface, chunks generated while the
+            -- surface was still disabled). Repairing only cells that lack
+            -- a registration keeps the common case a table lookup.
+            local cell_key = registry.cell_key(cx, cy)
+            local regids = storage.blocker_regids[surface.index]
+            if not (regids and regids[cell_key]) then
+              blockers.set(surface, cx, cy, registry.state_of(surface.index, cell_key))
+            end
             render.refresh_cell(surface, cx, cy)
             chronicle.refresh_cell(surface, cx, cy)
           else

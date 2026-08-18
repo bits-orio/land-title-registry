@@ -68,7 +68,13 @@ local function overlay(name)
     scale = SIZE * 32 / 1024,
     -- The art is anti-aliased at source; linear filtering keeps it smooth
     -- through the engine's own zoom scaling.
-    flags = { "linear-minification", "linear-magnification" },
+    flags = { "linear-minification", "linear-magnification", "no-crop" },
+    -- The file is 1984 px wide: the 1024 base plus its mip chain (see
+    -- tools/gen_overlays.py). Linear minification alone samples a 2x2
+    -- texel footprint at any distance, which scrambles a 128-texel stripe
+    -- period the moment the view minifies past ~2x. "no-crop" keeps the
+    -- engine from trimming the sheet and breaking the chain's geometry.
+    mipmap_count = 5,
   }
 end
 

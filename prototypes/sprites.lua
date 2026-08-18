@@ -18,7 +18,10 @@ data:extend({
     filename = "__land-title-registry__/graphics/wilderness-overlay-chart.png",
     width = 1024,
     height = 1024,
-    flags = { "linear-minification", "linear-magnification" },
+    -- Mip chain to the right of the base (prototypes/blockers.lua explains
+    -- why); map view is exactly where the minification gets extreme.
+    mipmap_count = 5,
+    flags = { "linear-minification", "linear-magnification", "no-crop" },
   },
   {
     type = "sprite",
@@ -26,7 +29,10 @@ data:extend({
     filename = "__land-title-registry__/graphics/trail-overlay-chart.png",
     width = 1024,
     height = 1024,
-    flags = { "linear-minification", "linear-magnification" },
+    -- Mip chain to the right of the base (prototypes/blockers.lua explains
+    -- why); map view is exactly where the minification gets extreme.
+    mipmap_count = 5,
+    flags = { "linear-minification", "linear-magnification", "no-crop" },
   },
   {
     type = "sprite",
@@ -34,6 +40,9 @@ data:extend({
     filename = "__land-title-registry__/graphics/rampart-overlay-chart.png",
     width = 1024,
     height = 1024,
-    flags = { "linear-minification", "linear-magnification" },
+    -- Mip chain to the right of the base (prototypes/blockers.lua explains
+    -- why); map view is exactly where the minification gets extreme.
+    mipmap_count = 5,
+    flags = { "linear-minification", "linear-magnification", "no-crop" },
   },
 })
