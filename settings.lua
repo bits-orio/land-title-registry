@@ -122,6 +122,15 @@ data:extend({
     order = "c[ux]-a[print-claims]",
   },
   {
+    -- A busy server's map fills with per-cell standings; hiding the
+    -- uncontested ones keeps only the cells anyone is actually racing.
+    type = "bool-setting",
+    name = "ltr-chronicle-contested-only",
+    setting_type = "runtime-per-user",
+    default_value = false,
+    order = "c[ux]-e[chronicle-contested-only]",
+  },
+  {
     -- Accidental right-drags refund only a fraction of the invested
     -- points; the dialog makes the loss explicit before it happens.
     type = "bool-setting",

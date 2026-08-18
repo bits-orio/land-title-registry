@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.10
+Date: 2026-08-18
+  Features:
+    - Map-view cell standings now arrive in three steps as you zoom in, so a developed map stays readable: far out, a team-coloured dot marks who leads each cell; closer, the leader's time appears; closest, the full top three and the cell coordinate. Previously every deeded cell drew its whole leaderboard at every zoom.
+    - Cell standings can be switched off entirely: a shortcut-bar button and a rebindable hotkey (ALT+C by default), per player.
+    - New per-player option "Map: contested cells only" draws standings only for cells more than one team has deeded - on a busy server, the cells nobody is racing for simply drop out.
+    - Hovering a cell with the survey tool now shows that cell's record holder and time, so the detail the map hides at distance is always one hover away.
+  Changes:
+    - Map-view standings use a smaller, more compact format - team name and time, without the rank number or the leader's name - so a long team name no longer overruns its cell and collides with the neighbouring one.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.9
 Date: 2026-08-14
   Changes:

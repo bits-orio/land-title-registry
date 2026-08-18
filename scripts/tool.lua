@@ -347,6 +347,20 @@ local function show_hover(player, surface, cx, cy)
     position = { x = cx * const.CELL + const.CELL / 2, y = cy * const.CELL + const.CELL / 2 },
     time_to_live = 120,
   })
+
+  -- The cell's record, on demand: map view hides standings at distance,
+  -- so hovering has to answer "who holds this?" without a zoom.
+  local leader, count = chronicle.leader_of(surface, cx, cy)
+  if leader then
+    player.create_local_flying_text({
+      text = { "land-title-registry.hover-record",
+        chronicle.team_label(leader.force_name),
+        chronicle.format_clock(leader.clock), count },
+      position = { x = cx * const.CELL + const.CELL / 2,
+        y = cy * const.CELL + const.CELL / 2 + 1.4 },
+      time_to_live = 120,
+    })
+  end
 end
 
 local function hover_tick()

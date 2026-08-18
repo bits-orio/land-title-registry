@@ -36,13 +36,32 @@ local LINE_STEP = 0.62          -- vertical spacing of standings lines
 -- aligned so it ends just left of them. Half the typical standings width,
 -- so the pair reads as one centered block.
 local STANDINGS_HALF_WIDTH = 3.9
--- Map view is always zoomed out; chart text needs its own, much larger
--- scale. Chart text is world-anchored (it shrinks as you zoom out), so a
--- full standings block fits inside the cell instead of colliding with its
--- neighbours — which is why map view shows all three ranks.
-local CHART_SCALE = 4.4
-local CHART_LINE_STEP = 3.6
+-- Chart text is smaller than it looks it should be, deliberately: a long
+-- team label used to overrun the cell it belongs to and collide with its
+-- neighbours (playtest report). Smaller type plus the compact map format
+-- (team tag and clock, no rank number, no leader name) keeps a label
+-- inside its own cell.
+local CHART_SCALE = 3.2
+local CHART_LINE_STEP = 2.6
 local COORD_GAP = 0.3
+-- The team-coloured dot that carries "who leads here" at any zoom.
+local MARKER_RADIUS = 2.4
+
+-- Map-view level of detail. Chart text is world-anchored, so zooming out
+-- shrinks it but never THINS it: every deeded cell kept shouting its full
+-- leaderboard, and a developed map turned illegible (playtest screenshot:
+-- ~140 visible cells x 4 labels each). Detail now arrives in three steps.
+--
+--   1 FAR   a team-coloured dot — who leads, nothing more
+--   2 MID   + the leader's time
+--   3 NEAR  + ranks 2-3, and the cell coordinate
+--
+-- LuaPlayer.zoom is readable (baseline 1.0, smaller = further out). The
+-- rise and fall thresholds differ so scroll-zooming across a boundary
+-- cannot thrash the object updates.
+local TIER_FAR, TIER_MID, TIER_NEAR = 1, 2, 3
+local TIER_UP = { [TIER_MID] = 0.13, [TIER_NEAR] = 0.32 }
+local TIER_DOWN = { [TIER_MID] = 0.11, [TIER_NEAR] = 0.28 }
 
 -- Every Land Title Registry announcement carries the survey-tool mark: one symbol
 -- across the portal thumbnail, shortcut bar, tool, technology, and chat.
@@ -170,7 +189,7 @@ local function team_info(force_name)
   return { display_name = force_name, clock_start_tick = 0 }
 end
 
-local function format_clock(ticks)
+function chronicle.format_clock(ticks)
   local total = math.floor(ticks / 60)
   local h = math.floor(total / 3600)
   local m = math.floor(total / 60) % 60
@@ -268,6 +287,202 @@ function chronicle.competitive()
   return false
 end
 
+-- The cell's fastest entry, for on-demand detail (survey-tool hover).
+-- Map view now hides standings at distance, so the answer has to stay
+-- reachable without zooming in.
+function chronicle.leader_of(surface, cx, cy)
+  local entries = (storage.chronicle[group_of(surface)] or {})[registry.cell_key(cx, cy)]
+  if not entries or #entries == 0 then return nil end
+  return entries[1], #entries
+end
+
+-- ---------------------------------------------------------------------------
+-- Map-view visibility
+--
+-- Chart objects are shared (one set per cell, not per player), and each
+-- viewer's level of detail is expressed through the object's `players`
+-- filter. That keeps object count independent of player count — the
+-- alternative, a set per player, multiplies a mature surface's thousands
+-- of objects by the team roster.
+
+-- Where a player sits on the ladder right now: their toggle first, then
+-- zoom with directional thresholds so a scroll across a boundary settles
+-- instead of oscillating.
+local function tier_for(zoom, previous)
+  local tier = previous or TIER_NEAR
+  while tier < TIER_NEAR and zoom >= TIER_UP[tier + 1] do tier = tier + 1 end
+  while tier > TIER_FAR and zoom < TIER_DOWN[tier] do tier = tier - 1 end
+  return tier
+end
+
+-- Player lists per tier for one surface, split by whether the viewer asked
+-- to see uncontested cells. contested[t] is a superset of all[t]: a cell
+-- with rivals is shown to everyone at that tier, a lone entry only to
+-- those not filtering. Memoized per tick — a rebuild redraws many cells in
+-- one tick and they all want the same answer.
+local vis_cache, vis_cache_tick = {}, -1
+
+local function visibility_lists(surface_index)
+  if game.tick ~= vis_cache_tick then
+    vis_cache, vis_cache_tick = {}, game.tick
+  end
+  local hit = vis_cache[surface_index]
+  if hit then return hit end
+
+  local lists = { all = { {}, {}, {} }, contested = { {}, {}, {} } }
+  for _, player in pairs(game.connected_players) do
+    -- player.surface_index follows remote view, which is exactly the
+    -- surface whose chart the player is looking at.
+    if player.valid and player.surface_index == surface_index
+      and not storage.chronicle_off[player.index] then
+      local view = storage.chart_view[player.index]
+      local tier = view and view.tier or TIER_NEAR
+      local contested_only = player.mod_settings["ltr-chronicle-contested-only"].value
+      for t = TIER_FAR, tier do
+        local c = lists.contested[t]
+        c[#c + 1] = player.index
+        if not contested_only then
+          local a = lists.all[t]
+          a[#a + 1] = player.index
+        end
+      end
+    end
+  end
+  vis_cache[surface_index] = lists
+  return lists
+end
+
+-- An empty `players` array is ambiguous (it can read as "everyone"), so
+-- nobody-sees-this is expressed with `visible` instead.
+local function show_to(objects, players)
+  local none = #players == 0
+  for _, object in pairs(objects) do
+    if object.valid then
+      if none then
+        object.visible = false
+      else
+        object.players = players
+        object.visible = true
+      end
+    end
+  end
+end
+
+local function apply_cell(entry, lists)
+  if not entry.buckets then return end
+  local set = entry.contested and lists.contested or lists.all
+  for tier = TIER_FAR, TIER_NEAR do
+    show_to(entry.buckets[tier], set[tier])
+  end
+end
+
+-- Re-apply every cell's map visibility on one surface. Called when a
+-- viewer's tier, surface, toggle, or filter setting changes — never per
+-- frame, and at most once per poll for a given surface.
+function chronicle.apply_visibility(surface_index)
+  local refs = storage.chronicle_renders[surface_index]
+  if not refs then return end
+  local lists = visibility_lists(surface_index)
+  for _, entry in pairs(refs) do
+    apply_cell(entry, lists)
+  end
+end
+
+-- Poll connected players for zoom and viewed surface. There is no event
+-- for either, so this is a 20-tick sampler registered only while someone
+-- is connected (scripts/chronicle.ensure_poll_handler) — the same scoped
+-- on_nth_tick discipline the survey-tool hover uses, never an
+-- unconditional on_tick.
+function chronicle.poll()
+  local dirty = {}
+  for _, player in pairs(game.connected_players) do
+    if player.valid then
+      local index = player.index
+      local view = storage.chart_view[index]
+      local tier = tier_for(player.zoom, view and view.tier)
+      local surface_index = player.surface_index
+      if not view or view.tier ~= tier or view.surface_index ~= surface_index then
+        if view and view.surface_index ~= surface_index then
+          dirty[view.surface_index] = true
+        end
+        storage.chart_view[index] = { tier = tier, surface_index = surface_index }
+        dirty[surface_index] = true
+      end
+    end
+  end
+  for surface_index in pairs(dirty) do
+    chronicle.apply_visibility(surface_index)
+  end
+end
+
+local POLL_INTERVAL = 20
+
+-- Registration must be reproducible from storage alone: called after
+-- watcher changes and from on_load.
+function chronicle.ensure_poll_handler()
+  if next(storage.chart_watchers) then
+    script.on_nth_tick(POLL_INTERVAL, chronicle.poll)
+  else
+    script.on_nth_tick(POLL_INTERVAL, nil)
+  end
+end
+
+-- Toggle the whole map layer for one player (shortcut button / hotkey).
+function chronicle.set_enabled(player, enabled)
+  storage.chronicle_off[player.index] = (not enabled) or nil
+  player.set_shortcut_toggled("ltr-toggle-chronicle", enabled)
+  chronicle.apply_visibility(player.surface_index)
+end
+
+function chronicle.enabled_for(player)
+  return not storage.chronicle_off[player.index]
+end
+
+function chronicle.on_player_joined(player)
+  storage.chart_watchers[player.index] = true
+  chronicle.ensure_poll_handler()
+  player.set_shortcut_toggled("ltr-toggle-chronicle", chronicle.enabled_for(player))
+end
+
+function chronicle.on_player_gone(player_index)
+  local view = storage.chart_view[player_index]
+  storage.chart_view[player_index] = nil
+  storage.chart_watchers[player_index] = nil
+  chronicle.ensure_poll_handler()
+  if view then chronicle.apply_visibility(view.surface_index) end
+end
+
+-- ---------------------------------------------------------------------------
+
+local function destroy_refs(entry)
+  if not entry then return end
+  -- Pre-0.1.9 saves stored a flat array of objects; current ones store
+  -- buckets. Both are swept here so a migration never leaks objects.
+  if entry.buckets then
+    for _, objects in pairs(entry.buckets) do
+      for _, object in pairs(objects) do
+        if object.valid then object.destroy() end
+      end
+    end
+    for _, object in pairs(entry.world) do
+      if object.valid then object.destroy() end
+    end
+  else
+    for _, object in pairs(entry) do
+      if type(object) == "table" and object.valid then object.destroy() end
+    end
+  end
+end
+
+local function leader_color(force_name)
+  local force = game.forces[force_name]
+  if force and force.valid then
+    local c = force.custom_color or force.color
+    if c then return { r = c.r, g = c.g, b = c.b, a = 0.9 } end
+  end
+  return { r = 0.85, g = 0.85, b = 0.85, a = 0.9 }
+end
+
 -- Destroy and redraw the chronicle text of one cell on one surface.
 function chronicle.refresh_cell(surface, cx, cy)
   local surface_index = surface.index
@@ -275,30 +490,29 @@ function chronicle.refresh_cell(surface, cx, cy)
   local refs = storage.chronicle_renders[surface_index]
   local cell_key = registry.cell_key(cx, cy)
 
-  local old = refs[cell_key]
-  if old then
-    for _, object in pairs(old) do
-      if object.valid then object.destroy() end
-    end
-    refs[cell_key] = nil
-  end
+  destroy_refs(refs[cell_key])
+  refs[cell_key] = nil
 
   if storage.disabled_surfaces[surface_index] then return end
   local entries = (storage.chronicle[group_of(surface)] or {})[cell_key]
   if not entries or #entries == 0 then return end
 
-  local objects = {}
   -- Non-competitive games draw no standings rows anywhere and no world
-  -- text at all — the map keeps the coordinates.
-  local shown = chronicle.competitive() and math.min(3, #entries) or 0
+  -- text at all — the map keeps the coordinates, at close zoom only.
+  local competitive = chronicle.competitive()
+  local shown = competitive and math.min(3, #entries) or 0
   local center_x = cx * const.CELL + const.CELL / 2
+  local center_y = cy * const.CELL + const.CELL / 2
   local first_y = cy * const.CELL + 0.5
+
+  local world = {}
+  local buckets = { {}, {}, {} }
 
   if shown > 0 then
   -- Cell coordinates, hugging the left of the standings block. No `font`
   -- override anywhere here: the small bitmap fonts render blurry when
   -- scaled, so the default font at a modest scale is what stays crisp.
-  objects[#objects + 1] = rendering.draw_text({
+  world[#world + 1] = rendering.draw_text({
     text = string.format("(%d,%d)", cx, cy),
     surface = surface,
     target = {
@@ -309,13 +523,12 @@ function chronicle.refresh_cell(surface, cx, cy)
     scale = 0.8,
     alignment = "right",
   })
-  end
 
   for rank = 1, shown do
     local entry = entries[rank]
-    objects[#objects + 1] = rendering.draw_text({
+    world[#world + 1] = rendering.draw_text({
       text = { "land-title-registry.chronicle-line", rank,
-        chronicle.team_label(entry.force_name), format_clock(entry.clock) },
+        chronicle.team_label(entry.force_name), chronicle.format_clock(entry.clock) },
       surface = surface,
       target = { x = center_x, y = first_y + (rank - 1) * LINE_STEP },
       color = TEXT_COLOR,
@@ -324,41 +537,57 @@ function chronicle.refresh_cell(surface, cx, cy)
       use_rich_text = true,
     })
   end
+  end
 
-  -- Map view: the coordinate stacked over the full standings, centred in
-  -- the cell. Chart text is world-anchored, so the block scales with the
-  -- cell and cannot bleed into neighbours no matter how far out you zoom.
-  local chart_lines = shown + 1
-  local chart_top = cy * const.CELL + const.CELL / 2
-    - (chart_lines - 1) * CHART_LINE_STEP / 2
+  -- Map view, by tier. The marker sits at the cell centre and carries the
+  -- leader's team colour; text stacks below it, the coordinate above.
+  -- Map lines use the compact format — team tag and clock, no rank number
+  -- and no leader name — so a label stays inside its own cell.
+  if shown > 0 then
+    buckets[TIER_FAR][1] = rendering.draw_circle({
+      target = { x = center_x, y = center_y },
+      surface = surface,
+      radius = MARKER_RADIUS,
+      color = leader_color(entries[1].force_name),
+      filled = true,
+      render_mode = "chart",
+    })
+    for rank = 1, shown do
+      local entry = entries[rank]
+      local bucket = (rank == 1) and TIER_MID or TIER_NEAR
+      local objects = buckets[bucket]
+      objects[#objects + 1] = rendering.draw_text({
+        text = { "land-title-registry.chronicle-chart-line",
+          chronicle.team_tag(entry.force_name), chronicle.format_clock(entry.clock) },
+        surface = surface,
+        target = { x = center_x, y = center_y + rank * CHART_LINE_STEP },
+        color = TEXT_COLOR,
+        scale = CHART_SCALE,
+        alignment = "center",
+        vertical_alignment = "middle",
+        use_rich_text = true,
+        render_mode = "chart",
+      })
+    end
+  end
 
-  objects[#objects + 1] = rendering.draw_text({
+  -- The coordinate is close-zoom only in every game: at a distance it was
+  -- pure noise, and a solo game (no standings at all) still gets it here.
+  local near = buckets[TIER_NEAR]
+  near[#near + 1] = rendering.draw_text({
     text = string.format("(%d,%d)", cx, cy),
     surface = surface,
-    target = { x = center_x, y = chart_top },
+    target = { x = center_x, y = center_y - CHART_LINE_STEP },
     color = COORD_COLOR,
     scale = CHART_SCALE,
     alignment = "center",
     vertical_alignment = "middle",
     render_mode = "chart",
   })
-  for rank = 1, shown do
-    local entry = entries[rank]
-    objects[#objects + 1] = rendering.draw_text({
-      text = { "land-title-registry.chronicle-line", rank,
-        chronicle.team_label(entry.force_name), format_clock(entry.clock) },
-      surface = surface,
-      target = { x = center_x, y = chart_top + rank * CHART_LINE_STEP },
-      color = TEXT_COLOR,
-      scale = CHART_SCALE,
-      alignment = "center",
-      vertical_alignment = "middle",
-      use_rich_text = true,
-      render_mode = "chart",
-    })
-  end
 
-  refs[cell_key] = objects
+  local entry = { world = world, buckets = buckets, contested = #entries > 1 }
+  apply_cell(entry, visibility_lists(surface_index))
+  refs[cell_key] = entry
 end
 
 local function redraw_on_planet(group, cx, cy)
@@ -447,14 +676,14 @@ function chronicle.on_cell_claimed(event)
     -- Everyone else still sees the standings on the map.
     local text = BRAND .. " Fastest Deed " .. coords
     popup(force, text, "milestone")
-    force.print({ "land-title-registry.record-taken", coords, format_clock(clock),
-      chronicle.team_label(notable.beat_force), format_clock(notable.beat_clock) })
+    force.print({ "land-title-registry.record-taken", coords, chronicle.format_clock(clock),
+      chronicle.team_label(notable.beat_force), chronicle.format_clock(notable.beat_clock) })
 
     local beaten = game.forces[notable.beat_force]
     if beaten and beaten.valid then
       beaten.print({ "land-title-registry.record-lost", coords,
-        chronicle.team_label(event.force_name), format_clock(clock),
-        format_clock(notable.beat_clock) })
+        chronicle.team_label(event.force_name), chronicle.format_clock(clock),
+        chronicle.format_clock(notable.beat_clock) })
     end
   end
 end

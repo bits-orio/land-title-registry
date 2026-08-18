@@ -30,7 +30,10 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 11: 10's strict gating traded overhang for underhang (bare
+-- Epoch 12: the map chronicle became a three-tier zoom LOD with bucketed
+-- render objects; pre-12 saves hold flat object arrays with no tier
+-- membership and must be redrawn. 11 fixed frontier overhang: 10's strict
+-- gating traded overhang for underhang (bare
 -- charted ground at the frontier — worse, since cells and chunks only
 -- re-align every 96 tiles and SOMETHING must give); the rule is now a
 -- one-cell buffer applied on the reveal path, and 10's under-revealed
@@ -40,7 +43,7 @@ require("scripts.remote")
 -- sweeps MTS non-play surfaces, applies the print-claims default, and
 -- its drain-end rechart doubles as the reveal sweep for every charted
 -- chunk.
-local CHART_EPOCH = 11
+local CHART_EPOCH = 12
 
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
@@ -129,6 +132,7 @@ end)
 script.on_load(function()
   blockers.ensure_rebuild_handler()
   tool.ensure_hover_handler()
+  chronicle.ensure_poll_handler()
   if mts_compat.active then mts_compat.resolve_events() end
   if storage.chart_epoch ~= CHART_EPOCH then
     script.on_event(defines.events.on_tick, migrate_chart_epoch)
@@ -321,7 +325,10 @@ script.on_event(defines.events.on_player_joined_game, function(event)
   -- Border lines are per player (per-user style settings); a joining
   -- player's set is derived fresh from the registry.
   local joined = game.get_player(event.player_index)
-  if joined and joined.valid then render.rebuild_player(joined) end
+  if joined and joined.valid then
+    render.rebuild_player(joined)
+    chronicle.on_player_joined(joined)
+  end
   -- One-shot chronicle backfill, anchored to a join rather than only to
   -- on_configuration_changed: a control-only code update at the same mod
   -- version never fires config-changed, so dev-loop saves would miss it.
@@ -383,11 +390,30 @@ end)
 script.on_event(defines.events.on_player_left_game, function(event)
   tool.on_player_gone(event)
   render.drop_player(event.player_index)
+  chronicle.on_player_gone(event.player_index)
 end)
 script.on_event(defines.events.on_player_removed, function(event)
   tool.on_player_gone(event)
   render.drop_player(event.player_index)
+  chronicle.on_player_gone(event.player_index)
   outposts.on_player_removed(event)
+end)
+
+-- Map-view chronicle toggle. The vanilla map-layer list has no extension
+-- point for mods, so this is the equivalent: shortcut button and a
+-- rebindable input, both flipping the same per-player state.
+local function toggle_chronicle(player)
+  if player and player.valid then
+    chronicle.set_enabled(player, not chronicle.enabled_for(player))
+  end
+end
+script.on_event(defines.events.on_lua_shortcut, function(event)
+  if event.prototype_name == "ltr-toggle-chronicle" then
+    toggle_chronicle(game.get_player(event.player_index))
+  end
+end)
+script.on_event("ltr-toggle-chronicle", function(event)
+  toggle_chronicle(game.get_player(event.player_index))
 end)
 
 -- Settings: HUD visibility per player; planet-color changes re-render
@@ -401,6 +427,10 @@ script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
   if string.find(event.setting, "^ltr%-border%-") and event.player_index then
     local player = game.get_player(event.player_index)
     if player and player.valid then render.rebuild_player(player) end
+  end
+  if event.setting == "ltr-chronicle-contested-only" and event.player_index then
+    local player = game.get_player(event.player_index)
+    if player and player.valid then chronicle.apply_visibility(player.surface_index) end
   end
 end)
 

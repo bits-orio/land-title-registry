@@ -45,8 +45,16 @@ function registry.init_storage()
   storage.state_tutorials = storage.state_tutorials or {}
   -- [planet_name][cell_key] -> sorted {force_name, clock} speedrun entries
   storage.chronicle = storage.chronicle or {}
-  -- [surface_index][cell_key] -> the drawn chronicle text objects
+  -- [surface_index][cell_key] -> {world = {objs}, buckets = {[tier]={objs}},
+  -- contested = bool} — the drawn chronicle objects, chart ones bucketed
+  -- by the map zoom tier that reveals them
   storage.chronicle_renders = storage.chronicle_renders or {}
+  -- player_index -> true when that player has hidden the map chronicle
+  storage.chronicle_off = storage.chronicle_off or {}
+  -- player_index -> {tier, surface_index} last applied for map detail
+  storage.chart_view = storage.chart_view or {}
+  -- player_index -> true while connected, gating the zoom sampler
+  storage.chart_watchers = storage.chart_watchers or {}
   -- [force_index][surface_index] -> mainland-anchor cell_key (outposts)
   storage.origins = storage.origins or {}
   -- [force_index] -> array of {surface_index, cell_key} founded outposts
