@@ -44,24 +44,25 @@ local STANDINGS_HALF_WIDTH = 3.9
 local CHART_SCALE = 3.2
 local CHART_LINE_STEP = 2.6
 local COORD_GAP = 0.3
--- The team-coloured dot that carries "who leads here" at any zoom.
-local MARKER_RADIUS = 2.4
-
--- Map-view level of detail. Chart text is world-anchored, so zooming out
--- shrinks it but never THINS it: every deeded cell kept shouting its full
--- leaderboard, and a developed map turned illegible (playtest screenshot:
--- ~140 visible cells x 4 labels each). Detail now arrives in three steps.
+-- Map-view level of detail, for when the layer is switched on. Chart text
+-- is world-anchored, so zooming out shrinks it but never THINS it: every
+-- deeded cell kept shouting its full leaderboard, and a developed map
+-- turned illegible (playtest screenshot: ~140 visible cells x 4 labels).
 --
---   1 FAR   a team-coloured dot — who leads, nothing more
---   2 MID   + the leader's time
---   3 NEAR  + ranks 2-3, and the cell coordinate
+--   1 LEAN  the leader's line alone
+--   2 FULL  + ranks 2-3, and the cell coordinate
+--
+-- Both tiers always show SOMETHING, so switching the layer on is visible
+-- at any zoom. (A third, text-free tier drawing only a team-coloured dot
+-- was tried and cut: with dozens of teams a colour is not identifiable by
+-- eye, so the dot carried no information — playtest call.)
 --
 -- LuaPlayer.zoom is readable (baseline 1.0, smaller = further out). The
--- rise and fall thresholds differ so scroll-zooming across a boundary
+-- rise and fall thresholds differ so scroll-zooming across the boundary
 -- cannot thrash the object updates.
-local TIER_FAR, TIER_MID, TIER_NEAR = 1, 2, 3
-local TIER_UP = { [TIER_MID] = 0.13, [TIER_NEAR] = 0.32 }
-local TIER_DOWN = { [TIER_MID] = 0.11, [TIER_NEAR] = 0.28 }
+local TIER_LEAN, TIER_FULL = 1, 2
+local TIER_UP = { [TIER_FULL] = 0.32 }
+local TIER_DOWN = { [TIER_FULL] = 0.28 }
 
 -- Every Land Title Registry announcement carries the survey-tool mark: one symbol
 -- across the portal thumbnail, shortcut bar, tool, technology, and chat.
@@ -309,9 +310,9 @@ end
 -- zoom with directional thresholds so a scroll across a boundary settles
 -- instead of oscillating.
 local function tier_for(zoom, previous)
-  local tier = previous or TIER_NEAR
-  while tier < TIER_NEAR and zoom >= TIER_UP[tier + 1] do tier = tier + 1 end
-  while tier > TIER_FAR and zoom < TIER_DOWN[tier] do tier = tier - 1 end
+  local tier = previous or TIER_FULL
+  while tier < TIER_FULL and zoom >= TIER_UP[tier + 1] do tier = tier + 1 end
+  while tier > TIER_LEAN and zoom < TIER_DOWN[tier] do tier = tier - 1 end
   return tier
 end
 
@@ -329,16 +330,16 @@ local function visibility_lists(surface_index)
   local hit = vis_cache[surface_index]
   if hit then return hit end
 
-  local lists = { all = { {}, {}, {} }, contested = { {}, {}, {} } }
+  local lists = { all = { {}, {} }, contested = { {}, {} } }
   for _, player in pairs(game.connected_players) do
     -- player.surface_index follows remote view, which is exactly the
     -- surface whose chart the player is looking at.
     if player.valid and player.surface_index == surface_index
       and storage.chronicle_on[player.index] then
       local view = storage.chart_view[player.index]
-      local tier = view and view.tier or TIER_NEAR
+      local tier = view and view.tier or TIER_FULL
       local contested_only = player.mod_settings["ltr-chronicle-contested-only"].value
-      for t = TIER_FAR, tier do
+      for t = TIER_LEAN, tier do
         local c = lists.contested[t]
         c[#c + 1] = player.index
         if not contested_only then
@@ -371,7 +372,7 @@ end
 local function apply_cell(entry, lists)
   if not entry.buckets then return end
   local set = entry.contested and lists.contested or lists.all
-  for tier = TIER_FAR, TIER_NEAR do
+  for tier = TIER_LEAN, TIER_FULL do
     show_to(entry.buckets[tier], set[tier])
   end
 end
@@ -517,15 +518,6 @@ local function destroy_refs(entry)
   end
 end
 
-local function leader_color(force_name)
-  local force = game.forces[force_name]
-  if force and force.valid then
-    local c = force.custom_color or force.color
-    if c then return { r = c.r, g = c.g, b = c.b, a = 0.9 } end
-  end
-  return { r = 0.85, g = 0.85, b = 0.85, a = 0.9 }
-end
-
 -- Destroy and redraw the chronicle text of one cell on one surface.
 function chronicle.refresh_cell(surface, cx, cy)
   local surface_index = surface.index
@@ -549,7 +541,7 @@ function chronicle.refresh_cell(surface, cx, cy)
   local first_y = cy * const.CELL + 0.5
 
   local world = {}
-  local buckets = { {}, {}, {} }
+  local buckets = { {}, {} }
 
   if shown > 0 then
   -- Cell coordinates, hugging the left of the standings block. No `font`
@@ -582,22 +574,13 @@ function chronicle.refresh_cell(surface, cx, cy)
   end
   end
 
-  -- Map view, by tier. The marker sits at the cell centre and carries the
-  -- leader's team colour; text stacks below it, the coordinate above.
+  -- Map view, by tier: the leader's line always, ranks 2-3 up close.
   -- Map lines use the compact format — team tag and clock, no rank number
   -- and no leader name — so a label stays inside its own cell.
   if shown > 0 then
-    buckets[TIER_FAR][1] = rendering.draw_circle({
-      target = { x = center_x, y = center_y },
-      surface = surface,
-      radius = MARKER_RADIUS,
-      color = leader_color(entries[1].force_name),
-      filled = true,
-      render_mode = "chart",
-    })
     for rank = 1, shown do
       local entry = entries[rank]
-      local bucket = (rank == 1) and TIER_MID or TIER_NEAR
+      local bucket = (rank == 1) and TIER_LEAN or TIER_FULL
       local objects = buckets[bucket]
       objects[#objects + 1] = rendering.draw_text({
         text = { "land-title-registry.chronicle-chart-line",
@@ -616,7 +599,7 @@ function chronicle.refresh_cell(surface, cx, cy)
 
   -- The coordinate is close-zoom only in every game: at a distance it was
   -- pure noise, and a solo game (no standings at all) still gets it here.
-  local near = buckets[TIER_NEAR]
+  local near = buckets[TIER_FULL]
   near[#near + 1] = rendering.draw_text({
     text = string.format("(%d,%d)", cx, cy),
     surface = surface,
