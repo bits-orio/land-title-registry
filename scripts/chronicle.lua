@@ -433,6 +433,22 @@ function chronicle.ensure_poll_handler()
   end
 end
 
+-- Is any tracked cell still holding objects of a retired shape? A stale
+-- entry is either legacy (a flat array from before bucketing) or carries
+-- the `world` block that no longer draws. Cheap enough to check on every
+-- load, and checking the OBJECTS rather than a version counter means the
+-- repair cannot be skipped by bookkeeping that got out of step — which is
+-- exactly how dead text survived two migrations (playtest).
+function chronicle.needs_repair()
+  for _, refs in pairs(storage.chronicle_renders) do
+    for _, entry in pairs(refs) do
+      if not entry.buckets then return true end
+      if entry.world and #entry.world > 0 then return true end
+    end
+  end
+  return false
+end
+
 -- Redraw every cell this mod has chronicle objects for, on every surface.
 --
 -- The lazy per-surface migration is right for MAP SPRITES, which number in

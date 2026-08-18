@@ -126,6 +126,14 @@ local function sweep_orphan_renders()
   return destroyed
 end
 
+-- Sweep orphans and rebuild every stale chronicle cell. Public so
+-- /ltr-repair can invoke exactly what the automatic path does.
+function ltr_repair_renders()
+  local orphans = sweep_orphan_renders()
+  local cells = chronicle.refresh_all_tracked()
+  return orphans, cells
+end
+
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
   storage.chart_epoch = CHART_EPOCH
@@ -160,7 +168,7 @@ end
 -- multiplayer. on_load may not write storage, so a stale epoch registers
 -- a first-tick migration instead; deterministic, since every peer reads
 -- the same storage.
-local function migrate_chart_epoch()
+local function first_tick_maintenance()
   script.on_event(defines.events.on_tick, nil)
   -- Existing saves shed overlays from MTS non-play surfaces (the pen)
   -- before the rebuild re-derives everything else.
@@ -172,6 +180,14 @@ local function migrate_chart_epoch()
     settings.global["ltr-print-claims"] = { value = true }
   end
   ensure_recharted()
+  -- Self-heal, independent of the epoch counter. Stale chronicle objects
+  -- outlive their locale keys and render as "Unknown key", and relying on
+  -- a version number to catch them failed twice: the check now looks at
+  -- the objects themselves, so no bookkeeping mismatch can skip it.
+  if chronicle.needs_repair() then
+    local orphans, cells = ltr_repair_renders()
+    log(string.format("LTR-REPAIR self-heal: %d orphans destroyed, %d cells rebuilt", orphans, cells))
+  end
 end
 
 local function init_surface(surface)
@@ -224,9 +240,9 @@ script.on_load(function()
   tool.ensure_hover_handler()
   chronicle.ensure_poll_handler()
   if mts_compat.active then mts_compat.resolve_events() end
-  if storage.chart_epoch ~= CHART_EPOCH then
-    script.on_event(defines.events.on_tick, migrate_chart_epoch)
-  end
+  -- Armed every load: it migrates when the epoch moved and self-heals
+  -- stale render shapes either way, then unregisters itself.
+  script.on_event(defines.events.on_tick, first_tick_maintenance)
 end)
 
 script.on_configuration_changed(function()

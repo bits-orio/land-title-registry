@@ -38,6 +38,21 @@ commands.add_command("ltr-welcome", { "land-title-registry.cmd-welcome-help" }, 
 end)
 
 -- Diagnosis dump: answers "why no celebration here?" directly.
+-- On-demand version of the load-time self-heal, and a way to SEE what it
+-- found: if dead text is still on the map, this says whether anything was
+-- actually stale, which separates "the repair missed some" from "these
+-- objects are not the ones you think".
+commands.add_command("ltr-repair", { "land-title-registry.cmd-repair-help" }, function(event)
+  local stale = chronicle.needs_repair()
+  local orphans, cells = ltr_repair_renders()
+  local message = { "land-title-registry.repair-done", orphans, cells, tostring(stale) }
+  if event.player_index then
+    local player = game.get_player(event.player_index)
+    if player and player.valid then player.print(message) return end
+  end
+  game.print(message)
+end)
+
 commands.add_command("ltr-debug", { "land-title-registry.cmd-debug-help" }, function(event)
   if not event.player_index then return end
   local player = game.get_player(event.player_index)
