@@ -6,7 +6,7 @@ pattern reads as "fortified, not yet fully yours" and now marks RAMPART;
 wilderness escalates the same artwork to fully opaque red stripes,
 unmistakable at any zoom):
 
-    wilderness  red, stripes 100% opaque   (hard no)
+    wilderness  red, the widest stripes   (hard no)
     trail       orange at ~half strength   (transit corridor)
     rampart     red, the original pattern  (one rung from Deed)
     deed        —                          (no blocker, fully clear)
@@ -32,8 +32,9 @@ SIZE = 1024
 # against the zoom range in a real save (cells landing at 40-110 px on
 # screen, so 1.7-4.6 px per tile):
 #
-#     ribbon 16 / period 128   stripe 0.38 tiles ->  0.6-1.5 px   aliases
-#     ribbon 64 / period 256   stripe 1.50 tiles ->  2.5-6.0 px   holds
+#     ribbon  16 / period 128   stripe 0.38 tiles ->  0.6-1.5 px   aliases
+#     ribbon  64 / period 256   stripe 1.50 tiles ->  2.5-6.0 px   holds
+#     ribbon 128 / period 256   stripe 3.00 tiles -> 5.0-13.8 px   current
 #
 # At sub-pixel width, whether a screen pixel lands on a stripe or a gap
 # comes down to zoom phase, not to the art: the stripes read bold at one
@@ -47,11 +48,19 @@ SIZE = 1024
 #
 # Both numbers must divide SIZE so the diagonal pattern stays seamless
 # across adjacent same-state cells; 256 gives four periods per cell.
+# Ribbon equals half the period, so stripes and gaps come out the same
+# width. Ink coverage doubles to 50% at this width, which is paid for by
+# roughly halving the stripe alphas below: the same amount of red, spread
+# twice as wide at half the density, which is what survives minification.
 PERIOD = 256
-RIBBON = 64
-# The stripe's darker rim, held at the same 18.75% of ribbon width as the
-# old 3-of-16 so the stripes keep their shape.
-EDGE = 12
+RIBBON = 128
+# The stripe's darker rim, and deliberately NOT scaled with RIBBON. It is
+# not a design element with a proportion to preserve -- it exists to stop
+# the stripe bleeding into the terrain underneath and to give the diagonal
+# something to anti-alias against. Both jobs are done by a few pixels
+# regardless of how wide the stripe itself gets, and scaling it up just
+# eats the stripe's interior with dark trim.
+EDGE = 4
 BORDER = 4
 INNER = 2
 
@@ -62,12 +71,15 @@ INNER = 2
 # report: "as if anti-aliasing isn't happening" — it wasn't).
 SS = 4
 
-# Base alphas at full strength (wilderness).
+# Base alphas at full strength (wilderness). The ribbon pair is halved from
+# what it was at ribbon 64, because ribbon 128 covers twice the area -- see
+# RIBBON. Only rampart reads these two directly; wilderness and trail
+# override both below.
 A = {
     "border": 120,
     "inner": 60,
-    "ribbon_edge": 96,
-    "ribbon_core": 54,
+    "ribbon_edge": 58,
+    "ribbon_core": 33,
     "wash": 12,
 }
 
@@ -102,7 +114,7 @@ def darken(c, f=0.66):
 # sharing everything else. The weights encode the ladder: the more a rung
 # forbids, the louder it argues.
 #
-#   wilderness  opaque       a hard no, unmissable at any zoom
+#   wilderness  ~half        a hard no, unmissable at any zoom
 #   trail       ~half        visible over any terrain, still see-through
 #   rampart     base (~1/3)  the quietest marked rung, one step from Deed
 #   deed        —            no blocker, no overlay: clear ground is owned
@@ -112,9 +124,9 @@ def darken(c, f=0.66):
 # ribbon width for anti-aliasing had made it fainter still.
 RED = COLORS["wilderness"]
 STATES = {
-    "wilderness": (RED, darken(RED), 1.00, {"ribbon_edge": 255, "ribbon_core": 255}),
+    "wilderness": (RED, darken(RED), 1.00, {"ribbon_edge": 170, "ribbon_core": 130}),
     "trail": (COLORS["trail"], darken(COLORS["trail"]), 0.90,
-              {"ribbon_edge": 190, "ribbon_core": 125, "inner": 90}),
+              {"ribbon_edge": 125, "ribbon_core": 90, "inner": 90}),
     "rampart": (RED, darken(RED), 1.00, {}),
 }
 
