@@ -11,10 +11,16 @@ local blockers = {}
 
 -- Bounded slice per drain so large rebuilds never spike a tick.
 local REBUILD_TICK_INTERVAL = 2
-local REBUILD_SLICE = 48
--- Redraw items skip the entity work entirely (no area query, no
--- create/destroy), so a slice can be far larger for the same tick cost.
-local REDRAW_SLICE = 240
+-- Slices are sized against MEASURED per-cell cost on a real 30-team save:
+-- a redraw runs ~57us on a claimed cell (it is object churn — up to ten
+-- render objects destroyed and recreated), and a full reconcile several
+-- times that, since it adds a find_entities_filtered per cell. A chunk
+-- covers up to four cells, so these keep a drain tick near a couple of
+-- milliseconds instead of tens. Slower to finish, but the game does not
+-- stutter while it does — the complaint was never the duration.
+local REBUILD_SLICE = 16
+-- Redraws skip the entity work, so they can move in bigger bites.
+local REDRAW_SLICE = 96
 
 -- Is any chunk touching this cell generated? The gameplay gate for claims
 -- and heals; blocker creation itself works on ungenerated chunks.

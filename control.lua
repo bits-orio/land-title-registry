@@ -30,7 +30,10 @@ require("scripts.remote")
 -- join anchor (a control-only update at the same mod version never fires
 -- config-changed).
 --
--- Epoch 14: cells draw only their record holder — the ranked top-three
+-- Epoch 15: sweeps render objects this mod orphaned when the ranked
+-- world-view block was retired without its destroy loop — they are
+-- unreachable from storage, so only an explicit sweep frees them.
+-- 14: cells draw only their record holder — the ranked top-three
 -- block is gone from both views, so existing objects must be redrawn.
 -- 13: migrations became LAZY and per surface. Every earlier bump
 -- enqueued every chunk of every surface at once — on a 30-surface server
@@ -51,7 +54,7 @@ require("scripts.remote")
 -- sweeps MTS non-play surfaces, applies the print-claims default, and
 -- its drain-end rechart doubles as the reveal sweep for every charted
 -- chunk.
-local CHART_EPOCH = 14
+local CHART_EPOCH = 15
 
 -- Redraw a surface that a migration still owes, the moment somebody looks
 -- at it. Installed on chronicle's viewed hook, so cost is paid per surface
@@ -68,6 +71,58 @@ local function redraw_if_dirty(surface_index)
 end
 chronicle.on_surface_viewed = redraw_if_dirty
 
+-- Objects this mod created but no longer references cannot be freed by
+-- any normal path — nothing points at them. That happened when the
+-- ranked world-view block was retired without its destroy loop, so a
+-- one-time sweep reconciles the engine's list against our bookkeeping.
+local function sweep_orphan_renders()
+  local tracked = {}
+  local function track(object)
+    if object and object.valid then tracked[object.id] = true end
+  end
+  local function track_all(objects)
+    for _, object in pairs(objects or {}) do track(object) end
+  end
+
+  for _, refs in pairs(storage.renders) do
+    for _, objects in pairs(refs) do track_all(objects) end
+  end
+  for _, per_surface in pairs(storage.chart_sprites) do
+    for _, sprite in pairs(per_surface) do track(sprite) end
+  end
+  for _, refs in pairs(storage.chronicle_renders) do
+    for _, entry in pairs(refs) do
+      if entry.buckets then
+        for _, bucket in pairs(entry.buckets) do track_all(bucket) end
+        track_all(entry.world)
+      else
+        track_all(entry)
+      end
+    end
+  end
+  for _, per_surface in pairs(storage.player_renders) do
+    for _, cells in pairs(per_surface) do
+      for _, objects in pairs(cells) do track_all(objects) end
+    end
+  end
+  for _, objects in pairs(storage.tutorial_renders) do track_all(objects) end
+  for _, entries in pairs(storage.state_tutorials) do
+    for _, entry in pairs(entries) do
+      if type(entry) == "table" then track_all(entry.objects) end
+    end
+  end
+
+  local destroyed = 0
+  for _, object in pairs(rendering.get_all_objects("land-title-registry")) do
+    if object.valid and not tracked[object.id] then
+      object.destroy()
+      destroyed = destroyed + 1
+    end
+  end
+  log("LTR-SWEEP destroyed " .. destroyed .. " orphaned render objects")
+  return destroyed
+end
+
 local function ensure_recharted()
   if storage.chart_epoch == CHART_EPOCH then return end
   storage.chart_epoch = CHART_EPOCH
@@ -78,6 +133,7 @@ local function ensure_recharted()
   -- whatever such a queue is still carrying: everything it would have
   -- fixed is derived state that the lazy redraw below re-derives anyway.
   storage.rebuild_queue = {}
+  sweep_orphan_renders()
   for _, surface in pairs(game.surfaces) do
     storage.chart_dirty[surface.index] = true
   end
@@ -358,6 +414,9 @@ script.on_event(defines.events.on_player_joined_game, function(event)
   if joined and joined.valid then
     render.rebuild_player(joined)
     chronicle.on_player_joined(joined)
+    -- Pay any migration this surface still owes now, rather than on the
+    -- next 20-tick poll.
+    redraw_if_dirty(joined.surface_index)
   end
   -- One-shot chronicle backfill, anchored to a join rather than only to
   -- on_configuration_changed: a control-only code update at the same mod

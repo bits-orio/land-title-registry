@@ -2,6 +2,8 @@
 Version: 0.1.10
 Date: 2026-08-18
   Bugfixes:
+    - The retired top-three text is now actually removed from existing saves. Its render objects were left behind when the block stopped being drawn, and because nothing referenced them any more no rebuild could reach them; they are swept on load.
+    - Loading a save no longer stutters for several seconds while map visuals catch up. Deciding whether a cell was explored asked every force on the server, once per chunk, for every cell - on a 30-team save that ran into millions of queries. It now asks only the forces that hold land there or are standing on it, and the background redraw moves in smaller steps so it never crowds a frame.
     - Fixed a severe, compounding performance problem on servers with many team surfaces. Every map-view update enqueued a reconcile of every chunk on every surface at once; that queue is saved with the game, so it resumed on each load and could reach hundreds of thousands of pending chunks, each running an entity query. On a 30-surface save this measured 75 ms per tick - roughly 13 UPS. Map-view updates are now deferred per surface and paid only when someone actually looks at that surface, and any oversized queue inherited from an older version is discarded on load. The same save now measures 9 ms per tick.
     - /ltr-rebuild now reconciles your current surface; /ltr-rebuild all does every surface, which on a many-team server is a long, UPS-heavy sweep.
   Features:

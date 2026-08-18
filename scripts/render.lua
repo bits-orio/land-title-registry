@@ -251,13 +251,50 @@ local BUFFER_CELLS = 1
 -- the common query into one API call instead of one per force.
 local last_charting_force
 
+-- Which forces could plausibly have charted THIS surface: the ones
+-- holding land on it, plus anyone standing on it. Asking every force
+-- instead costs one API call per force per chunk, and a NO cannot exit
+-- early — on a 30-team server that made a bulk redraw pass six figures of
+-- charted queries and took twenty seconds to settle (playtest). Memoized
+-- per tick, since a redraw touches thousands of cells in one.
+local force_cache, force_cache_tick = {}, -1
+
+local function charting_forces(surface, surface_index)
+  if game.tick ~= force_cache_tick then
+    force_cache, force_cache_tick = {}, game.tick
+  end
+  local hit = force_cache[surface_index]
+  if hit then return hit end
+
+  local seen, list = {}, {}
+  local function add(force)
+    if force and force.valid and not seen[force.index] then
+      seen[force.index] = true
+      list[#list + 1] = force
+    end
+  end
+  for _, rec in pairs(storage.cells[surface_index] or {}) do
+    add(game.forces[rec.force_index])
+  end
+  for _, player in pairs(game.connected_players) do
+    if player.valid and player.surface_index == surface_index then add(player.force) end
+  end
+  -- A surface nobody has claimed or visited yet: fall back to asking
+  -- everyone, which is correct and rare.
+  if #list == 0 then
+    for _, force in pairs(game.forces) do add(force) end
+  end
+  force_cache[surface_index] = list
+  return list
+end
+
 local function any_force_charted(surface, chunk_x, chunk_y)
   local chunk = { x = chunk_x, y = chunk_y }
   local remembered = last_charting_force and game.forces[last_charting_force]
   if remembered and remembered.valid and remembered.is_chunk_charted(surface, chunk) then
     return true
   end
-  for _, force in pairs(game.forces) do
+  for _, force in pairs(charting_forces(surface, surface.index)) do
     if force.is_chunk_charted(surface, chunk) then
       last_charting_force = force.name
       return true

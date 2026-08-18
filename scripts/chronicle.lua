@@ -510,6 +510,14 @@ local function destroy_refs(entry)
         if object.valid then object.destroy() end
       end
     end
+    -- `world` held the ranked world-view block, retired in 0.1.10. Entries
+    -- written by builds that still drew it carry the field, and dropping
+    -- this loop when the drawing went away orphaned those objects
+    -- permanently — they are unreachable from storage, so nothing else can
+    -- ever free them (playtest: the top-three text survived every rebuild).
+    for _, object in pairs(entry.world or {}) do
+      if object.valid then object.destroy() end
+    end
   else
     for _, object in pairs(entry) do
       if type(object) == "table" and object.valid then object.destroy() end
