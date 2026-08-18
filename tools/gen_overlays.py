@@ -19,17 +19,6 @@ size. The stripe period divides 1024, so patterns continue seamlessly across
 adjacent same-state cells; the cell-edge border keeps individual cells
 readable.
 
-Every file also carries a MIPMAP CHAIN, laid out to the right of the base
-image the way the engine expects (see MIPS). Without it the overlays were
-declared "linear-minification" and nothing else, so the GPU sampled a 2x2
-texel footprint however far you zoomed out -- while map view minifies these
-by 10-40x, against a 128-texel stripe period. Whether a screen pixel landed
-on a stripe or a gap became a function of zoom phase, and the stripes read
-bold at one zoom and broken or moire-banded at the next (playtest report:
-"at different zoom levels the stripes appear visually differently"). The
-mip chain pre-averages the pattern per level, so zooming out fades the
-stripes evenly instead of scrambling them.
-
 Run from the repo root:  python3 tools/gen_overlays.py
 """
 
@@ -37,12 +26,32 @@ from PIL import Image
 import numpy as np
 
 SIZE = 1024
-PERIOD = 128
-# 16px of 128 (12.5% coverage, half the original 30): thin enough that map
-# terrain stays readable under the stripes (playtest call), same artwork
-# in the world so both views speak one language.
-RIBBON = 16
-EDGE = 3
+# The pattern is deliberately COARSE. A stripe has to survive map view,
+# where the engine minifies these 1024 px textures by 10-40x, and no
+# filtering can rescue a feature narrower than a screen pixel. Measured
+# against the zoom range in a real save (cells landing at 40-110 px on
+# screen, so 1.7-4.6 px per tile):
+#
+#     ribbon 16 / period 128   stripe 0.38 tiles ->  0.6-1.5 px   aliases
+#     ribbon 64 / period 256   stripe 1.50 tiles ->  2.5-6.0 px   holds
+#
+# At sub-pixel width, whether a screen pixel lands on a stripe or a gap
+# comes down to zoom phase, not to the art: the stripes read bold at one
+# zoom, break up at the next, and vanish entirely at a third (playtest
+# report, with screenshots at five zoom steps).
+#
+# Note this is NOT fixable with mipmap_count -- the prototype docs restrict
+# that field to icons ("only loaded if this is an icon, that is it has the
+# flag group=icon or group=gui"), so a mip chain on a world sprite is
+# silently ignored. Feature size is the only lever that works.
+#
+# Both numbers must divide SIZE so the diagonal pattern stays seamless
+# across adjacent same-state cells; 256 gives four periods per cell.
+PERIOD = 256
+RIBBON = 64
+# The stripe's darker rim, held at the same 18.75% of ribbon width as the
+# old 3-of-16 so the stripes keep their shape.
+EDGE = 12
 BORDER = 4
 INNER = 2
 
@@ -52,11 +61,6 @@ INNER = 2
 # staircases once the wilderness stripes went fully opaque (playtest
 # report: "as if anti-aliasing isn't happening" — it wasn't).
 SS = 4
-
-# Mipmap levels INCLUDING the base, so 1024/512/256/128/64 laid out left to
-# right in one row (total width 1984). Level 4 is a cell rendered at 64 px,
-# past which map view is showing so little that further levels buy nothing.
-MIPS = 5
 
 # Base alphas at full strength (wilderness).
 A = {
@@ -152,48 +156,9 @@ def make(name, color, dark, alpha_scale, overrides, suffix="", wash=True):
         rgba[mask, 3] = alpha
 
     img = Image.fromarray(rgba, "RGBA").resize((SIZE, SIZE), Image.LANCZOS)
-    img = with_mipmaps(img)
     out = __file__.rsplit("/", 2)[0] + f"/graphics/{name}-overlay{suffix}.png"
     img.save(out, optimize=True)
-    print(f"wrote {out}  ({img.width}x{img.height}, {MIPS} mip levels)")
-
-
-def with_mipmaps(base):
-    """Return `base` widened to hold its mip chain: level n sits immediately
-    right of level n-1, top-aligned, each half the previous size.
-
-    The averaging runs on PREMULTIPLIED alpha. Straight-alpha averaging
-    would pull the transparent gaps' RGB into the stripes, and since the
-    gaps between opaque red stripes carry alpha 0, every level would darken
-    the red a little more -- the stripes would not just fade with distance,
-    they would rot toward black.
-    """
-    levels, cur = [base], base
-    for _ in range(MIPS - 1):
-        a = np.asarray(cur, dtype=np.float64)
-        alpha = a[..., 3:4] / 255.0
-        prem = a[..., 0:3] * alpha
-
-        def box(v):
-            return (v[0::2, 0::2] + v[1::2, 0::2] + v[0::2, 1::2] + v[1::2, 1::2]) / 4.0
-
-        alpha_d, prem_d, rgb_d = box(alpha), box(prem), box(a[..., 0:3])
-        # Where a whole quad was transparent there is no premultiplied hue
-        # to recover; fall back to the straight average, which still holds
-        # the stripe color (make() writes it even at alpha 0).
-        rgb = np.where(alpha_d > 1e-6, prem_d / np.maximum(alpha_d, 1e-6), rgb_d)
-        out = np.empty(rgb.shape[:2] + (4,), dtype=np.uint8)
-        out[..., 0:3] = np.clip(np.rint(rgb), 0, 255)
-        out[..., 3] = np.clip(np.rint(alpha_d[..., 0] * 255.0), 0, 255)
-        cur = Image.fromarray(out, "RGBA")
-        levels.append(cur)
-
-    sheet = Image.new("RGBA", (sum(l.width for l in levels), base.height), (0, 0, 0, 0))
-    x = 0
-    for level in levels:
-        sheet.paste(level, (x, 0))
-        x += level.width
-    return sheet
+    print(f"wrote {out}")
 
 
 def main():
