@@ -50,7 +50,7 @@ local CHART_LINE_STEP = 3.6
 -- Bump when the stored entry structure changes: chronicle.needs_repair
 -- compares against it, so a shape change self-heals on the next load
 -- without depending on any other version counter staying in step.
-local ENTRY_SHAPE = 3
+local ENTRY_SHAPE = 4
 
 -- Every Land Title Registry announcement carries the survey-tool mark: one symbol
 -- across the portal thumbnail, shortcut bar, tool, technology, and chat.
@@ -431,6 +431,26 @@ end
 -- "Unknown key" (playtest screenshot). Cheap enough to fix everywhere at
 -- once, so a chronicle-shape change does exactly that and never leaves a
 -- surface carrying dead text because nobody happened to visit it.
+-- Every render object this mod owns, and how many our bookkeeping knows
+-- about. A gap between them is orphans; no gap plus visible strays means
+-- the objects are not ours at all.
+function chronicle.object_census()
+  local total = 0
+  for _ in pairs(rendering.get_all_objects("land-title-registry")) do total = total + 1 end
+  local tracked = 0
+  for _, refs in pairs(storage.chronicle_renders) do
+    for _, entry in pairs(refs) do
+      if entry.buckets then
+        for _, bucket in pairs(entry.buckets) do tracked = tracked + #bucket end
+        tracked = tracked + #(entry.world or {})
+      else
+        tracked = tracked + #entry
+      end
+    end
+  end
+  return total, tracked
+end
+
 function chronicle.refresh_all_tracked()
   local refreshed = 0
   for surface_index, refs in pairs(storage.chronicle_renders) do
@@ -584,6 +604,9 @@ function chronicle.refresh_cell(surface, cx, cy)
       color = COORD_COLOR,
       scale = 0.8,
       alignment = "right",
+      -- Stated rather than inherited: these must never reach the chart,
+      -- and a default is a poor thing to bet the map's legibility on.
+      render_mode = "game",
     })
     for rank = 1, shown do
       local ranked = entries[rank]
@@ -596,6 +619,7 @@ function chronicle.refresh_cell(surface, cx, cy)
         scale = 0.7,
         alignment = "center",
         use_rich_text = true,
+        render_mode = "game",
       })
     end
   end

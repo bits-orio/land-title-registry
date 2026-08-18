@@ -129,8 +129,15 @@ end
 -- Sweep orphans and rebuild every stale chronicle cell. Public so
 -- /ltr-repair can invoke exactly what the automatic path does.
 function ltr_repair_renders()
-  local orphans = sweep_orphan_renders()
+  -- Refresh FIRST, sweep SECOND. The refresh is itself a source of
+  -- orphans: it replaces each cell's entry, and any object the old entry
+  -- failed to release is unreachable the moment the new one takes its
+  -- place. Sweeping beforehand therefore measured a clean save and left
+  -- 14,531 stale labels behind it (playtest census). Sweeping afterwards
+  -- needs no theory about which release paths are complete — whatever
+  -- storage does not reference once the dust settles, goes.
   local cells = chronicle.refresh_all_tracked()
+  local orphans = sweep_orphan_renders()
   return orphans, cells
 end
 
@@ -144,11 +151,10 @@ local function ensure_recharted()
   -- whatever such a queue is still carrying: everything it would have
   -- fixed is derived state that the lazy redraw below re-derives anyway.
   storage.rebuild_queue = {}
-  sweep_orphan_renders()
   -- Chronicle objects are few and stale ones are actively wrong, so they
   -- are fixed everywhere immediately rather than waiting for someone to
-  -- visit each surface.
-  chronicle.refresh_all_tracked()
+  -- visit each surface. Rebuild, then collect what that orphaned.
+  ltr_repair_renders()
   for _, surface in pairs(game.surfaces) do
     storage.chart_dirty[surface.index] = true
   end

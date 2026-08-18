@@ -45,7 +45,9 @@ end)
 commands.add_command("ltr-repair", { "land-title-registry.cmd-repair-help" }, function(event)
   local stale = chronicle.needs_repair()
   local orphans, cells = ltr_repair_renders()
-  local message = { "land-title-registry.repair-done", orphans, cells, tostring(stale) }
+  local total, tracked = chronicle.object_census()
+  local message = { "land-title-registry.repair-done", orphans, cells,
+    tostring(stale) .. ", objects " .. total .. " total / " .. tracked .. " chronicle-tracked" }
   if event.player_index then
     local player = game.get_player(event.player_index)
     if player and player.valid then player.print(message) return end
