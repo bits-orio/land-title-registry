@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
 """Generate the per-state cell overlays drawn by the blocker entities
-(ADR-0009). One shared ribbon pattern; the states differ in color and
-stripe strength (playtest call, 0.1.8: the original full-strength red
-pattern reads as "fortified, not yet fully yours" and now marks RAMPART;
-wilderness escalates the same artwork to fully opaque red stripes,
-unmistakable at any zoom):
+(ADR-0009). One shared ribbon pattern; the states differ in hue, in stripe
+strength, and in which way the stripes lean:
 
-    wilderness  red, the widest stripes   (hard no)
-    trail       orange at ~half strength   (transit corridor)
-    rampart     red, the original pattern  (one rung from Deed)
-    deed        —                          (no blocker, fully clear)
+    wilderness  red,    stripes lean "/"    (hard no)
+    trail       orange, stripes lean "/"    (transit corridor)
+    rampart     yellow, stripes lean "\\"   (one rung from Deed)
+    deed        —                           (no blocker, fully clear)
 
 Stripe weight tracks how much the rung forbids, so the ladder reads as a
 gradient from loud to silent even before the colors register.
+
+Rampart leans the OTHER way on purpose. Until 0.1.10 it separated from
+wilderness by alpha alone, and alpha is the one channel that is not
+invariant to what is underneath: a 39-alpha red over dark forest and a
+67-alpha red over pale sand are the same pixels, so the two states
+collapsed into each other exactly where terrain varies, which is
+everywhere (playtest, with screenshots in both views). Hue carries the
+distinction at a glance and the mirrored lean carries it where hue cannot
+— colorblind players, dark ground, and map view, where terrain color
+shifts under you. Neither costs anything at minification: same feature
+size, same period.
 
 Each sprite is 1024x1024 px; the data stage scales it to the configured cell
 size. The stripe period divides 1024, so patterns continue seamlessly across
@@ -108,9 +116,13 @@ def darken(c, f=0.66):
     return tuple(round(v * f) for v in c)
 
 
-# Per-state look. Rampart deliberately wears the WILDERNESS palette entry —
-# if that line looks wrong, read the module docstring: the red pattern
-# moved down a rung, it was not left behind by accident.
+# Per-state look: (color, dark accent, alpha_scale, alpha overrides, mirror).
+#
+# Every state draws its OWN palette entry, so the fill finally agrees with
+# the frontier border render.lua draws for the same state. Rampart wore the
+# wilderness red between 0.1.8 and 0.1.10, back when it was faint enough
+# that its hue barely registered; once it became visible, sharing red with
+# wilderness is what made the two indistinguishable.
 #
 # The last field overrides individual alphas from A. Stripe strength is set
 # per state rather than scaled globally, because alpha_scale also dims the
@@ -121,21 +133,26 @@ def darken(c, f=0.66):
 #   wilderness  mean a 67   a hard no, unmissable at any zoom
 #   trail       mean a 48    visible over any terrain, still see-through
 #   rampart     mean a 39    the quietest marked rung, one step from Deed
+#                            (and the only one that mirrors its stripes)
 #   deed        —            no blocker, no overlay: clear ground is owned
 #
 # Trail's boost is a playtest call: at the base alphas its orange read as
 # ~19% over dirt and effectively vanished (screenshot), and halving the
 # ribbon width for anti-aliasing had made it fainter still.
-RED = COLORS["wilderness"]
+#
+# Trail and rampart are the closest pair now, adjacent in both alpha (48 vs
+# 39) and hue (orange vs yellow) — but only rampart mirrors, so they never
+# rest on hue alone either.
 STATES = {
-    "wilderness": (RED, darken(RED), 1.00, {"ribbon_edge": 170, "ribbon_core": 130}),
+    "wilderness": (COLORS["wilderness"], darken(COLORS["wilderness"]), 1.00,
+                   {"ribbon_edge": 170, "ribbon_core": 130}, False),
     "trail": (COLORS["trail"], darken(COLORS["trail"]), 0.90,
-              {"ribbon_edge": 125, "ribbon_core": 90, "inner": 90}),
-    "rampart": (RED, darken(RED), 1.00, {}),
+              {"ribbon_edge": 125, "ribbon_core": 90, "inner": 90}, False),
+    "rampart": (COLORS["rampart"], darken(COLORS["rampart"]), 1.00, {}, True),
 }
 
 
-def make(name, color, dark, alpha_scale, overrides, suffix="", wash=True):
+def make(name, color, dark, alpha_scale, overrides, mirror, suffix="", wash=True):
     def a(key):
         override = overrides.get(key)
         if override is not None:
@@ -148,7 +165,10 @@ def make(name, color, dark, alpha_scale, overrides, suffix="", wash=True):
     big = SIZE * SS
     ys, xs = np.mgrid[0:big, 0:big]
     b = np.minimum.reduce([xs, ys, big - 1 - xs, big - 1 - ys])
-    d = (xs + ys) % (PERIOD * SS)
+    # Mirroring the diagonal stays seamless for the same reason the
+    # unmirrored one does: PERIOD divides SIZE, so the pattern meets itself
+    # across a cell edge on either axis.
+    d = ((xs - ys) if mirror else (xs + ys)) % (PERIOD * SS)
 
     in_border = b < BORDER * SS
     in_inner = (~in_border) & (b < (BORDER + INNER) * SS)
@@ -178,8 +198,8 @@ def make(name, color, dark, alpha_scale, overrides, suffix="", wash=True):
 
 
 def main():
-    for name, (color, dark, scale, overrides) in STATES.items():
-        make(name, color, dark, scale, overrides)
+    for name, (color, dark, scale, overrides, mirror) in STATES.items():
+        make(name, color, dark, scale, overrides, mirror)
     # Chart variants for every blocker state (drawn by scripts/render.lua
     # in map view): identical stripes and cell border, but the
     # between-stripes wash is fully transparent — on the chart the wash
@@ -190,8 +210,8 @@ def main():
     # playtest: any area recoloring makes the OTHER side of the boundary
     # read as tinted by contrast).
     for name in ("wilderness", "trail", "rampart"):
-        color, dark, scale, overrides = STATES[name]
-        make(name, color, dark, scale, overrides, suffix="-chart", wash=False)
+        color, dark, scale, overrides, mirror = STATES[name]
+        make(name, color, dark, scale, overrides, mirror, suffix="-chart", wash=False)
 
 
 if __name__ == "__main__":
