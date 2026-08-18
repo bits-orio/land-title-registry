@@ -42,8 +42,10 @@ LETTER_SIZE = 185
 SUBTITLE_SIZE = 44
 
 # The wilderness overlay as a background underlay: the card wears the
-# texture the map wears, at the artwork's own strength (no extra
-# transparency — playtest call).
+# texture the map wears, at the artwork's own strength — the card adds no
+# transparency of its own (playtest call), so retuning the stripes retunes
+# the card. It reads the PNG rather than redrawing the pattern, which is
+# why 0.1.10's wider, more see-through stripes arrived here for free.
 
 
 def load_state_colors():
