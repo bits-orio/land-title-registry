@@ -63,6 +63,24 @@ commands.add_command("ltr-debug", { "land-title-registry.cmd-debug-help" }, func
     player.print(string.format("   %d. %s  %d ticks", rank, entry.force_name, entry.clock))
   end
 
+  -- Map-layer state: why the standings do or do not show right now.
+  local d = chronicle.diagnose(player)
+  player.print("── map layer ──")
+  player.print(string.format("layer: %s   competitive: %s   view: %s zoom %.3f (tier %d)",
+    d.enabled and "ON" or "OFF", tostring(d.competitive), d.render_mode, d.zoom, d.tier))
+  player.print(string.format("chart cells on this surface: %d (%d bucketed, %d legacy) — %d objects, %d visible",
+    d.cells, d.bucketed, d.legacy, d.objects, d.visible))
+  player.print(string.format("chart epoch: %d   rebuild queue: %d", d.epoch, d.queued))
+  if d.legacy > 0 then
+    player.print("[color=1,0.7,0.3]Legacy chart objects present: the map rebuild has not re-drawn this surface yet, so the toggle cannot reach them. Run /ltr-rebuild.[/color]")
+  elseif d.cells == 0 then
+    player.print("[color=1,0.7,0.3]No chart objects on this surface: nothing has been deeded here yet, so there is nothing for the layer to show.[/color]")
+  elseif not d.competitive then
+    player.print("[color=1,0.7,0.3]Not competitive (one force): standings are suppressed by design; only cell coordinates draw, at close zoom.[/color]")
+  elseif d.enabled and d.visible == 0 then
+    player.print("[color=1,0.7,0.3]Layer is ON but nothing is visible — expected only if you are in world view; the layer draws in MAP view.[/color]")
+  end
+
   -- The verdict, spelled out.
   if not rec or rec.state ~= "deed" then
     player.print("[color=1,0.7,0.3]No celebration: this cell is not a Deed. Only Deeds enter the chronicle.[/color]")

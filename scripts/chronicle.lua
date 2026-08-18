@@ -430,6 +430,42 @@ function chronicle.ensure_poll_handler()
   end
 end
 
+-- Everything /ltr-debug needs to explain why the map layer does or does
+-- not show anything for this player, in one call.
+function chronicle.diagnose(player)
+  local surface_index = player.surface_index
+  local refs = storage.chronicle_renders[surface_index] or {}
+  local cells, bucketed, legacy, objects, visible = 0, 0, 0, 0, 0
+  for _, entry in pairs(refs) do
+    cells = cells + 1
+    if entry.buckets then
+      bucketed = bucketed + 1
+      for _, bucket in pairs(entry.buckets) do
+        for _, object in pairs(bucket) do
+          objects = objects + 1
+          if object.valid and object.visible then visible = visible + 1 end
+        end
+      end
+    else
+      legacy = legacy + 1
+    end
+  end
+  local view = storage.chart_view[player.index]
+  return {
+    enabled = chronicle.enabled_for(player),
+    competitive = chronicle.competitive(),
+    render_mode = tostring(player.render_mode),
+    zoom = player.zoom,
+    tier = view and view.tier or 0,
+    applied_surface = view and view.surface_index or 0,
+    surface_index = surface_index,
+    cells = cells, bucketed = bucketed, legacy = legacy,
+    objects = objects, visible = visible,
+    epoch = storage.chart_epoch or 0,
+    queued = #storage.rebuild_queue,
+  }
+end
+
 -- Toggle the whole map layer for one player (shortcut button / hotkey).
 -- OFF is the default: the standings are genuinely useful but they are a
 -- lot of ink on a developed map, and a player who wants them asks
