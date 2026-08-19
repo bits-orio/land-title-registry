@@ -28,17 +28,22 @@ FRAME_INSET = 14
 FRAME_WIDTH = 8
 SUBTITLE_FILL = (154, 160, 166)
 
-# A white halo behind the mark, centred (no offset) rather than cast to one
-# side. The card underlays the wilderness stripes, and wilderness red is
-# also the L's own color -- so wherever a stripe fell behind the L the
-# letter dissolved into it. The halo separates every letter from whatever
-# is under it without changing the letters themselves, which have to stay
-# on the state palette. Strength lifts the blur's midtones so the halo
-# reads as a rim rather than a faint smudge; it clips at full white close
-# to the glyph, which is exactly where the contrast is needed.
-GLOW = (255, 255, 255)
-GLOW_RADIUS = 7
-GLOW_STRENGTH = 2.2
+# A halo behind the mark, centred (no offset) rather than cast to one side.
+# The card underlays the wilderness stripes, and wilderness red is also the
+# L's own color -- so wherever a stripe fell behind the L, the letter
+# dissolved into it. The halo separates every letter from whatever is under
+# it without changing the letters themselves, which have to stay on the
+# state palette.
+#
+# Black rather than white: the ground is already dark, so a dark halo sinks
+# into it and reads as depth beneath the glyphs, where a white one
+# announced itself as a rim drawn around them. That also buys a gentler
+# strength -- it only has to darken the stripe it covers, not overpower it.
+# Strength lifts the blur's midtones; past roughly 2 the halo stops falling
+# off and becomes a plate behind the mark.
+HALO = (0, 0, 0)
+HALO_RADIUS = 8
+HALO_STRENGTH = 1.5
 
 LETTERS = "LTR"
 SUBTITLE = "LAND RIGHTS"
@@ -85,10 +90,10 @@ def draw_letters(colors):
 
 
 def glow_for(layer):
-    """A blurred white copy of `layer`'s coverage, to sit directly behind it."""
-    alpha = layer.getchannel("A").filter(ImageFilter.GaussianBlur(GLOW_RADIUS))
-    alpha = alpha.point(lambda v: min(255, int(v * GLOW_STRENGTH)))
-    halo = Image.new("RGBA", layer.size, GLOW + (0,))
+    """A blurred copy of `layer`'s coverage, to sit directly behind it."""
+    alpha = layer.getchannel("A").filter(ImageFilter.GaussianBlur(HALO_RADIUS))
+    alpha = alpha.point(lambda v: min(255, int(v * HALO_STRENGTH)))
+    halo = Image.new("RGBA", layer.size, HALO + (0,))
     halo.putalpha(alpha)
     return halo
 
