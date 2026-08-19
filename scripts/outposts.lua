@@ -38,13 +38,19 @@ end
 
 -- Researched outpost level = slot cap. The chain is sequential, so counting
 -- researched techs and reading the highest level agree.
+-- One slot per RESEARCHED LEVEL across the chain. Counting `researched`
+-- alone was enough while every tech held a single level, but the terminal
+-- tier is infinite now and an infinite technology never reports itself as
+-- researched -- it only advances its level. Both shapes fall out of the
+-- same expression: a tech named "-i" starts at level i, so levels beyond
+-- the first are (level - i), plus one more if the tech is finite and done.
 function outposts.cap(force)
   local cap = 0
   local i = 1
   while true do
     local tech = force.technologies["ltr-outpost-grants-" .. i]
     if not tech then break end
-    if tech.researched then cap = cap + 1 end
+    cap = cap + (tech.level - i) + (tech.researched and 1 or 0)
     i = i + 1
   end
   return cap

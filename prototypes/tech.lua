@@ -303,11 +303,18 @@ end
 
 -- ---------------------------------------------------------------------------
 -- The ltr-outpost-grants chain: one tech per tier, mirroring the grants
--- bands. Level i raises the force's cap of concurrent disconnected Deed
--- outposts to i (runtime accounting in scripts/outposts.lua). Costs climb
+-- bands. Each level raises the force's cap of concurrent disconnected Deed
+-- outposts by one (runtime accounting in scripts/outposts.lua). Costs climb
 -- 1000 science per level over the cumulative pack list of tiers 1..i —
 -- deliberately steep; an outpost slot is a strategic purchase, not a level
 -- of income.
+--
+-- The last tier is INFINITE, so slots never run out — a ladder with six
+-- tiers used to stop at six outposts for the rest of the game, which on a
+-- long server is a hard ceiling rather than a cost curve (playtest). Its
+-- formula is L*1000, which at the terminal tier's own level equals the
+-- flat count the finite tiers charge, so the price curve continues
+-- unbroken and simply keeps adding 1000 a level.
 
 local function build_outposts(bands, unlock_of)
   if #bands == 0 then return end
@@ -320,6 +327,7 @@ local function build_outposts(bands, unlock_of)
       cumulative[#cumulative + 1] = { pack.name, 1 }
     end
     local name = "ltr-outpost-grants-" .. i
+    local terminal = (i == #bands)
     local prereqs = append_band_prereqs(band, unlock_of,
       previous_name and { previous_name } or {})
 
@@ -329,11 +337,15 @@ local function build_outposts(bands, unlock_of)
       icon = "__land-title-registry__/graphics/survey-stake.png",
       icon_size = 64,
       upgrade = true,
-      max_level = i, -- the -i suffix is the start level: one level per tech
+      -- The -i suffix is the start level: one level per tech, except the
+      -- terminal one, which runs on forever from level #bands.
+      max_level = terminal and "infinite" or i,
       prerequisites = #prereqs > 0 and prereqs or nil,
       ignore_tech_cost_multiplier = true,
       unit = {
-        count = math.max(1, math.floor(i * 1000 * multiplier + 0.5)),
+        count = (not terminal)
+          and math.max(1, math.floor(i * 1000 * multiplier + 0.5)) or nil,
+        count_formula = terminal and ("L*" .. (1000 * multiplier)) or nil,
         ingredients = table.deepcopy(cumulative),
         time = 60,
       },
