@@ -878,11 +878,11 @@ end
 function chronicle.drop_surface(surface_index)
   local refs = storage.chronicle_renders[surface_index]
   if refs then
-    for _, objects in pairs(refs) do
-      for _, object in pairs(objects) do
-        if object.valid then object.destroy() end
-      end
-    end
+    -- Entries are shaped records (shape/buckets/world), not flat object
+    -- arrays; only destroy_refs knows every shape ever written. Walking an
+    -- entry's fields directly trips on the `shape` number the moment a
+    -- surface with standings is deleted (0.1.11 team-restart crash).
+    for _, entry in pairs(refs) do destroy_refs(entry) end
   end
   storage.chronicle_renders[surface_index] = nil
 end

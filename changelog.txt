@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.13
+Date: 2026-08-19
+  Bugfixes:
+    - Fixed a server crash when a team surface was deleted - hit in the wild by restarting or leaving a team under Multi-Team Support, which deletes the abandoned team's surface ("attempt to index local 'object' (a number value)" in chronicle.lua). The cleanup that releases a removed surface's cell standings still walked the flat object lists that standings stopped using in 0.1.9, so on the first surface that actually had standings it tripped over a bookkeeping field instead of a render object and took the server down; a surface with no deeded cells sailed through, which is why leaving one team worked and the next did not. The cleanup now goes through the same shape-aware release every other sweep already uses. Clearing a surface (rather than deleting it) ran the same code and is fixed by the same change.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.12
 Date: 2026-08-19
   Changes:
