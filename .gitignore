@@ -10,3 +10,7 @@
 # Build output
 /build/
 /*.zip
+
+# Python bytecode from the tools/ generators
+__pycache__/
+*.pyc
