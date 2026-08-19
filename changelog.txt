@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.12
+Date: 2026-08-19
+  Changes:
+    - The first endless level of Land Grants no longer costs twenty times the level before it. Each tier charges 50 science per level, and the final, endless tier climbs at 1000 a level so land income tapers without ever stopping - but that steeper climb was measured against the absolute level number rather than starting from where the previous tier ended, so the first endless level inherited the full weight of its own number. On a six-tier ladder that meant level 50 cost 2,500 and level 51 cost 51,000. The endless tier now begins where the tier below it finished - 3,500 for that same level - and climbs at the same 1000 a level from there, so the curve is continuous and the long taper is unchanged. Existing saves pick the new price up on load; levels already researched are unaffected, and research already in progress keeps its percentage.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.11
 Date: 2026-08-18
   Bugfixes:

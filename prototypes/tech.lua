@@ -272,8 +272,23 @@ local function build_ladder(bands, unlock_of)
       -- science game, not divorce land prices from the tuned curve.
       ignore_tech_cost_multiplier = true,
       unit = {
+        -- Non-terminal levels cost 50 each. The terminal tier climbs at
+        -- 1000 a level so land income tapers without ever stopping -- but
+        -- it must climb FROM where tier N-1 left off, not restart the
+        -- steeper slope against the absolute level number.
+        --
+        -- It used to read "L*1000", which meant the first endless level
+        -- inherited the whole magnitude of its own level number: on a
+        -- 6-tier ladder, level 50 cost 2,500 and level 51 cost 51,000, a
+        -- 20x wall at a single boundary (playtest: "51 feels too
+        -- expensive"). Anchoring at the boundary makes it 3,500 and the
+        -- curve continuous, while keeping the same 1000-per-level slope
+        -- that the taper depends on. Where the ladder is a single tier
+        -- the anchor is 0 and this reduces to the old formula exactly.
         count_formula = terminal
-          and ("L*" .. (1000 * multiplier))
+          and string.format("%s + %s*(L-%d)",
+                            50 * multiplier * (start_level - 1),
+                            1000 * multiplier, start_level - 1)
           or ("L*" .. (50 * multiplier)),
         ingredients = ingredients,
         time = terminal and 60 or 30,
