@@ -168,14 +168,33 @@ local function ensure_recharted()
   end
 end
 
--- Same-version code updates can change the map-view scheme without ever
--- firing config-changed, and a SINGLE-PLAYER load fires no join event —
--- playtest finding: the epoch migration simply never ran outside
--- multiplayer. on_load may not write storage, so a stale epoch registers
--- a first-tick migration instead; deterministic, since every peer reads
--- the same storage.
-local function first_tick_maintenance()
+-- One-shot maintenance, run on the first tick after an install or an
+-- update and then unregistered.
+--
+-- Arming it is gated on a STORAGE flag, and that is not a detail. A
+-- joining client loads the server's save and runs on_load; the server does
+-- not. So any handler that on_load registers unconditionally and that then
+-- unregisters itself at runtime leaves the two peers holding different
+-- handler sets, and Factorio refuses the join with "mod event handlers are
+-- not identical between you and the server" (0.1.10 shipped exactly that
+-- bug: the server had already run this and dropped on_tick, every client
+-- re-armed it, and nobody could connect). Everything on_load registers has
+-- to be a pure function of storage, so that a peer loading the save later
+-- computes the same set the running server currently holds.
+local first_tick_maintenance
+-- Arm from on_init and on_configuration_changed, never from on_load: both
+-- may write storage, and BOTH MUST register the handler themselves rather
+-- than leave it to on_load, because on_load runs FIRST. An updating save
+-- reaches on_load before the flag exists, so gating the registration on
+-- the flag alone would mean the migration silently never ran.
+local function arm_maintenance()
+  storage.maintenance_pending = true
+  script.on_event(defines.events.on_tick, first_tick_maintenance)
+end
+
+function first_tick_maintenance()
   script.on_event(defines.events.on_tick, nil)
+  storage.maintenance_pending = nil
   -- Existing saves shed overlays from MTS non-play surfaces (the pen)
   -- before the rebuild re-derives everything else.
   if mts_compat.active then mts_compat.sweep_non_team_surfaces() end
@@ -222,6 +241,7 @@ script.on_init(function()
   -- A fresh map is already on the current map-view scheme; only loaded
   -- saves migrate through the epoch.
   storage.chart_epoch = CHART_EPOCH
+  arm_maintenance()
   -- (0.1.8 forced ltr-print-claims on here, because machines running
   -- pre-release dev builds carried the retired default in their
   -- mod-settings.dat and new maps take runtime-global values from that
@@ -242,17 +262,21 @@ script.on_init(function()
 end)
 
 script.on_load(function()
+  -- Every registration below is a pure function of storage, so a client
+  -- loading this save computes the same handler set the running server
+  -- holds. See first_tick_maintenance for what happens when it is not.
   blockers.ensure_rebuild_handler()
   tool.ensure_hover_handler()
   chronicle.ensure_poll_handler()
   if mts_compat.active then mts_compat.resolve_events() end
-  -- Armed every load: it migrates when the epoch moved and self-heals
-  -- stale render shapes either way, then unregisters itself.
-  script.on_event(defines.events.on_tick, first_tick_maintenance)
+  if storage.maintenance_pending then
+    script.on_event(defines.events.on_tick, first_tick_maintenance)
+  end
 end)
 
 script.on_configuration_changed(function()
   registry.init_storage()
+  arm_maintenance()
   -- Ensure per-surface tables WITHOUT re-evaluating enablement: the MTS
   -- grid-only-on-team-surfaces rule applies at fresh-game init and surface
   -- creation only. Re-running it here disabled surfaces that already

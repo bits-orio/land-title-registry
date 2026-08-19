@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.11
+Date: 2026-08-18
+  Bugfixes:
+    - Fixed being unable to join a multiplayer server running 0.1.10, which refused the connection after the map downloaded with "the following mod event handlers are not identical between you and the server". A once-per-load maintenance pass was registered every time a save loaded and removed itself immediately after running. A joining client loads the server's save and so runs that code; the server, already running, does not - so the client ended up holding a handler the server had long since dropped, and Factorio rejects a mismatch rather than risk a desync. The pass is now registered only when there is actually something pending, recorded in the save itself, so every player computes the same set. Servers on 0.1.10 should update; no save surgery is needed.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.10
 Date: 2026-08-18
   Bugfixes:
