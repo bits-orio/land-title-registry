@@ -33,7 +33,7 @@ Movement is never restricted: walk, drive and railroad through Wilderness freely
 - **Outpost grants.** Research permits Deeds founded anywhere in the wilderness with no adjacency, one concurrent outpost per level; the slot returns once that territory connects with your mainland.
 - **A race, recorded per cell.** Each cell keeps a chronicle of the teams that have deeded it, ranked on *their own team clock* so staged starts stay fair. Being first, and taking the record, are the only things celebrated.
 - **The causeway.** Trail-claim a line of cells across a lake — a claim needs no buildable ground — landfill it, and run rail across. Water stops being a wall.
-- **Built to be built on.** Thirteen remote functions and three custom events, stable from v1; other mods declare their entities' layers through a `mod-data` prototype.
+- **Built to be built on.** Fifteen remote functions and three custom events, stable from v1; other mods declare their entities' layers through a `mod-data` prototype.
 
 ## Compatibility
 

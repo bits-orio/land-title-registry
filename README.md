@@ -65,7 +65,7 @@ Engine-enforced land claiming is the starting premise, not the feature list. Wha
 
 **Nothing hardcoded about other people's mods.** Layer membership is capability-based, then overridable by mod authors through a `mod-data` prototype and by hosts through startup settings. No blacklist of third-party entity names lives in this repo, and none ever will.
 
-**Built to be built on.** Thirteen remote functions and three custom events, stable from v1 — plus Discord milestone relay through [Open Discord Bridge](https://mods.factorio.com/mod/open-discord-bridge).
+**Built to be built on.** Fifteen remote functions and three custom events, stable from v1 — plus Discord milestone relay through [Open Discord Bridge](https://mods.factorio.com/mod/open-discord-bridge).
 
 ## Compatibility
 
