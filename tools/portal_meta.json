@@ -1,7 +1,7 @@
 {
   "mod": "land-title-registry",
   "title": "Land Title Registry",
-  "summary": "Claim the map cell by cell, in tiers. Every cell climbs a ladder — Wilderness, Trail, Rampart, Deed — and the engine itself enforces what you may build where, so manual placement, blueprints and construction bots all obey it. Buy rights with land points earned from research, sell them back for a refund, and expand outward from territory you already hold. Runs standalone in single-player or multiplayer, with optional Multi-Team Support integration.",
+  "summary": "Claim the map cell by cell. Every cell climbs a ladder — Wilderness, Trail, Rampart, Deed — and the engine itself enforces what you may build where, so blueprints and construction bots obey it too. Expand your territory outward from land you already hold. Inspired by Gridlocked, rebuilt from scratch with a land economy.",
   "category": "content",
   "tags": [
     "environment"

@@ -41,7 +41,7 @@ No incompatibility list ships with it — composability is the point. Cells are 
 
 **Space Age** is optional and fully supported: tech tiers derive from the real tech tree, not a hardcoded science-pack list, so overhaul mods work; each force gets a settlement charter on first reaching a planet; space platforms are exempt.
 
-Inspired by [Gridlocked](https://mods.factorio.com/mod/gridlocked) by _CodeGreen and reimagined from scratch — no code, no assets and no names reused, though Gridlocked's MIT license would have permitted it.
+Inspired by [Gridlocked](https://mods.factorio.com/mod/gridlocked) by _CodeGreen and reimagined from scratch — no code, no assets and no names reused, though Gridlocked's MIT license would have permitted it. _CodeGreen was told before this shipped and welcomed it.
 
 ## Works with
 
