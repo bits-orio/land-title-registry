@@ -6,7 +6,7 @@ Land Title Registry divides the map into square **cells** (24 tiles by default; 
 
 Built from the ground up, and designed first for **[Multi-Team Support](https://mods.factorio.com/mod/multi-team-support)** servers, the ones with many teams, isolated surfaces and staged starts. It runs perfectly well standalone in vanilla single-player with nothing else installed.
 
-> **Note on tooling:** This mod is developed with AI coding assistants alongside human review and in-game testing. Bug reports, feature requests, and contributions are welcome from everyone. If AI-assisted development isn't your thing, that's fine. Please keep the hate off this mod's threads. And a gentle request: please don't be rude or disrespectful to the author on other platforms either. There's a human on the other side, don't be anti-human by being rude to them.
+> **Note on tooling:** This mod is developed with AI coding assistants alongside human review and in-game testing. Bug reports, feature requests, and contributions are welcome from everyone. If AI-assisted development isn't your thing, that's fine. This mod's threads are for bugs and features.
 
 | State | What you may build | Cumulative price |
 |---|---|---|
