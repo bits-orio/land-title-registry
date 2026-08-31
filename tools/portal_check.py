@@ -11,17 +11,25 @@ Run from the repo root:  python3 tools/portal_check.py
 
 import json
 import sys
+import time
 import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-API = "https://mods.factorio.com/api/mods/{}/full"
+# The portal caches this endpoint, so a plain read right after a sync still
+# returns the old page and everything looks like drift. The query parameter is
+# ignored by the API but defeats the cache.
+API = "https://mods.factorio.com/api/mods/{}/full?_={}"
 
 
 def main():
     meta = json.loads((ROOT / "tools" / "portal_meta.json").read_text())
     mod = meta["mod"]
-    with urllib.request.urlopen(API.format(mod), timeout=30) as r:
+    req = urllib.request.Request(
+        API.format(mod, int(time.time() * 1000)),
+        headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as r:
         live = json.load(r)
 
     lic = live.get("license")
