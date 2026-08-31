@@ -80,22 +80,22 @@ echo "got upload_url"
 echo "::endgroup::"
 
 echo "::group::Step 2 — upload zip"
-# Publish additionally seeds the new page: license and source link, plus
-# the repo README as the long description (the portal renders markdown)
-# when the script runs from a checkout that has one.
+# A first publish seeds the new page from exactly the files that every later
+# sync deploys from -- docs/portal.md and tools/portal_meta.json -- so the page
+# never starts life as something the repo cannot reproduce.
 PUBLISH_FIELDS=()
 if [[ "$MOD_EXISTS" -eq 0 ]]; then
-    PUBLISH_FIELDS+=(-F "license=default_mit" -F "category=content")
-    if [[ -f info.json ]]; then
-        HOMEPAGE=$(jq -r '.homepage // empty' info.json)
-        [[ -n "$HOMEPAGE" ]] && PUBLISH_FIELDS+=(-F "source_url=${HOMEPAGE}")
+    META=tools/portal_meta.json
+    if [[ -f "$META" ]]; then
+        for field in title summary category license homepage source_url; do
+            value=$(jq -r --arg f "$field" '.[$f] // empty' "$META")
+            [[ -n "$value" ]] && PUBLISH_FIELDS+=(--form-string "${field}=${value}")
+        done
+        while read -r tag; do
+            [[ -n "$tag" ]] && PUBLISH_FIELDS+=(--form-string "tags=${tag}")
+        done < <(jq -r '.tags[]? // empty' "$META")
     fi
-    if [[ -f README.md && -f tools/portal_description.py ]]; then
-        # Portal-ready render: relative links rewritten absolute.
-        DESC_FILE=$(mktemp)
-        python3 tools/portal_description.py > "$DESC_FILE"
-        PUBLISH_FIELDS+=(-F "description=<${DESC_FILE}")
-    fi
+    [[ -f docs/portal.md ]] && PUBLISH_FIELDS+=(-F "description=<docs/portal.md")
 fi
 
 UPLOAD_RESPONSE=$(curl -sS \
