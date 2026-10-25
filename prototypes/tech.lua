@@ -8,8 +8,8 @@
 -- Required from data-final-fixes.lua so every mod's technologies exist.
 --
 -- Derivation:
---   1. Candidate packs = every tool appearing in some technology's
---      unit.ingredients.
+--   1. Candidate packs = every science pack appearing in some technology's
+--      unit.ingredients (type "tool" on 2.0, a plain item on 2.1).
 --   2. Availability depth = min over producing recipes of (1 + unlock
 --      tech's prerequisite depth), or 0 for recipes enabled at start.
 --      Recycling-category and self-producing recipes are ignored (Space
@@ -85,6 +85,16 @@ local function ingredient_name(ing)
   return ing[1]
 end
 
+-- Is this a recycling recipe? 2.1 merged a recipe's category and
+-- additional_categories into one categories list; 2.0 names a single
+-- category (absent means "crafting").
+local function is_recycling(recipe)
+  for _, category in pairs(recipe.categories or { recipe.category }) do
+    if category == "recycling" then return true end
+  end
+  return false
+end
+
 local function collect_packs()
   local used = {}
   for _, tech in pairs(data.raw.technology) do
@@ -111,7 +121,7 @@ local function collect_packs()
   -- pack -> {depth, unlock_tech}
   local info = {}
   for _, recipe in pairs(data.raw.recipe) do
-    if recipe.category ~= "recycling" and recipe.results then
+    if not is_recycling(recipe) and recipe.results then
       local ingredients = {}
       for _, ing in pairs(recipe.ingredients or {}) do
         ingredients[ingredient_name(ing)] = true
@@ -199,14 +209,26 @@ end
 -- ---------------------------------------------------------------------------
 -- Host override: "a,b; c; d,e" — packs added per tier, cumulative ladder.
 
+-- Science packs are whatever some lab takes. 2.0 typed them "tool", but 2.1
+-- made them plain items, so data.raw.tool is no test there (it is nil in
+-- vanilla 2.1); the labs' inputs answer the same on both engines.
+local function lab_inputs()
+  local set = {}
+  for _, lab in pairs(data.raw.lab or {}) do
+    for _, name in pairs(lab.inputs or {}) do set[name] = true end
+  end
+  return set
+end
+
 local function parse_override(value)
+  local science = lab_inputs()
   local bands = {}
   for segment in string.gmatch(value, "[^;]+") do
     local packs = {}
     for entry in string.gmatch(segment, "[^,]+") do
       local trimmed = entry:match("^%s*(.-)%s*$")
       if trimmed ~= "" then
-        if not data.raw.tool[trimmed] then
+        if not science[trimmed] then
           error("Land Title Registry: ltr-tech-tiers names unknown science pack '" .. trimmed .. "'")
         end
         packs[#packs + 1] = { name = trimmed }
