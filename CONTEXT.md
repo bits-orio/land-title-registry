@@ -69,7 +69,7 @@ The free Deed granted at a force's first presence on its home planet — cell (0
 The set of cells covered by one survey-tool drag. All-or-nothing: if the total cost exceeds the balance, nothing is applied. Never partially applied — predictability over cleverness.
 
 **Drag preview**:
-The label next to the cursor while the survey tool is being dragged: the cell count and the cost or refund the batch would have if released now. A dry run of the real batch rules on the engine's preselection events; it never changes a claim (ADR-0015).
+The label next to the cursor while the survey tool is being dragged: the cell count and the cost or refund the batch would have if released now. A dry run of the real batch rules on the engine's preselection events; it never changes a claim, and it shows in the world and on the map alike (ADR-0015).
 
 **Adjacency**:
 The claim-time requirement that a new Wilderness claim share an edge (4-way, never diagonal) with a cell the acting force already owns in any state. Checked only at claim time; there is no global-connectivity maintenance, and disconnected islands stay owned and stay valid adjacency sources.
