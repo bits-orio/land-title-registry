@@ -6,10 +6,10 @@ usage: dev/udp-delay.py <server port> <delay ms> <port file>
 Listens on a free localhost UDP port (written to <port file>) and relays every
 datagram between the client that connects there and the server, each one held
 for <delay ms> on its way: a round trip takes twice that. The server then
-measures the client as a far-away one and schedules its input that many ticks
-ahead, which the config setting minimum-latency-in-multiplayer was measured
-not to do (2.1.25: 120 ticks set on both sides, the client's own selection
-events still ran 0.1 s after the mouse moved). Runs until killed.
+measures the client as a far-away one and schedules its input further ahead
+(100 ms each way was measured as about 17 ticks on 2.1.25), which the config
+setting minimum-latency-in-multiplayer was measured not to do. Runs until
+killed.
 """
 import asyncio
 import sys

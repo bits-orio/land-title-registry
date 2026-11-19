@@ -139,7 +139,8 @@ harness_config() { # <run dir> [graphics]
 # Engine and script errors, but not the test mod's own lines (a FAIL detail
 # may contain the word "error").
 harness_errors() { # <log files...>
-  grep -h -v "_TEST " "$@" | grep -E "Error|error while|stack traceback|Failed to load mods" || true
+  grep -h -v -e "_TEST " -e "Got EOF on stdin" "$@" |
+    grep -E "Error|error while|stack traceback|Failed to load mods" || true
 }
 
 # A dev-only mod for GUI runs: every surface at noon with no clouds, no

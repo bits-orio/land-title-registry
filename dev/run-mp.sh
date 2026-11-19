@@ -8,6 +8,9 @@
 # within 3 minutes, a join refused as "mod event handlers are not identical",
 # a desync or a script error fails the run.
 #   usage: dev/run-mp.sh [join-after-seconds] [stay-seconds] [base|space-age]
+#   HARNESS_MP_LATENCY=<ticks>  the server keeps every client's input at least
+#                         that many ticks ahead (minimum_latency_in_ticks in the
+#                         server settings; 30 is half a second)
 #   HARNESS_MP_DELAY=<ms>  the client joins through dev/udp-delay.py, which holds
 #                         every packet that long each way (100 is a 200 ms round
 #                         trip). A fresh client starts at 32 ticks of latency on
@@ -33,7 +36,7 @@ harness_stage "$RUN" "$SET" ${MP_WORLD:+"$DEV/mods/$MP_WORLD"} || exit 1
 cat > "$RUN/server-settings.json" <<JSON
 { "name": "$MOD-mp-test", "description": "", "visibility": { "public": false, "lan": false },
   "require_user_verification": false, "auto_pause": false, "only_admins_can_pause_the_game": true,
-  "autosave_interval": 0, "max_players": 0 }
+  "autosave_interval": 0, "max_players": 0, "minimum_latency_in_ticks": ${HARNESS_MP_LATENCY:-0} }
 JSON
 "$FACTORIO" --config "$RUN/server/config.ini" --create "$RUN/world.zip" --mod-directory "$RUN/mods" \
   --map-gen-seed 1 > "$RUN/create.log" 2>&1 || { tail -20 "$RUN/create.log"; exit 1; }

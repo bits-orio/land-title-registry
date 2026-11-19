@@ -1,0 +1,69 @@
+# Pre-selection probe, Factorio 2.1.25 (build 88022), 2026-11-18. Drags as grouped by analyze.py,
+# then the raw lines FINDINGS.md quotes. Gesture order is the one in run.sh.
+
+## Single player (client at 1920x1080)
+#0 t=735..944 (3.48s) changes=60 rate=17.2/s sameTickDup=0 gap(min/max)=2/4 maxtiles=11 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '11', '0')]
+#1 t=1011..1235 (3.73s) changes=10 rate=2.7/s sameTickDup=0 gap(min/max)=3/4 maxtiles=28 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '28', '0')]
+#2 t=1302..1333 (0.52s) changes=1 rate=1.9/s sameTickDup=0 gap(min/max)=-/- maxtiles=416 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '416', '0')]
+#3 t=1398..1425 (0.45s) changes=5 rate=11.1/s sameTickDup=0 gap(min/max)=1/2 maxtiles=416 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '416', '0')]
+#4 t=1492..1587 (1.58s) changes=20 rate=12.6/s sameTickDup=0 gap(min/max)=2/4 maxtiles=1 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '1', '0')]
+#5 t=1654..1745 (1.52s) changes=20 rate=13.2/s sameTickDup=0 gap(min/max)=3/4 maxtiles=77 maxents=0 modes=['2(alt_select)'] end=[('on_player_alt_selected_area', '2(alt_select)', '77', '0')]
+#6 t=1812..1902 (1.50s) changes=20 rate=13.3/s sameTickDup=0 gap(min/max)=3/4 maxtiles=0 maxents=21 modes=['4(reverse_select)'] end=[('on_player_reverse_selected_area', '4(reverse_select)', '0', '21')]
+#7 t=1970..2060 (1.50s) changes=20 rate=13.3/s sameTickDup=0 gap(min/max)=2/4 maxtiles=0 maxents=21 modes=['5(alt_reverse_select)'] end=[('on_player_alt_reverse_selected_area', '5(alt_reverse_select)', '0', '21')]
+#8 t=2128..2282 (2.57s) changes=15 rate=5.8/s sameTickDup=0 gap(min/max)=3/4 maxtiles=522 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '522', '0')]
+#9 t=2362..2514 (2.53s) changes=15 rate=5.9/s sameTickDup=0 gap(min/max)=3/4 maxtiles=522 maxents=0 modes=['2(alt_select)'] end=[('on_player_alt_selected_area', '2(alt_select)', '522', '0')]
+#10 t=2594..2747 (2.55s) changes=15 rate=5.9/s sameTickDup=0 gap(min/max)=3/4 maxtiles=0 maxents=127 modes=['4(reverse_select)'] end=[('on_player_reverse_selected_area', '4(reverse_select)', '0', '127')]
+#11 t=2827..2980 (2.55s) changes=15 rate=5.9/s sameTickDup=0 gap(min/max)=3/4 maxtiles=0 maxents=127 modes=['5(alt_reverse_select)'] end=[('on_player_alt_reverse_selected_area', '5(alt_reverse_select)', '0', '127')]
+#12 t=3288..3405 (1.95s) changes=12 rate=6.2/s sameTickDup=0 gap(min/max)=5/7 maxtiles=10201 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '10201', '0')]
+#13 t=3472..3560 (1.47s) changes=16 rate=10.9/s sameTickDup=0 gap(min/max)=1/28 maxtiles=264 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '66', '0')]
+#14 t=3840..3884 (0.73s) changes=10 rate=13.6/s sameTickDup=0 gap(min/max)=3/4 maxtiles=28 maxents=0 modes=['1(select)'] end=[('on_player_cancel_selected_area', '1(select)', '28', '0')]
+#15 t=4209..4317 (1.80s) changes=20 rate=11.1/s sameTickDup=0 gap(min/max)=3/35 maxtiles=98 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '98', '0')]
+
+## Multiplayer, headless server and one client: the server's log
+#0 t=1600..1815 (3.58s) changes=60 rate=16.7/s sameTickDup=0 gap(min/max)=1/4 maxtiles=11 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '11', '0')]
+#1 t=1881..2107 (3.77s) changes=10 rate=2.7/s sameTickDup=0 gap(min/max)=3/4 maxtiles=28 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '28', '0')]
+#2 t=2173..2204 (0.52s) changes=1 rate=1.9/s sameTickDup=0 gap(min/max)=-/- maxtiles=416 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '416', '0')]
+#3 t=2271..2337 (1.10s) changes=10 rate=9.1/s sameTickDup=0 gap(min/max)=3/4 maxtiles=28 maxents=0 modes=['1(select)'] end=[('on_player_cancel_selected_area', '1(select)', '28', '0')]
+# The client's log gives the same four lines. Event lines without timestamps: 89 on each side, identical.
+
+## Multiplayer again, client config with minimum-latency-in-multiplayer=250: the server's log
+#0 t=1597..1809 (3.53s) changes=60 rate=17.0/s sameTickDup=0 gap(min/max)=2/4 maxtiles=11 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '11', '0')]
+#1 t=1876..2103 (3.78s) changes=10 rate=2.6/s sameTickDup=0 gap(min/max)=2/4 maxtiles=28 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '28', '0')]
+#2 t=2170..2200 (0.50s) changes=1 rate=2.0/s sameTickDup=0 gap(min/max)=-/- maxtiles=416 maxents=0 modes=['1(select)'] end=[('on_player_selected_area', '1(select)', '416', '0')]
+#3 t=2266..2314 (0.80s) changes=10 rate=12.5/s sameTickDup=0 gap(min/max)=2/4 maxtiles=28 maxents=0 modes=['1(select)'] end=[('on_player_cancel_selected_area', '1(select)', '28', '0')]
+#4 t=2534..2627 (1.55s) changes=20 rate=12.9/s sameTickDup=0 gap(min/max)=2/4 maxtiles=77 maxents=0 modes=['2(alt_select)'] end=[('on_player_alt_selected_area', '2(alt_select)', '77', '0')]
+#5 t=2695..2785 (1.50s) changes=20 rate=13.3/s sameTickDup=0 gap(min/max)=2/4 maxtiles=0 maxents=21 modes=['4(reverse_select)'] end=[('on_player_reverse_selected_area', '4(reverse_select)', '0', '21')]
+#6 t=2853..2920 (1.12s) changes=10 rate=9.0/s sameTickDup=0 gap(min/max)=3/4 maxtiles=28 maxents=0 modes=['1(select)'] end=[('on_player_cancel_selected_area', '1(select)', '28', '0')]
+# The client's log gives the same seven lines. Event lines without timestamps: 145 on each side, identical.
+
+## Raw lines, single player
+# The first drag: start, first change, final. The keys list is the same on every event.
+SP t=735 ev=on_player_start_selected_area pi=1 surf=nauvis area=(-8.32,-7.70)-(-8.32,-7.70) pos=(-8.32,-7.70) cur=(-8.32,-7.70) item=sel-probe q=normal ents=0 tiles=1 mode=1(select) tile1=red-desert-0@-9,-8 keys=area,cursor_position,entities,item,name,player_index,position,quality,selection_mode,surface,tick,tiles
+SP t=747 ev=on_player_change_selected_area pi=1 surf=nauvis area=(-8.32,-7.70)-(-8.17,-7.70) pos=(-8.32,-7.70) cur=(-8.17,-7.70) item=sel-probe q=normal ents=0 tiles=1 mode=1(select) tile1=red-desert-0@-9,-8 keys=area,cursor_position,entities,item,name,player_index,position,quality,selection_mode,surface,tick,tiles
+SP t=944 ev=on_player_selected_area pi=1 surf=nauvis area=(-8.32,-7.70)-(1.05,-7.70) pos=(-8.32,-7.70) cur=(1.05,-7.70) item=sel-probe q=normal ents=0 tiles=11 mode=1(select) tile1=red-desert-0@-9,-8 keys=area,cursor_position,entities,item,name,player_index,position,quality,selection_mode,surface,tick,tiles
+# Right mouse button pressed during a left drag (t=3517): the origin moves to the cursor, no new start event.
+SP t=3513 ev=on_player_change_selected_area pi=1 surf=nauvis area=(-27.28,-25.20)-(-6.45,-14.78) pos=(-27.28,-25.20) cur=(-6.45,-14.78) item=sel-probe q=normal ents=0 tiles=264 mode=1(select) tile1=red-desert-0@-28,-26
+SP t=3517 ev=on_player_change_selected_area pi=1 surf=nauvis area=(-6.45,-14.78)-(-6.45,-14.78) pos=(-6.45,-14.78) cur=(-6.45,-14.78) item=sel-probe q=normal ents=0 tiles=1 mode=1(select) tile1=red-desert-0@-7,-15
+SP t=3545 ev=on_player_change_selected_area pi=1 surf=nauvis area=(-6.45,-14.78)-(-4.36,-13.74) pos=(-6.45,-14.78) cur=(-4.36,-13.74) item=sel-probe q=normal ents=0 tiles=6 mode=1(select) tile1=red-desert-0@-7,-15
+SP t=3560 ev=on_player_selected_area pi=1 surf=nauvis area=(-6.45,-14.78)-(3.96,-9.57) pos=(-6.45,-14.78) cur=(3.96,-9.57) item=sel-probe q=normal ents=0 tiles=66 mode=1(select) tile1=red-desert-0@-7,-15
+# Q during a drag: cancel.
+SP t=3884 ev=on_player_cancel_selected_area pi=1 surf=nauvis area=(-8.32,-7.70)-(-2.07,-4.57) pos=(-8.32,-7.70) cur=(-2.07,-4.57) item=sel-probe q=normal ents=0 tiles=28 mode=1(select) tile1=red-desert-0@-9,-8
+# Escape during a drag in single player: no event while the game menu is open (t=4250 to t=4285), then the drag goes on.
+SP t=4250 ev=on_player_change_selected_area pi=1 surf=nauvis area=(-8.32,-7.70)-(-2.07,-4.57) pos=(-8.32,-7.70) cur=(-2.07,-4.57) item=sel-probe q=normal ents=0 tiles=28 mode=1(select) tile1=red-desert-0@-9,-8
+SP t=4285 ev=on_player_change_selected_area pi=1 surf=nauvis area=(-8.32,-7.70)-(-1.45,-4.26) pos=(-8.32,-7.70) cur=(-1.45,-4.26) item=sel-probe q=normal ents=0 tiles=32 mode=1(select) tile1=red-desert-0@-9,-8
+SP t=4317 ev=on_player_selected_area pi=1 surf=nauvis area=(-8.32,-7.70)-(4.18,-1.45) pos=(-8.32,-7.70) cur=(4.18,-1.45) item=sel-probe q=normal ents=0 tiles=98 mode=1(select) tile1=red-desert-0@-9,-8
+# About 100 x 100 tiles: the final event and the cost of reading every tile's position.
+SP t=3301 ev=on_player_change_selected_area iterate-cost Duration: 0.027061ms
+SP t=3318 ev=on_player_change_selected_area iterate-cost Duration: 0.575742ms
+SP t=3350 ev=on_player_change_selected_area iterate-cost Duration: 1.438040ms
+SP t=3405 ev=on_player_selected_area iterate-cost Duration: 4.468149ms
+SP t=3405 ev=on_player_selected_area pi=1 surf=nauvis area=(-58.53,-46.03)-(41.46,53.96) pos=(-58.53,-46.03) cur=(41.46,53.96) item=sel-probe q=normal ents=0 tiles=10201 mode=1(select) tile1=red-desert-0@-59,-47
+
+## Raw lines, multiplayer
+# Escape during a drag: cancel (server log, first run).
+SP t=2337 ev=on_player_cancel_selected_area pi=1 surf=nauvis area=(-8.32,-7.70)-(-2.07,-4.57) pos=(-8.32,-7.70) cur=(-2.07,-4.57) item=sel-probe q=normal ents=0 tiles=28 mode=1(select) tile1=red-desert-0@-9,-8
+# The synced counters at the end of the second run, server then client.
+SP t=3120 STATE count=140 per={on_player_cancel_selected_area = 2, on_player_change_selected_area = 131, on_player_start_selected_area = 7} rect=false
+SP t=3120 STATE count=140 per={on_player_cancel_selected_area = 2, on_player_change_selected_area = 131, on_player_start_selected_area = 7} rect=false
+# Both client logs, with and without the latency setting:
+Info ClientSynchronizer.cpp:27: Initialized Synchronizer local peer(1) latency(32).

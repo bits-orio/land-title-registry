@@ -1,0 +1,6 @@
+SPV select ok=true r=true
+SPV alt_select ok=true r=false
+SPV reverse_select ok=true r=true
+SPV alt_reverse_select ok=true r=false
+SPV events start=224 change=225
+SPV send_pre_selection_events ok=false r=LuaItemPrototype doesn't contain key send_pre_selection_events.
