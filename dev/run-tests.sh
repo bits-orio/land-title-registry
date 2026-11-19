@@ -11,8 +11,10 @@
 #
 # A test mod logs "<ABBR>_TEST PASS <name>", "<ABBR>_TEST FAIL <name>: <why>"
 # and, after its last check, "<ABBR>_TEST DONE"; it should then call
-# script.finish_test(failures == 0) so the run ends at once (the call does
-# nothing outside test mode). script.test_arg holds HARNESS_ARG.
+# script.finish_test(failures == 0) so the run ends at once. The call does
+# nothing outside test mode, but before 2.1.24 reading script.finish_test or
+# script.test_arg throws: a test mod that also runs there wraps them in pcall.
+# script.test_arg holds HARNESS_ARG.
 #
 # Exit status is non-zero on a failed PRE_TESTS command, a failed Factorio
 # run (finish_test(false) and an uncaught Lua error both exit 1), any engine
