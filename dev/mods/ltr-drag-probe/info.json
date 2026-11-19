@@ -1,0 +1,9 @@
+{
+  "name": "ltr-drag-probe",
+  "version": "0.0.1",
+  "title": "Land Title Registry drag probe",
+  "author": "bits-orio",
+  "factorio_version": "2.1",
+  "description": "Dev-only: logs the survey tool's drag preview on every peer, for dev/run-drag.sh. Never shipped.",
+  "dependencies": ["base >= 2.1", "land-title-registry"]
+}
