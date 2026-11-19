@@ -12,4 +12,5 @@ The high-priority idea originally came from wanting `on_selected_entity_changed`
 
 - The scoped `on_nth_tick` is a **sanctioned exception** to the no-unconditional-`on_tick` rule, not a violation of it. It registers when a player picks up the survey tool and unregisters when the last holder puts it down, so an idle game pays nothing. Do not "clean this up" by moving it to an unconditional handler, and do not remove it in favour of `on_selected_entity_changed`.
 - Hover feedback works uniformly across all four states, Deed included.
+- While a player is dragging, the preselection events of Factorio 2.1.22 drive the feedback and the tick skips that player (ADR-0015). The tick remains for hovering without a drag, which no event reports.
 - Do not raise `selection_priority` later "so the survey tool picks blockers up reliably" — area selection already does, and raising it re-breaks entity selection inside owned cells.
