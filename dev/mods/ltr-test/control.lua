@@ -96,44 +96,97 @@ local function drag_event(player, surface, mode, x1, y1, x2, y2)
   }
 end
 
+-- What a drag draws is for the dragging player alone: every render object
+-- made since `known` (a set of ids) names that player and nobody else.
+-- Returns nil, or what is wrong with the first object that breaks the rule.
+local function drawn_for_others(known, player)
+  for _, object in pairs(rendering.get_all_objects("ltr-test")) do
+    if not known[object.id] then
+      local players, forces = object.players, object.forces
+      if not (players and #players == 1 and players[1].index == player.index) then
+        return object.type .. " #" .. object.id .. " is drawn for " .. (players and #players or 0) .. " players"
+      end
+      if forces and #forces > 0 then return object.type .. " #" .. object.id .. " is drawn for a force" end
+    end
+  end
+  return nil
+end
+
+-- The label of a player's preview: the object drawn in the world, and
+-- whether its twin for the map says the same thing in the same place.
+local function label_of(player)
+  local preview = storage.drag_preview[player.index]
+  local objects = preview and preview.objects
+  if not objects then return nil, false end
+  local world, map = objects[1], objects[2]
+  local same = #objects == 2 and world.render_mode == "game" and map.render_mode == "chart"
+    and serpent.line(world.text) == serpent.line(map.text)
+    and serpent.line(world.target.position) == serpent.line(map.target.position)
+    and world.alignment == map.alignment and world.vertical_alignment == map.vertical_alignment
+  return world, same
+end
+
 -- The handlers are fed hand-made events: the engine only sends the real ones
--- for a mouse drag, which the graphical checks cover.
+-- for a mouse drag, which dev/run-drag.sh covers.
 local function preview_cases(player, surface, force)
   local C = const.CELL
   local before = snapshot(surface, force)
   local objects = #rendering.get_all_objects("ltr-test")
+  local known = {}
+  for _, object in pairs(rendering.get_all_objects("ltr-test")) do known[object.id] = true end
 
   drag_preview.on_changed(drag_event(player, surface, "select", 2.5 * C, 0.5 * C, 2.5 * C, 0.5 * C))
-  local preview = storage.drag_preview[player.index]
-  local label = preview and preview.object
+  local label, twin = label_of(player)
   check("preview.start.label", label ~= nil and label.valid and label.text[1] == "land-title-registry.drag-cost"
     and tonumber(label.text[2]) == 1, label and serpent.line(label.text))
+  -- A render object shows in the world or on the map, never both: the label
+  -- is a pair, and the drag has to read the same in either view.
+  check("preview.start.world-and-map", twin, "the label is not a matching world and map pair")
 
   drag_preview.on_changed(drag_event(player, surface, "select", 2.5 * C, 0.5 * C, 3.5 * C, 1.5 * C))
-  local same = storage.drag_preview[player.index].object
+  local same = label_of(player)
   check("preview.change.same-object", same.valid and same.id == label.id and tonumber(same.text[2]) == 4
-    and #rendering.get_all_objects("ltr-test") == objects + 1, serpent.line(same.text))
+    and #rendering.get_all_objects("ltr-test") == objects + 2, serpent.line(same.text))
 
   local target = same.target.position
   drag_preview.on_changed(drag_event(player, surface, "select", 2.5 * C, 0.5 * C, 3.6 * C, 1.6 * C))
-  local moved = storage.drag_preview[player.index].object
+  local moved, moved_twin = label_of(player)
   check("preview.move.follows-cursor", moved.id == label.id and moved.target.position.x > target.x
-    and tonumber(moved.text[2]) == 4, serpent.line(moved.target.position))
+    and tonumber(moved.text[2]) == 4 and moved_twin, serpent.line(moved.target.position))
 
   drag_preview.on_changed(drag_event(player, surface, "reverse_select", -0.5 * C, -0.5 * C, 1.5 * C, 1.5 * C))
-  local refund = storage.drag_preview[player.index].object
-  check("preview.reverse.refund", refund.id == label.id and refund.text[1] == "land-title-registry.drag-refund",
-    serpent.line(refund.text))
+  local refund, refund_twin = label_of(player)
+  check("preview.reverse.refund", refund.id == label.id and refund.text[1] == "land-title-registry.drag-refund"
+    and refund_twin, serpent.line(refund.text))
 
   drag_preview.on_changed(drag_event(player, surface, "select", 20.5 * C, 20.5 * C, 20.6 * C, 20.6 * C))
-  local denied = storage.drag_preview[player.index].object
+  local denied = label_of(player)
   check("preview.unanchored.denied", denied.text[1] == "land-title-registry.no-adjacency", serpent.line(denied.text))
+
+  -- Past the size the preview prices: the label gives the cell count alone.
+  drag_preview.on_changed(drag_event(player, surface, "select", -8.5 * C, -8.5 * C, 8.5 * C, 8.5 * C))
+  local large, large_twin = label_of(player)
+  check("preview.too-large.label", large.id == label.id and large.text[1] == "land-title-registry.drag-too-large"
+    and tonumber(large.text[2]) == 18 * 18 and large_twin, serpent.line(large.text))
+
+  local stray = drawn_for_others(known, player)
+  check("preview.only-the-dragging-player", stray == nil, stray)
 
   check("preview.active", drag_preview.active(player.index), "not active mid-drag")
   drag_preview.on_cancelled({ player_index = player.index })
   check("preview.cancel.clears", not label.valid and not drag_preview.active(player.index)
     and #rendering.get_all_objects("ltr-test") == objects, "label left behind")
   drag_preview.on_cancelled({ player_index = player.index })
+
+  -- A mod update drops every preview, also one saved by 0.2.1, which kept
+  -- its single label under `object`.
+  drag_preview.on_changed(drag_event(player, surface, "select", 2.5 * C, 0.5 * C, 2.5 * C, 0.5 * C))
+  local old = rendering.draw_text({ text = "0.2.1", surface = surface, target = { 0, 0 }, color = { 1, 1, 1 },
+    players = { player } })
+  storage.drag_preview[player.index + 1] = { key = "saved by 0.2.1", object = old }
+  drag_preview.reset()
+  check("preview.reset.clears", not old.valid and not drag_preview.active(player.index)
+    and #rendering.get_all_objects("ltr-test") == objects, "label left behind by a mod update")
   check("preview.leaves-everything", snapshot(surface, force) == before, "state changed by a preview")
 end
 

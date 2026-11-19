@@ -278,6 +278,7 @@ end)
 script.on_configuration_changed(function()
   registry.init_storage()
   arm_maintenance()
+  drag_preview.reset()
   -- Ensure per-surface tables WITHOUT re-evaluating enablement: the MTS
   -- grid-only-on-team-surfaces rule applies at fresh-game init and surface
   -- creation only. Re-running it here disabled surfaces that already

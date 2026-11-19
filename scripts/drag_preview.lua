@@ -31,17 +31,37 @@ local GAP_PX = 14
 local GAP_BELOW_PX = 54
 local PIXELS_PER_TILE = 32
 
--- player_index -> {key = string, object = LuaRenderObject?}. `key` names
--- the last evaluated (surface, cell rectangle, action); `object` is absent
--- when that evaluation had nothing to show.
+-- A render object is drawn either in the world or on the map, never in
+-- both (its render_mode). The label is therefore one text object per mode
+-- with the same content, so the drag reads the same in either view and
+-- through a change of view mid-drag. The map is where the big drags are.
+local RENDER_MODES = { "game", "chart" }
+
+-- player_index -> {key = string, objects = {LuaRenderObject, ...}?}. `key`
+-- names the last evaluated (surface, cell rectangle, action); `objects`
+-- (one per RENDER_MODES entry) is absent when that evaluation had nothing
+-- to show.
 local function previews()
   storage.drag_preview = storage.drag_preview or {}
   return storage.drag_preview
 end
 
 local function destroy_label(preview)
-  if preview.object and preview.object.valid then preview.object.destroy() end
-  preview.object = nil
+  for _, object in pairs(preview.objects or {}) do
+    if object.valid then object.destroy() end
+  end
+  preview.objects = nil
+end
+
+-- The label's objects when all of them can still be updated in place.
+local function live_objects(preview, surface)
+  local objects = preview.objects
+  if not objects then return nil end
+  for _, object in pairs(objects) do
+    if not object.valid then return nil end
+    if surface and object.surface.index ~= surface.index then return nil end
+  end
+  return objects
 end
 
 local function cell_count(rect)
@@ -105,27 +125,33 @@ local function place_label(object, place)
 end
 
 -- One label per player, updated in place: a drag sends an event on every
--- cursor movement, so creating an object per event would pile them up.
+-- cursor movement, so creating objects per event would pile them up.
 local function show_label(preview, player, surface, place, text, color)
-  local object = preview.object
-  if object and object.valid and object.surface.index == surface.index then
-    object.text = text
-    object.color = color
-    place_label(object, place)
+  local objects = live_objects(preview, surface)
+  if objects then
+    for _, object in pairs(objects) do
+      object.text = text
+      object.color = color
+      place_label(object, place)
+    end
     return
   end
   destroy_label(preview)
-  preview.object = rendering.draw_text({
-    text = text,
-    surface = surface,
-    target = place.target,
-    color = color,
-    players = { player },
-    scale = 1.25,
-    scale_with_zoom = true,
-    alignment = place.alignment,
-    vertical_alignment = place.vertical_alignment,
-  })
+  preview.objects = {}
+  for index, render_mode in ipairs(RENDER_MODES) do
+    preview.objects[index] = rendering.draw_text({
+      text = text,
+      surface = surface,
+      target = place.target,
+      color = color,
+      players = { player },
+      scale = 1.25,
+      scale_with_zoom = true,
+      alignment = place.alignment,
+      vertical_alignment = place.vertical_alignment,
+      render_mode = render_mode,
+    })
+  end
 end
 
 local function evaluate(preview, player, event, rect, action)
@@ -161,8 +187,10 @@ function drag_preview.on_changed(event)
   local key = preview_key(surface, rect, action)
   if preview.key == key then
     -- Same cells, same action: the numbers stand, the label follows.
-    if preview.object and preview.object.valid then
-      place_label(preview.object, placement(player, event))
+    local objects = live_objects(preview)
+    if objects then
+      local place = placement(player, event)
+      for _, object in pairs(objects) do place_label(object, place) end
     end
     return
   end
@@ -185,6 +213,16 @@ function drag_preview.clear(player_index)
   if not preview then return end
   destroy_label(preview)
   all[player_index] = nil
+end
+
+-- A mod update ends every preview: no drag outlives one, and 0.2.1 kept its
+-- label in a single `object` field that this code would never find again.
+function drag_preview.reset()
+  for _, preview in pairs(storage.drag_preview or {}) do
+    if preview.object and preview.object.valid then preview.object.destroy() end
+    destroy_label(preview)
+  end
+  storage.drag_preview = nil
 end
 
 function drag_preview.on_cancelled(event)
