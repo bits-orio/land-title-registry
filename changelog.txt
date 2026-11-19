@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.1
+Date: 2026-11-18
+  Features:
+    - The survey tool shows the price while you drag. A label next to the cursor gives the number of cells and the Land points the drag will cost or refund, and says so when you are short of points or the land does not touch your territory.
+  Changes:
+    - Requires Factorio 2.1.22 or newer.
+---------------------------------------------------------------------------------------------------
 Version: 0.2.0
 Date: 2026-10-25
   Info:
