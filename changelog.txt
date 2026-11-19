@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.2
+Date: 2026-11-19
+  Bugfixes:
+    - The survey tool's price label shows on the map too. It showed only in the world view, so a drag on the map, the one view wide enough for a big survey, had no price.
+---------------------------------------------------------------------------------------------------
 Version: 0.2.1
 Date: 2026-11-18
   Features:
