@@ -7,7 +7,7 @@
   "homepage": "https://github.com/bits-orio/land-title-registry",
   "factorio_version": "2.1",
   "dependencies": [
-    "base >= 2.1",
+    "base >= 2.1.22",
     "? multi-team-support",
     "? space-age",
     "? open-discord-bridge"

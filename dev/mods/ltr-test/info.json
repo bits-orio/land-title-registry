@@ -1,0 +1,9 @@
+{
+  "name": "ltr-test",
+  "version": "0.0.1",
+  "title": "Land Title Registry tests",
+  "author": "bits-orio",
+  "factorio_version": "2.1",
+  "description": "Dev-only: headless tests for Land Title Registry, driven by dev/run-tests.sh. Never shipped.",
+  "dependencies": ["base >= 2.1", "land-title-registry", "? space-age"]
+}

@@ -8,6 +8,7 @@ local registry = require("scripts.registry")
 local blockers = require("scripts.blockers")
 local economy = require("scripts.economy")
 local tool = require("scripts.tool")
+local drag_preview = require("scripts.drag_preview")
 local tech = require("scripts.tech")
 local render = require("scripts.render")
 local hud = require("scripts.hud")
@@ -442,6 +443,14 @@ end
 script.on_event(defines.events.on_player_reverse_selected_area, tool.on_reverse_selected)
 script.on_event(defines.events.on_player_alt_reverse_selected_area, tool.on_alt_reverse_selected)
 script.on_event(defines.events.on_player_cursor_stack_changed, tool.on_cursor_changed)
+-- Live cost or refund during the drag (Factorio 2.1.22 preselection events,
+-- ADR-0015). They only preview: the five events above stay the only place
+-- a claim changes.
+script.on_event({
+  defines.events.on_player_start_selected_area,
+  defines.events.on_player_change_selected_area,
+}, drag_preview.on_changed)
+script.on_event(defines.events.on_player_cancel_selected_area, drag_preview.on_cancelled)
 
 -- Players (charter presence, HUD, label refresh; on_player_changed_force is
 -- non-negotiable — MTS moves players between forces routinely)
@@ -520,7 +529,10 @@ script.on_event(defines.events.on_player_joined_game, function(event)
     end
   end
 end)
-script.on_event(defines.events.on_player_changed_surface, tech.on_player_changed_surface)
+script.on_event(defines.events.on_player_changed_surface, function(event)
+  tech.on_player_changed_surface(event)
+  drag_preview.clear(event.player_index)
+end)
 script.on_event(defines.events.on_player_changed_force, function(event)
   tool.on_player_changed_force(event)
   tech.on_player_changed_force(event)

@@ -1,7 +1,9 @@
 -- Survey-tool UX: selection-event handling, batch feedback (sounds, flying
 -- text), the cursor balance label, and hover feedback via a tick handler
 -- scoped to tool holders (ADR-0005 — registered only while at least one
--- player holds the tool; an idle game pays nothing).
+-- player holds the tool; an idle game pays nothing). While a player is
+-- dragging, the preselection events drive the feedback instead
+-- (scripts/drag_preview.lua, ADR-0015) and the hover tick skips that player.
 
 local const = require("scripts.const")
 local registry = require("scripts.registry")
@@ -9,11 +11,11 @@ local economy = require("scripts.economy")
 local claims = require("scripts.claims")
 local chronicle = require("scripts.chronicle")
 local outposts = require("scripts.outposts")
+local gestures = require("scripts.gestures")
+local drag_preview = require("scripts.drag_preview")
 
 local tool = {}
 
-local TOOL_NAME = "ltr-survey-tool"
-local RAMPART_TOOL_NAME = "ltr-survey-tool-rampart"
 local HOVER_TICK_INTERVAL = 10
 
 local SOUND_CLAIM = "ltr-sound-claim"
@@ -25,8 +27,7 @@ local LABEL_SHORT = { r = 1, g = 0.35, b = 0.35 }
 
 local function holding_tool(player)
   local stack = player.cursor_stack
-  return stack ~= nil and stack.valid_for_read
-    and (stack.name == TOOL_NAME or stack.name == RAMPART_TOOL_NAME)
+  return stack ~= nil and stack.valid_for_read and gestures.is_tool(stack.name)
 end
 
 -- Cursor-stack writes are guarded by value comparison: a write to the stack
@@ -52,15 +53,6 @@ end
 
 -- ---------------------------------------------------------------------------
 -- Selection handling
-
-local function rect_from_area(area)
-  return {
-    x1 = math.floor(area.left_top.x / const.CELL),
-    y1 = math.floor(area.left_top.y / const.CELL),
-    x2 = math.floor(area.right_bottom.x / const.CELL),
-    y2 = math.floor(area.right_bottom.y / const.CELL),
-  }
-end
 
 local function feedback(player, action, result)
   if result.denied then
@@ -156,32 +148,7 @@ local function announce(player, surface, rect, action, result)
   })
 end
 
--- Gesture grammar (playtest rework): right is the exact mirror of left.
--- Drag raises one rung, right-drag lowers one; Shift jumps to the top
--- (Deed), Shift-right jumps to the bottom (sell everything back to
--- Wilderness); Ctrl+Shift is the middle jump (Rampart). Each gesture's
--- ACTION is per-player remappable through the ltr-gesture-* settings —
--- the claims-side vocabulary is the setting value translated here.
-local ACTION_OF = {
-  ["raise-one"] = "advance",
-  ["jump-deed"] = "deed",
-  ["jump-rampart"] = "rampart",
-  ["lower-one"] = "downgrade",
-  ["release-all"] = "release",
-}
-
--- The Rampart variant tool is fixed-function (its whole point is a
--- dependable Rampart jump on plain drag); the other gestures mirror the
--- main tool's defaults so muscle memory transfers.
-local RAMPART_TOOL_ACTION = {
-  ["ltr-gesture-drag"] = "rampart",
-  ["ltr-gesture-shift-drag"] = "deed",
-  ["ltr-gesture-ctrl-shift-drag"] = "rampart",
-  ["ltr-gesture-right-drag"] = "downgrade",
-  ["ltr-gesture-shift-right-drag"] = "release",
-}
-
-local LOWERING = { downgrade = true, release = true }
+local LOWERING = gestures.LOWERING
 local LOWER_FRAME = "ltr_lower_confirm_frame"
 
 -- Apply a batch with full player feedback — the shared tail of the direct
@@ -273,18 +240,14 @@ end
 local function handle_selection(gesture_setting, event)
   local player = game.get_player(event.player_index)
   if not (player and player.valid) then return end
+  -- The drag is over: its live preview goes, whatever the outcome.
+  drag_preview.clear(player.index)
   local surface = event.surface
   if not (surface and surface.valid) then return end
-  local action
-  if event.item == TOOL_NAME then
-    action = ACTION_OF[player.mod_settings[gesture_setting].value] or "advance"
-  elseif event.item == RAMPART_TOOL_NAME then
-    action = RAMPART_TOOL_ACTION[gesture_setting]
-  else
-    return
-  end
+  local action = gestures.action_for(player, event.item, gesture_setting)
+  if not action then return end
 
-  local rect = rect_from_area(event.area)
+  local rect = gestures.rect_from_area(event.area)
 
   if LOWERING[action] and player.mod_settings["ltr-confirm-lowering"].value then
     local preview = claims.apply_batch(surface, player.force, player, rect, action, { dry_run = true })
@@ -328,7 +291,9 @@ function tool.on_alt_reverse_selected(event) handle_selection("ltr-gesture-shift
 -- Hover feedback: a short-interval on_nth_tick registered only while at
 -- least one player holds the tool. Resolves the hovered cell from the
 -- selected entity when there is one (low-priority blockers are still
--- selected over empty ground) and the player position otherwise.
+-- selected over empty ground) and the player position otherwise. It covers
+-- hovering WITHOUT a drag, for which the engine has no event; a player who
+-- is dragging is skipped (the drag preview answers there).
 
 local function show_hover(player, surface, cx, cy)
   if storage.disabled_surfaces[surface.index] then return end
@@ -366,7 +331,8 @@ end
 local function hover_tick()
   for player_index in pairs(storage.tool_holders) do
     local player = game.get_player(player_index)
-    if player and player.valid and player.connected and holding_tool(player) then
+    if player and player.valid and player.connected and holding_tool(player)
+      and not drag_preview.active(player_index) then
       local surface = player.surface
       local selected = player.selected
       local pos = (selected and selected.valid) and selected.position or player.position
@@ -408,6 +374,7 @@ function tool.on_cursor_changed(event)
   else
     storage.tool_holders[player.index] = nil
     storage.hover[player.index] = nil
+    drag_preview.clear(player.index)
   end
   tool.ensure_hover_handler()
 end
@@ -416,6 +383,7 @@ function tool.on_player_gone(event)
   storage.tool_holders[event.player_index] = nil
   storage.hover[event.player_index] = nil
   storage.lower_pending[event.player_index] = nil
+  drag_preview.clear(event.player_index)
   tool.ensure_hover_handler()
 end
 

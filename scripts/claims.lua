@@ -265,11 +265,13 @@ end
 -- interface, ADR-0006); opts.outpost additionally marks the claim as a
 -- founded outpost, which skips origin recording (scripts/outposts.lua owns
 -- that bookkeeping — an outpost must never become its own mainland).
+-- opts.dry_run evaluates the batch in full and returns the same result
+-- without changing anything.
 --
 -- Returns a result for the caller's feedback:
 --   {denied = "disabled"}
 --   {denied = "anchor"}
---   {denied = "points", need = n, have = n}
+--   {denied = "points", need = n, have = n, cells = n}
 --   {applied = n, cost = n}      (claim actions; n may be 0 -> silent no-op)
 --   {applied = n, refund = n}    (downgrade / release)
 function claims.apply_batch(surface, force, player, rect, action, opts)
@@ -369,7 +371,12 @@ function claims.apply_batch(surface, force, player, rect, action, opts)
 
   local balance = economy.get(force.index)
   if total_cost > balance then
-    return { denied = "points", need = total_cost, have = balance }
+    return { denied = "points", need = total_cost, have = balance, cells = #transitions }
+  end
+  -- Dry run, as in the lowering branch: evaluated in full, nothing applied.
+  -- The live drag preview (scripts/drag_preview.lua) prices a drag with it.
+  if opts and opts.dry_run then
+    return { applied = #transitions, cost = total_cost }
   end
 
   for _, t in ipairs(transitions) do

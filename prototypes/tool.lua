@@ -11,6 +11,10 @@
 -- toward ownership reads as good — and every lowering gesture is a RED.
 -- Within a family, stronger jumps get stronger shades. The colors follow
 -- the GESTURE, not the remapped action: they are startup prototype data.
+--
+-- send_pre_selection_events (Factorio 2.1.22) makes the engine report the
+-- drag while it is still in progress; scripts/drag_preview.lua shows the
+-- live cost or refund from those events (ADR-0015).
 
 local BLOCKER_NAMES = { "ltr-cell-wilderness", "ltr-cell-trail", "ltr-cell-rampart" }
 
@@ -32,6 +36,7 @@ data:extend({
     stack_size = 1,
     flags = { "not-stackable", "only-in-cursor", "spawnable" },
     draw_label_for_cursor_render = true,
+    send_pre_selection_events = true,
     subgroup = "tool",
     order = "z[land-title-registry]-a[survey-tool]",
     -- drag: raise one rung (green)
@@ -61,6 +66,7 @@ data:extend({
     stack_size = 1,
     flags = { "not-stackable", "only-in-cursor", "spawnable" },
     draw_label_for_cursor_render = true,
+    send_pre_selection_events = true,
     subgroup = "tool",
     order = "z[land-title-registry]-b[survey-tool-rampart]",
     -- drag: jump to Rampart (teal green — same shade as the 2.1 gesture)
