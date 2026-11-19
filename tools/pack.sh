@@ -36,7 +36,7 @@ mkdir -p "build/${FOLDER}"
 # silently leak into a release.
 #
 # docs/, DESIGN.md and CONTEXT.md are repo-only: large, and of no use inside
-# the shipped mod. The ignored local artefacts (build/, .run/, .worktrees/,
+# the shipped mod. dev/ is the test harness and its dev-only mods. The ignored local artefacts (build/, .run/, .worktrees/,
 # editor workspaces) never exist on a CI checkout but do exist locally, so
 # they are excluded explicitly — otherwise a hand-built zip would differ
 # from the published one.
@@ -55,6 +55,7 @@ rsync -am --exclude='.git' \
          --exclude='.run' \
          --exclude='.worktrees' \
          --exclude='docs' \
+         --exclude='dev' \
          --exclude='DESIGN.md' \
          --exclude='CONTEXT.md' \
          --exclude='tools' \
